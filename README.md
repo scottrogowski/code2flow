@@ -14,31 +14,36 @@ Installation
 
 Download, navigate to the directory, and run:
 
-.. code-block:: bash
+```bash
 	$ sudo ./setup.py install
+```
 
 If you don't have it already, you will also have to install graphviz
 
 Using apt-get:
-.. code-block:: bash
+```bash
 	$ sudo apt-get install graphviz
+```
 
 Using port (for macs):
-.. code-block:: bash
+```bash
 	$ sudo port install graphviz
+```
 
 Usage
 -----
-	
+
 To generate a DOT file run something like:
 
-.. code-block:: bash
+```bash
 	$ code2flow mypythonfile.py -o myflow.gz
+```
 
 Or
 
-.. code-block:: bash
+```bash
 	$ code2flow myjavascriptfile.js -o myflow.gz
+```
 
 Then open myflow.gz in your DOT file viewer (e.g. graphviz)
 
@@ -46,13 +51,14 @@ You can also render the flowchart in any of the formats that graphviz supports:
 bmp canon cgimage cmap cmapx cmapx_np dot eps exr fig **gif** gv imap imap_np ismap jp2 jpe **jpeg** jpg pct pdf pic pict plain plain-ext **png** pov ps ps2 psd sgi **svg** svgz tga tif tiff tk vml vmlz x11 xdot xlib
 
 For example:
-.. code-block:: bash
+```bash
 	$ code2flow mypythonfile.py -o myflow.jpeg
+```
 
 Limitations
 -----------
 
-Code2flow is meant to provide a reasonable conjecture of the structure of simple projects and has many known limitations. 
+Code2flow is meant to provide a reasonable conjecture of the structure of simple projects and has many known limitations.
 
 * Objects in arrays are not handled correctly
 * The logic for whether or not a function returns is simply looking for 'return' in that function
@@ -64,7 +70,7 @@ Code2flow is meant to provide a reasonable conjecture of the structure of simple
 Feature / Language Requests
 ----------------
 
-Email scott@scottrogowski.com. There is a lot in the pipeline already but those requests which keep coming up repeatedly will get priority.
+There is a lot in the pipeline already but those requests which keep coming up repeatedly will get priority.
 
 To get the feature you want more quickly there are two options:
 A. The project is open source so it is easy to contribute.
