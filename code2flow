@@ -1,0 +1,170 @@
+#!/usr/bin/python
+'''
+Usage:
+javascript2dot.py file.js
+Then, with graphviz, open out.gv
+
+* Green means leaf function (the function calls no other functions)
+* Brown means trunk function (the function is called by no other function)
+* Inverted arrow means that the called function returns something (it might just be a boolean though)
+
+4/19 TODO:
+We want to add labels to functions because the names must be different otherwise they break graphviz
+
+Tokenize all functions by searching for the function keyword
+Can be:
+function a()
+a = function()
+a:function()
+
+Can also attach functions via
+s.a = function()
+
+Or can have anonymous functions which will be connected to whereever
+
+Determine their namespace immediately (only need to go one deep for now)
+0
+
+Group is the namespace
+group will contain function nodes and possibly subgroups
+There will be one global group to hold everything
+In javascript, this is the window namespace which is also implicit
+it must hold all of the nodes in its space
+we will loop through the group to calculate edges and this will be a convenient way to determine namespace of the edges
+They must maintain an internal representation of content for determining edges. Even subgroups should contain this. It makes things easier
+
+Nodes are functions
+node will contain a parent pointer to the namespace
+Should also have an internal filestring of the content
+
+With content, we must pass along objects with filestrings
+
+
+'''
+
+import os
+import sys
+import pdb
+import argparse
+
+from code2flowlib.engine import *
+from subprocess import call
+
+import code, traceback, signal
+
+def debug(sig, frame):
+    """Interrupt running process, and provide a python prompt for
+    interactive debugging."""
+    d={'_frame':frame}         # Allow access to frame object.
+    d.update(frame.f_globals)  # Unless shadowed by global
+    d.update(frame.f_locals)
+
+    i = code.InteractiveConsole(d)
+    message  = "Signal recieved : entering python shell.\nTraceback:\n"
+    message += ''.join(traceback.format_stack(frame))
+    i.interact(message)
+
+def listen():
+    signal.signal(signal.SIGUSR1, debug)  # Register handler
+
+
+SUPPORTED_LANGUAGES = ['.js','.py']
+
+if __name__ == "__main__":
+	#listen()
+	cli = argparse.ArgumentParser(description="See flow charts of your source code.\n\rThis EXPERIMENTAL script is useful for documentation and code refactoring in simple projects")
+	cli.add_argument('files', metavar='files', nargs='+', help='The source file you are trying to graph. Currently, only handles python and javascript') #
+	cli.add_argument('-o','--outfile', dest='outfile',help='Filetype can be dot, gv, png, ps, svg, etc. Default is `out.png`',default='out.png')
+	cli.add_argument('-v','--verbose',action='store_true')
+	cli.add_argument('--version', action='version', version='%(prog)s 0.1')
+
+	args = cli.parse_args()
+
+	#get all of the files in one list
+	filetype = None
+	files = []
+	def handleFile(fileString):
+		global filetype
+		global files
+
+		#set the filetype if not set
+		if not filetype:
+			filetype = fileString[fileString.rfind('.'):]
+			if filetype not in SUPPORTED_LANGUAGES:
+				raise Exception("File not supported")
+
+		#if the file is part of the filetype we are using, append it
+		if fileString[-1*len(filetype):]==filetype:
+			files.append(fileString)
+
+	#loop through arguments appending all files to the list
+	for fil in args.files:
+		if os.path.isfile(fil):
+			handleFile(fil)
+		elif os.path.isdir(fil):
+			for fi in os.listdir(fil):
+				handleFile(fil)
+
+	#pull in the correct code which will superclass a lot of functions
+	if filetype == '.js':
+		from code2flowlib.languages.javascript import *
+	elif filetype == '.py':
+		from code2flowlib.languages.python import *
+
+	mapper = Mapper(files)
+
+	#do the mapping
+	#(the globalNamespace and edges are global vars)
+	globalNamespace,nodes,edges = mapper.map()
+
+
+	if args.outfile.endswith('.gv') or args.outfile.endswith('.dot'):
+		dotFile = args.outfile
+		finalFile = None
+	else:
+		finalFile = args.outfile
+		dotFile, extension = args.outfile.rsplit('.',1)
+		dotFile += '.gv'
+
+
+	#write the output dot file
+	with open(dotFile,'w') as outfile:
+		outfile.write("digraph G {\n")
+		outfile.write("""
+			subgraph legend{
+			rank = min;
+			label = "legend";
+			Legend [shape=none, margin=0, label = <
+				<table cellspacing="0" cellpadding="0" border="1"><tr><td>Code2flow Legend</td></tr><tr><td>
+				<table cellspacing="0">
+				<tr><td>Regular function</td><td width="50px"></td></tr>
+				<tr><td>Trunk function (nothing calls this)</td><td bgcolor='red'></td></tr>
+				<tr><td>Leaf function (this calls nothing else)</td><td bgcolor='green'></td></tr>
+				<tr><td>Function call which returns no value</td><td>&#8594;</td></tr>
+				<tr><td>Function call returns some value</td><td><font color='blue'>&#8594;</font></td></tr>
+				</table></td></tr></table>
+				>];}""")
+		for node in nodes:
+			if str(node):
+				outfile.write(str(node)+';\n')
+		for edge in edges:
+			outfile.write(str(edge)+';\n')
+		#pdb.set_trace()
+		outfile.write(str(globalNamespace)+';\n')
+
+		outfile.write('}')
+
+	#raw_input()
+
+	if finalFile:
+		command = "dot -T%s %s > %s"%(extension,dotFile,finalFile)
+		print command
+		os.system(command)
+
+
+	print "Completed your flowchart!"
+	print "To see it, open %s"%args.outfile
+
+	#open it in graphvizif we are on os.x
+	if sys.platform == 'darwin':
+		os.system("open out.gv")
