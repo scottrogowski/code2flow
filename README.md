@@ -89,5 +89,6 @@ Feature / Language Requests
 There is a lot in the pipeline already but those requests which keep coming up repeatedly will get priority.
 
 To get the feature you want more quickly there are two options:
+
 a. The project is open source so it is easy to contribute.
 b. I am available for hire on contract and will happily build your request or just do headstands for you all day for the correct amount of money. For more about me, visit http://scottrogowski.com/about
