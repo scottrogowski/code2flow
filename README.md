@@ -1,7 +1,7 @@
 code2flow
 =========
 
-Turn your Python and Javascript source code into DOT flowcharts
+Turn your Python and Javascript source code (javascript not working yet) into DOT flowcharts
 
 Code2flow will sweep through your project source code looking for function definitions. Then it will do another sweep looking for where those functions are called. Code2flow connects the dots and presents you with a flowchart estimating the functional structure of your program.
 
@@ -9,8 +9,11 @@ Code2flow is especially useful for untangling spaghetti code and getting new dev
 
 Code2flow is EXPERIMENTAL and meant to provide a **rough overview** of the structure of simple projects. Source code which is just a little esoteric will break this. Even with normal-people code, there are many known limitations (see below) as well as many outright bugs. **Expect MOST aspects of this application to change in future releases.**
 
-Here is what happens when you run it on httplib
-![Alt text](example.png "Run it on ")
+Here is what happens when you run it on the python calendar module
+![Alt text](example2.png)
+
+When you run it on code2flow/languages/python.py, here is what happens
+![Alt text](example.png)
 
 Installation
 ------------
@@ -39,16 +42,16 @@ Usage
 To generate a DOT file run something like:
 
 ```bash
-code2flow mypythonfile.py -o myflow.gz
+code2flow mypythonfile.py
 ```
 
-Or
+Or, for javascript
 
 ```bash
-code2flow myjavascriptfile.js -o myflow.gz
+code2flow myjavascriptfile.js
 ```
 
-Then open myflow.gz in your DOT file viewer (e.g. graphviz)
+By default, code2flow will render a DOT file, out.gv and a PNG file, out.png.
 
 You can also render the flowchart in any of the formats that graphviz supports:
 bmp canon cgimage cmap cmapx cmapx_np dot eps exr fig **gif** gv imap imap_np ismap jp2 jpe **jpeg** jpg pct pdf pic pict plain plain-ext **png** pov ps ps2 psd sgi **svg** svgz tga tif tiff tk vml vmlz x11 xdot xlib
@@ -56,6 +59,11 @@ bmp canon cgimage cmap cmapx cmapx_np dot eps exr fig **gif** gv imap imap_np is
 For example:
 ```bash
 code2flow mypythonfile.py -o myflow.jpeg
+```
+
+Specify multiple files and even use *
+```bash
+code2flow project/directory/*.py
 ```
 
 Limitations

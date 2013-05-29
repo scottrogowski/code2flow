@@ -89,8 +89,7 @@ SUPPORTED_LANGUAGES = ['js','py']
 
 if __name__ == "__main__":
 
-	if DEBUG:
-			listen()
+
 
 	if not isInstalled('dot'):
 		print "You must have graphviz (specifically dot) installed to run code2flow"
@@ -100,11 +99,19 @@ if __name__ == "__main__":
 	cli.add_argument('files', metavar='files', nargs='+', help='The source file you are trying to graph. Currently, only handles python and javascript') #
 	cli.add_argument('-o','--outfile', dest='outfile',help='Filetype can be dot, gv, png, ps, svg, etc. Default is `out.png`',default='out.png')
 	cli.add_argument('--sourcefiletype', dest='sourcefiletype',default=None)
-	cli.add_argument('-v','--verbose', dest='verbose',action='store_true',default=False)
+	cli.add_argument('--hidelegend', dest='hidelegend',action='store_true',default=False)
+	#cli.add_argument('-v','--verbose', dest='verbose',action='store_true',default=False)
+	cli.add_argument('-d','--debug', dest='debug',action='store_true',default=False)
 	cli.add_argument('--version', action='version', version='%(prog)s 0.1')
 
 	args = cli.parse_args()
-	pprint.pprint(args)
+
+	DEBUG = args.debug
+
+	if DEBUG:
+		pprint.pprint(args)
+		listen()
+
 	#get all of the files in one list
 	if args.sourcefiletype:
 		sourcefiletype = args.sourcefiletype
@@ -161,7 +168,7 @@ if __name__ == "__main__":
 		dotFile += '.gv'
 
 	#print the for file
-	dotgenerator.writeDotFile(dotFile=dotFile,nodes=nodes,edges=edges,groups=groups)
+	dotgenerator.writeDotFile(dotFile=dotFile,nodes=nodes,edges=edges,groups=groups,hidelegend=args.hidelegend)
 
 	#translate to an image if that was requested
 	if finalFile:
