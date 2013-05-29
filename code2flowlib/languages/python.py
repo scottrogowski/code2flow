@@ -1,4 +1,4 @@
-from ..engine import *
+from code2flowlib.engine import *
 
 indentPattern = re.compile(r"^( +|\t+)\S",re.MULTILINE)
 def getIndent(colonPos,sourceString):
@@ -50,11 +50,10 @@ class Node(Node):
 			self.isInitNode = False
 
 
-
-
 class Group(Group):
 
 	classPattern = re.compile(r"^class\s(\w+)\s*(\(.*?\))?\s*\:",re.MULTILINE)
+	implicitName = 'module'
 
 	def __init__(self,indent='',**kwargs):
 		'''
@@ -68,6 +67,7 @@ class Group(Group):
 		else:
 			indent = ''
 			self.generateSubgroups()
+			self.nodes.append(self.generateImplicitNode())
 
 	def generateNodes(self):
 		'''
@@ -75,12 +75,9 @@ class Group(Group):
 		'''
 		functionPattern = self.generateFunctionPattern(self.indent)
 		functionMatches = functionPattern.finditer(self.source.sourceString)
-		print self.name
-		#pdb.set_trace()
 		for functionMatch in functionMatches:
 			node = self.generateNode(functionMatch)
 			self.nodes.append(node)
-		print '%d nodes'%len(self.nodes)
 
 	def generateFunctionPattern(self,indent):
 		'''
@@ -94,36 +91,37 @@ class Group(Group):
 		Using the name match, generate the name, source, and parent of this node
 		'''
 		name = reMatch.group(1)
+		definitionString = reMatch.group(0)
 
 		colonPos = reMatch.end(0)
 
-		if DEBUG:
-			print self.source
-			print 'generating node b',name, self.source.getLineNumber(colonPos)
-
 		source = getSourceInScope(colonPos,self.source)
 		lineNumber = self.source.getLineNumber(colonPos)
-		return Node(name=name,source=source,parent=self,lineNumber=lineNumber)
+		return Node(name=name,definitionString=definitionString,source=source,parent=self,lineNumber=lineNumber)
 
 	def generateSubgroups(self):
 		classMatches = self.classPattern.finditer(self.source.sourceString)
 		for classMatch in classMatches:
-			print 'classMatch'
 			name = classMatch.group(1)
-			print name
+			definitionString = classMatch.group(0)
 			colonPos = classMatch.end(0)
 			indent = getIndent(colonPos=colonPos,sourceString=self.source.sourceString)
 			source = getSourceInScope(colonPos=colonPos,source=self.source)
 			lineNumber = self.source.getLineNumber(colonPos)
-			classGroup = Group(name=name,indent=indent,source=source,parent=self,lineNumber=lineNumber)
+			classGroup = Group(name=name,definitionString=definitionString,indent=indent,source=source,parent=self,lineNumber=lineNumber)
 			self.subgroups.append(classGroup)
-		#	pdb.set_trace()
+
 
 	def generateNewObjectPattern(self):
 		return re.compile(r'%s\s*\('%self.name)
 
 	def generateNewObjectAssignedPattern(self):
 		return re.compile(r'(\w)\s*=\s*%s\s*\('%self.name)
+
+	def generateImplicitNode(self):
+		name = self.generateImplicitNodeName()
+		source = self.generateImplicitNodeSource()
+		return Node(name=name,definitionString=None,source=source,parent=self,lineNumber=0) #isImplicit=True
 
 class Mapper(Mapper):
 	files = {}
@@ -138,16 +136,26 @@ class Mapper(Mapper):
 		#	self.modules[module],characterToLineMap = self.removeComments(self.modules[module])
 		#get the filename and the fileString
 		#only first file for now
-		filename,fileString = self.files.items()[0]
+		nodes = []
+		fileGroups = []
+		for filename,fileString in self.files.items():
+			#import ast
+			#import astpp
+			#a=ast.parse(fileString)
+			#print astpp.dump(a)
+			#pdb.set_trace()
 
-		#remove .py from filename
-		filename = self.cleanFilename(filename)
+			#remove .py from filename
+			filename = self.cleanFilename(filename)
 
-		globalNamespace = Group(name=filename,indent='',source=SourceCode(fileString))
-		#globalNamespace.generateNodes()
-		nodes = globalNamespace.allNodes()
+			#Create all of the subgroups (classes) and nodes (functions) for this group
+			fileGroup = Group(name=filename,definitionString=None,indent='',source=SourceCode(fileString))
+			fileGroups.append(fileGroup)
+
+			#globalNamespace.generateNodes()
+			nodes += fileGroup.allNodes()
 
 		#nodepdb.set_trace()
 		edges = generateEdges(nodes)
 
-		return globalNamespace,nodes,edges
+		return fileGroups,nodes,edges

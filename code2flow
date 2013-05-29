@@ -42,15 +42,19 @@ With content, we must pass along objects with filestrings
 
 '''
 
-import os
-import sys
-import pdb
 import argparse
+import os
+import pdb
+import pprint
+import sys
 
 from code2flowlib.engine import *
+import code2flowlib.dotgenerator as dotgenerator
 from subprocess import call
 
 import code, traceback, signal
+
+DEBUG = True
 
 def debug(sig, frame):
     """Interrupt running process, and provide a python prompt for
@@ -67,57 +71,87 @@ def debug(sig, frame):
 def listen():
     signal.signal(signal.SIGUSR1, debug)  # Register handler
 
+def isInstalled(program):
+	def is_exe(fpath):
+		return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
 
-SUPPORTED_LANGUAGES = ['.js','.py']
+	for path in os.environ["PATH"].split(os.pathsep):
+		path = path.strip('"')
+		exe_file = os.path.join(path, program)
+		if is_exe(exe_file):
+			return True
+
+	return False
+
+SUPPORTED_LANGUAGES = ['js','py']
+
+
 
 if __name__ == "__main__":
-	#listen()
+
+	if DEBUG:
+			listen()
+
+	if not isInstalled('dot'):
+		print "You must have graphviz (specifically dot) installed to run code2flow"
+		sys.exit(1)
+
 	cli = argparse.ArgumentParser(description="See flow charts of your source code.\n\rThis EXPERIMENTAL script is useful for documentation and code refactoring in simple projects")
 	cli.add_argument('files', metavar='files', nargs='+', help='The source file you are trying to graph. Currently, only handles python and javascript') #
 	cli.add_argument('-o','--outfile', dest='outfile',help='Filetype can be dot, gv, png, ps, svg, etc. Default is `out.png`',default='out.png')
-	cli.add_argument('-v','--verbose',action='store_true')
+	cli.add_argument('--sourcefiletype', dest='sourcefiletype',default=None)
+	cli.add_argument('-v','--verbose', dest='verbose',action='store_true',default=False)
 	cli.add_argument('--version', action='version', version='%(prog)s 0.1')
 
 	args = cli.parse_args()
-
+	pprint.pprint(args)
 	#get all of the files in one list
-	filetype = None
+	if args.sourcefiletype:
+		sourcefiletype = args.sourcefiletype
+	else:
+		sourcefiletype = None
 	files = []
-	def handleFile(fileString):
-		global filetype
+	if DEBUG:
+		print sourcefiletype
+	def handleFile(fileString,forceAppend=False):
+		'''
+		Figure out the sourcefiletype and if it is okay, attach the file to the files array
+		'''
+		global sourcefiletype
 		global files
 
-		#set the filetype if not set
-		if not filetype:
-			filetype = fileString[fileString.rfind('.'):]
-			if filetype not in SUPPORTED_LANGUAGES:
+		#set the sourcefiletype if not set
+		if not sourcefiletype:
+			sourcefiletype = fileString[fileString.rfind('.')+1:]
+			if sourcefiletype not in SUPPORTED_LANGUAGES and not forceAppend:
 				raise Exception("File not supported")
 
-		#if the file is part of the filetype we are using, append it
-		if fileString[-1*len(filetype):]==filetype:
+		#if the file is part of the sourcefiletype we are using, append it
+		if forceAppend or fileString[-1*len(sourcefiletype):]==sourcefiletype:
 			files.append(fileString)
 
 	#loop through arguments appending all files to the list
 	for fil in args.files:
 		if os.path.isfile(fil):
-			handleFile(fil)
+			handleFile(fil,forceAppend=True)
 		elif os.path.isdir(fil):
 			for fi in os.listdir(fil):
 				handleFile(fil)
 
-	#pull in the correct code which will superclass a lot of functions
-	if filetype == '.js':
+	#import the module specific to the source language
+	#these modules are superclasses of the engine.py base classes
+
+	if sourcefiletype == 'js':
 		from code2flowlib.languages.javascript import *
-	elif filetype == '.py':
+	elif sourcefiletype == 'py':
 		from code2flowlib.languages.python import *
 
-	mapper = Mapper(files)
 
 	#do the mapping
-	#(the globalNamespace and edges are global vars)
-	globalNamespace,nodes,edges = mapper.map()
+	mapper = Mapper(files)
+	groups,nodes,edges = mapper.map()
 
-
+	#determine whether we are just writing a dot file or also translating to an image
 	if args.outfile.endswith('.gv') or args.outfile.endswith('.dot'):
 		dotFile = args.outfile
 		finalFile = None
@@ -126,45 +160,17 @@ if __name__ == "__main__":
 		dotFile, extension = args.outfile.rsplit('.',1)
 		dotFile += '.gv'
 
+	#print the for file
+	dotgenerator.writeDotFile(dotFile=dotFile,nodes=nodes,edges=edges,groups=groups)
 
-	#write the output dot file
-	with open(dotFile,'w') as outfile:
-		outfile.write("digraph G {\n")
-		outfile.write("""
-			subgraph legend{
-			rank = min;
-			label = "legend";
-			Legend [shape=none, margin=0, label = <
-				<table cellspacing="0" cellpadding="0" border="1"><tr><td>Code2flow Legend</td></tr><tr><td>
-				<table cellspacing="0">
-				<tr><td>Regular function</td><td width="50px"></td></tr>
-				<tr><td>Trunk function (nothing calls this)</td><td bgcolor='red'></td></tr>
-				<tr><td>Leaf function (this calls nothing else)</td><td bgcolor='green'></td></tr>
-				<tr><td>Function call which returns no value</td><td>&#8594;</td></tr>
-				<tr><td>Function call returns some value</td><td><font color='blue'>&#8594;</font></td></tr>
-				</table></td></tr></table>
-				>];}""")
-		for node in nodes:
-			if str(node):
-				outfile.write(str(node)+';\n')
-		for edge in edges:
-			outfile.write(str(edge)+';\n')
-		#pdb.set_trace()
-		outfile.write(str(globalNamespace)+';\n')
-
-		outfile.write('}')
-
-	#raw_input()
-
+	#translate to an image if that was requested
 	if finalFile:
 		command = "dot -T%s %s > %s"%(extension,dotFile,finalFile)
-		print command
 		os.system(command)
-
 
 	print "Completed your flowchart!"
 	print "To see it, open %s"%args.outfile
 
-	#open it in graphvizif we are on os.x
-	if sys.platform == 'darwin':
+	#open it in graphviz if we are on os.x
+	if DEBUG and sys.platform == 'darwin':
 		os.system("open out.gv")

@@ -9,6 +9,8 @@ Edges:  which represent function calls
 '''
 
 import copy
+import operator
+import os
 import re
 import pdb
 import pprint
@@ -17,11 +19,7 @@ from nesting import *
 
 DEBUG = True
 
-
-
-#much easier to have these as globals
-globalNamespace = None
-currentUID = 0 #todo
+currentUID = 0
 
 def generateEdges(nodes):
 	'''
@@ -40,11 +38,12 @@ class Node(object):
 	'''
 	returnPattern = re.compile(r"\Wreturn\W",re.MULTILINE)
 
-	namespaceBeforeDotPattern = re.compile(r'\W(\w+)\.$',re.MULTILINE)
+	namespaceBeforeDotPattern = re.compile(r'[^\w\.]([\w\.]+)\.$',re.MULTILINE)
 
-	def __init__(self,name,source,parent,lineNumber):
+	def __init__(self,name,definitionString,source,parent,lineNumber):
 		#basic vars
 		self.name = name
+		self.definitionString = definitionString
 		self.source = source
 		self.parent = parent
 		self.lineNumber = lineNumber #The line number the definition is on
@@ -76,8 +75,35 @@ class Node(object):
 	def generateNamespacePatterns(self):
 		return [re.compile(r"\W%s\.%s\s*\("%(self.parent.getNamespace(),self.name))]
 
+	def getFileGroup(self):
+		return self.parent.getFileGroup()
+
+	def getFileName(self):
+		return self.parent.getFileName()
+
 	def linksTo(self,other):
-		print self.name," links to ",other.name,'?'
+		#print self.name," links to ",other.name,'?'
+
+		importNamespace = ''
+
+		#If this is in a different file, figure out what namespace to use
+		if self.getFileGroup() != other.getFileGroup():
+			importPaths = other.parent.getImportPaths(self.getFileName())
+
+			for importPath in importPaths:
+				regularImport = re.compile(r"^import\s%s\s*$"%re.escape(importPath),re.MULTILINE)
+				complexImport = re.compile('^from\s%s\simport\s(?:\*|(?:.*?\W%s\W.*?))\s*$'%(re.escape(importPath),re.escape(other.name)),re.MULTILINE)
+				#print importPath
+				#print self.parent.getFileGroup().name
+				if regularImport.search(self.getFileGroup().source.sourceString):
+					importNamespace += importPath
+					break
+				elif complexImport.search(self.getFileGroup().source.sourceString):
+					break
+			else:
+				return False
+
+			#namespacePrefix =
 
 		#If the naive functionName (e.g. \Wmyfunc\( ) appears anywhere in this sourceString, check whether it is actually THAT function
 		match = other.pattern.search(self.source.sourceString)
@@ -90,17 +116,20 @@ class Node(object):
 				return True
 
 			#if the other is part of a namespace and we are looking for a namspace
-			if other.parent and hasDot:
+			if other.parent.parent and hasDot:
+
+				#try finding the namespace of the called object
 				try:
 					prefixSearchLine = self.source.sourceString[:matchPos].split('\n')[-1]
-					print '"%s"'%prefixSearchLine
+					#print '"%s"'%prefixSearchLine
 					namespace = self.namespaceBeforeDotPattern.search(prefixSearchLine).group(1)
 				except AttributeError:
 					#will not find a namespace if the object is in an array or something else weird
+					#fall through this function because we can still check for init node
 					namespace = None
 
 				#If the namespaces are the same, that is a match
-				if namespace == other.name:
+				if namespace == importNamespace + other.name and self.getFileGroup() == other.getFileGroup():
 					return True
 
 				#if they are part of the same namespace, we can check for the 'self' keyword
@@ -109,7 +138,7 @@ class Node(object):
 
 				#If a new object was created prior to this call and that object calls this function, that is a match
 				newObjectMatch = other.parent.newObjectAssignedPattern.search(self.source.sourceString)
-				if newObjectMatch and namespace == newObjectMatch.group(1):
+				if newObjectMatch and namespace == importNamespace + newObjectMatch.group(1):
 					return True
 
 
@@ -211,8 +240,9 @@ class Group(object):
 	'''
 
 
-	def __init__(self,name,source,parent=None,**kwargs):
+	def __init__(self,name,definitionString,source,parent=None,**kwargs):
 		self.name = name
+		self.definitionString = definitionString
 		self.source = source
 		self.parent = parent
 
@@ -247,7 +277,7 @@ class Group(object):
 		return ret
 
 	def getUID(self):
-		return 'cluster'+self.name.replace('/','')
+		return 'cluster'+self.name.replace('/','').replace('.','')
 
 	def allNodes(self):
 		'''
@@ -257,6 +287,15 @@ class Group(object):
 		for subgroup in self.subgroups:
 			nodes += subgroup.allNodes()
 		return nodes
+
+	def getFileGroup(self):
+		if self.parent:
+			return self.parent.getFileGroup()
+		else:
+			return self
+
+	def getFileName(self):
+		return self.getFileGroup().name
 
 	def getNamespace(self):
 		'''
@@ -276,6 +315,76 @@ class Group(object):
 		self.nodes.append(node)
 
 
+	def getImportPaths(self,importerFilename):
+		'''
+		Return the relative and absolute paths the other filename would use to import this module
+		'''
+
+		#split paths into their directories
+		thisFullPath = os.path.abspath(self.getFileName())
+		importerFullPath = os.path.abspath(importerFilename)
+		thisFullPathList = thisFullPath.split('/')
+		importerFullPathList = importerFullPath.split('/')
+
+		#pop off shared directories
+		while True:
+			try:
+				assert thisFullPathList[0] == importerFullPathList[0]
+				thisFullPathList.pop(0)
+				importerFullPathList.pop(0)
+			except:
+				break
+
+
+		paths = []
+
+		relativePath = ''
+
+		#if the importer's unique directory path is longer than 1,
+		#then we will have to back up a bit to the last common shared directory
+		relativePath += '.'*len(importerFullPathList)
+
+		#add this path from the last common shared directory
+		relativePath += '.'.join(thisFullPathList)
+
+		paths.append(relativePath)
+
+		#TODO there are probably more. We are getting
+		#import languagages.python
+		#but not
+		#import code2flow.languages.python
+		#but this will require knowing how far back we need to go
+		paths.append('.'.join(thisFullPathList[-2:-1]))
+
+		if len(importerFullPathList) == 1 and len(thisFullPathList) == 1:
+			paths.append(thisFullPathList[-1])
+
+		return paths
+
+	def generateImplicitNodeName(self):
+		return "%s-level (might run on import)"%self.implicitName
+
+	def generateImplicitNodeSource(self):
+		'''
+		Find all of the code not in any subnode, string it together, and return it as the implicit node
+		'''
+
+		source = self.source
+		for node in self.nodes:
+			source-=node.source
+			source =source.remove(node.definitionString)
+
+		for group in self.subgroups:
+			source-=group.source
+			if group.definitionString:
+				source = source.remove(group.definitionString)
+
+		return source
+
+
+
+
+
 class Mapper(object):
 	'''
 	Mappers are meant to be abstract and subclassed by various languages
@@ -290,7 +399,10 @@ class Mapper(object):
 
 
 	def cleanFilename(self,filename):
-		return filename[:filename.find('.')]
+		if '.' in filename:
+			filename = filename[:filename.rfind('.')]
+
+		return filename
 
 	def stringsToEmpty(self):
 		'''
@@ -360,6 +472,7 @@ class Mapper(object):
 
 
 
+
 class SourceCode(object):
 	'''
 	SourceCode is a representation of source text and a character to linenumber/file mapping
@@ -369,50 +482,136 @@ class SourceCode(object):
 	'''
 
 
-	def __init__(self,sourceString):
+	def __init__(self,sourceString,characterToLineMap=None):
 		'''
 		Remove the comments and build the linenumber/file mapping whild doing so
 		'''
 		self.sourceString = sourceString
-		self.characterToLineMap = {}
 
-		self.removeComments()
-		print 'REMOVED COMMENTS',self
+		if characterToLineMap:
+			self.characterToLineMap = characterToLineMap
+		else:
+			self.characterToLineMap = {}
+
+			self.removeComments()
+			if DEBUG:
+				print 'REMOVED COMMENTS',self
 
 		#pprint.pprint(self.characterToLineMap)
 
 
 	def __getitem__(self,sl):
 		'''
-		If sliced, return a new object with the sourceString and the characterToLineMap sliced
+		If sliced, return a new object with the sourceString and the characterToLineMap sliced by [firstChar:lastChar]
 		'''
 
-		if type(sl) != slice or sl.step or sl.start is None or sl.stop is None:
-			raise
+		if type(sl) != slice or sl.step:
+			raise Exception("Sourcecode slicing does not support the step attribute (e.g. source[from:to:step] is not supported)")
+
+		if sl.start is None:
+			start = 0
 		else:
-			ret = copy.deepcopy(self)
+			start = sl.start
 
-			ret.sourceString = ret.sourceString[sl.start:sl.stop]
+		if sl.stop is None:
+			stop = len(self.sourceString)
+		else:
+			stop = sl.stop
 
-			print 'new source',ret.sourceString
+		ret = copy.deepcopy(self)
 
-			print 'old characterToLineMap',ret.characterToLineMap
+		ret.sourceString = ret.sourceString[start:stop]
 
-			#update the chacter positions of the line breaks up to the end of the source
-			shiftedCharactToLineMap = {}
-			characterPositions = ret.characterToLineMap.keys()
-			characterPositions = filter(lambda p: p>=sl.start and p<sl.stop,characterPositions)
-			for characterPosition in characterPositions:
-				shiftedCharactToLineMap[characterPosition-sl.start] = ret.characterToLineMap[characterPosition]
-			ret.characterToLineMap = shiftedCharactToLineMap
-			print 'new charactertolinemap',ret.characterToLineMap
-			return ret
+		#print 'new source',ret.sourceString
+
+
+		#update the chacter positions of the line breaks up to the end of the source
+		shiftedCharacterToLineMap = {}
+		characterPositions = ret.characterToLineMap.keys()
+		characterPositions = filter(lambda p: p>=start and p<stop,characterPositions)
+		for characterPosition in characterPositions:
+			shiftedCharacterToLineMap[characterPosition-start] = ret.characterToLineMap[characterPosition]
+		ret.characterToLineMap = shiftedCharacterToLineMap
+		return ret
+
+	def __add__(self,other):
+		if not other:
+			return copy.deepcopy(self)
+
+		if self.lastLineNumber()>other.firstLineNumber():
+			pdb.set_trace()
+			raise Exception("When adding two pieces of sourcecode, the second piece must be completely after the first as far as line numbers go")
+
+		sourceString = self.sourceString + other.sourceString
+
+		shiftedCharacterToLineMap = {}
+		characterPositions = other.characterToLineMap.keys()
+		for characterPosition in characterPositions:
+			shiftedCharacterToLineMap[characterPosition+len(self.sourceString)] = other.characterToLineMap[characterPosition]
+
+		characterToLineMap = dict(self.characterToLineMap.items() + shiftedCharacterToLineMap.items())
+
+		ret = SourceCode(sourceString,characterToLineMap)
+		#pdb.set_trace()
+
+		return ret
+
+	def __sub__(self,other):
+		return self.subtractSource(other)
+
+	def remove(self,stringToRemove):
+		firstPos = self.sourceString.find(stringToRemove)
+		if firstPos == -1:
+			raise Exception("String not found in source")
+		lastPos = firstPos + len(stringToRemove)
+
+		#pdb.set_trace()
+		return self[:firstPos]+self[lastPos:]
+
+	def subtractSource(self,other):
+		if not other:
+			return copy.deepcopy(self)
+
+		if self.firstLineNumber()>other.firstLineNumber() or self.lastLineNumber()<other.lastLineNumber():
+			pdb.set_trace()
+			raise Exception("When subtracting a piece of one bit of sourcecode from another, the second must lie completely within the first")
+
+		firstPos = self.sourceString.find(other.sourceString)
+
+		if firstPos == -1:
+			raise
+
+		lastPos = firstPos + len(other.sourceString)
+
+
+		firstPart = self[:firstPos]
+
+		secondPart = self[lastPos:]
+
+		return firstPart+secondPart
+
+
+	def __nonzero__(self):
+		return self.sourceString.strip()!=''
+
+	def firstLineNumber(self):
+		return min(self.characterToLineMap.values())
+
+	def lastLineNumber(self):
+		return max(self.characterToLineMap.values())
+
+	def pop(self):
+		lastLinePos = self.sourceString.rfind('\n')
+		ret = self.sourceString[lastLinePos:]
+		self = self[:lastLinePos]
+
+		return ret
+
 
 	def getLineNumber(self,pos):
 		'''
 		Decrement until we find the first character of the line and can get the linenumber
 		'''
-		print pos
 		while True:
 			try:
 				return self.characterToLineMap[pos]
@@ -487,5 +686,5 @@ class SourceCode(object):
 						lineCount += 1
 
 					i+=1
-		print "generated charactertolinemap",self.characterToLineMap
-		print "sorterd lines",sorted(self.characterToLineMap.values())
+		#print "generated charactertolinemap",self.characterToLineMap
+		#print "sorterd lines",sorted(self.characterToLineMap.values())

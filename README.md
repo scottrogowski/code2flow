@@ -7,7 +7,10 @@ Code2flow will sweep through your project source code looking for function defin
 
 Code2flow is especially useful for untangling spaghetti code and getting new developers up to speed.
 
-Code2flow is EXPERIMENTAL and meant for simple projects only. Source code which is just a little esoteric will break this. Even with normal-people code, there are many known limitations (see below) as well as many outright bugs. **Expect MOST aspects of this application to change in future releases.**
+Code2flow is EXPERIMENTAL and meant to provide a **rough overview** of the structure of simple projects. Source code which is just a little esoteric will break this. Even with normal-people code, there are many known limitations (see below) as well as many outright bugs. **Expect MOST aspects of this application to change in future releases.**
+
+Here is what happens when you run it on httplib
+![Alt text](example.png "Run it on ")
 
 Installation
 ------------
@@ -15,19 +18,19 @@ Installation
 Download, navigate to the directory, and run:
 
 ```bash
-	$ sudo ./setup.py install
+sudo ./setup.py install
 ```
 
 If you don't have it already, you will also have to install graphviz
 
 Using apt-get:
 ```bash
-	$ sudo apt-get install graphviz
+sudo apt-get install graphviz
 ```
 
 Using port (for macs):
 ```bash
-	$ sudo port install graphviz
+sudo port install graphviz
 ```
 
 Usage
@@ -36,13 +39,13 @@ Usage
 To generate a DOT file run something like:
 
 ```bash
-	$ code2flow mypythonfile.py -o myflow.gz
+code2flow mypythonfile.py -o myflow.gz
 ```
 
 Or
 
 ```bash
-	$ code2flow myjavascriptfile.js -o myflow.gz
+code2flow myjavascriptfile.js -o myflow.gz
 ```
 
 Then open myflow.gz in your DOT file viewer (e.g. graphviz)
@@ -52,7 +55,7 @@ bmp canon cgimage cmap cmapx cmapx_np dot eps exr fig **gif** gv imap imap_np is
 
 For example:
 ```bash
-	$ code2flow mypythonfile.py -o myflow.jpeg
+code2flow mypythonfile.py -o myflow.jpeg
 ```
 
 Limitations
@@ -65,6 +68,7 @@ Code2flow is meant to provide a reasonable conjecture of the structure of simple
 * Functions not declared in the initial class definitions (e.g. attached later) are not handled
 * Dynamically generated and lambda functions are not handled
 * Those functions inherited from a parent class are not handled
+* In python, import ... as ... is not handled correctly
 * And so so so many more
 
 Feature / Language Requests
