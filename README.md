@@ -12,8 +12,12 @@ Code2flow is EXPERIMENTAL and meant to provide a **rough overview** of the struc
 Here is what happens when you run it on the python calendar module
 ![Alt text](example2.png)
 
-When you run it on code2flow/languages/python.py, here is what happens
+When you run it on code2flow/languages/python.py
 ![Alt text](example.png)
+
+On jquery
+![Alt text](examplejs.png)
+
 
 Installation
 ------------
