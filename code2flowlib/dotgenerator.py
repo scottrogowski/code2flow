@@ -5,6 +5,7 @@ def writeDotFile(dotFile,nodes,edges,groups,hidelegend=False):
 
 def generateDotFile(nodes,edges,groups,hidelegend=False):
 	ret = "digraph G {\n"
+	ret +="concentrate = true;"
 	if not hidelegend:
 		ret += """
 			subgraph legend{
@@ -26,8 +27,9 @@ def generateDotFile(nodes,edges,groups,hidelegend=False):
 	for edge in edges:
 		ret += str(edge)+';\n'
 	#pdb.set_trace()
-	for group in groups:
-		ret += str(group)+';\n'
+	if False:
+		for group in groups:
+			ret += str(group)+';\n'
 
 	ret += '}'
 

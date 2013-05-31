@@ -42,7 +42,7 @@ def endDelimPos(string,delimiterA,delimiterB):
 	else:
 		return -1
 
-def openBracketPos(string,pos):
+def openBracketPos(pos):
 	'''
 	Go back to find the nearest open bracket without a corresponding close
 	'''

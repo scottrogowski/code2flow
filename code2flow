@@ -83,7 +83,7 @@ def isInstalled(program):
 
 	return False
 
-SUPPORTED_LANGUAGES = ['js','py']
+SUPPORTED_LANGUAGES = {'js':'javascript','py':'python'}
 
 
 
@@ -149,13 +149,14 @@ if __name__ == "__main__":
 	#these modules are superclasses of the engine.py base classes
 
 	if sourcefiletype == 'js':
-		from code2flowlib.languages.javascript import *
+		import code2flowlib.languages.javascript as implementation
 	elif sourcefiletype == 'py':
-		from code2flowlib.languages.python import *
+		import code2flowlib.languages.python as implementation
 
 
 	#do the mapping
-	mapper = Mapper(files)
+
+	mapper = implementation.Mapper(implementation,files)
 	groups,nodes,edges = mapper.map()
 
 	#determine whether we are just writing a dot file or also translating to an image
