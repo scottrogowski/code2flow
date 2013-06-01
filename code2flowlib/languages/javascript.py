@@ -3,6 +3,44 @@ from code2flowlib.engine import *
 class Node(Node):
 	sameScopeKeyword = 'this'
 
+
+	#def __init__(self,**kwargs):
+	#	super(Node,self).__init__()
+
+
+
+	def linksTo(self,other):
+		#Can either line in local scope using 'this' keyword
+		#Or can link in namespaced/global scope
+		#window.any.namespace is exactly the same as any.namespace
+
+
+		print self.name," links to ",other.name,'?'
+		#if self.parent.name == "SourceCode":
+		#	pdb.set_trace()
+		#if other.parent.parent:
+
+		#if they are part of the same namespace, we can use the self keyword
+		if other.parent == self.parent:
+			if any(map(lambda pattern: pattern.search(self.source.sourceString), other.sameScopePatterns)):
+				return True
+
+		#Otherwise, they can always be linked by a shared namespace
+		#must generate namespace here because we are trimming the groups AFTER init of the node
+		if any(map(lambda pattern: pattern.search(self.source.sourceString), other.generateNamespacePatterns())):
+			return True
+
+
+		#else:
+		#	#if other is part of the global namespace, we just search for its pattern
+		#	if other.pattern.search(self.source.sourceString):
+		#		return True
+		return False
+
+	def getNamespace(self):
+		return self.parent.getNamespace()
+
+
 class Edge(Edge):
 	pass
 
@@ -20,6 +58,20 @@ class Group(Group):
 	REWORDPATH = r"\S+"
 
 	REPARENTFUNCTION = r"\s+(\w+[a-zA-Z])\W"
+
+	globalFrameName = 'window'
+
+	def getNamespace(self):
+		if not self.parent or self.isAnon:
+			return ''
+		else:
+			namespace = self.parent.getNamespace()
+			if namespace:
+				#pdb.set_trace()
+				return namespace+'.'+self.name
+			else:
+				return self.name
+
 
 	def __init__(self,isFunction=True,isAnon=False,**kwargs):
 		'''
@@ -88,6 +140,7 @@ class Group(Group):
 		print self.name
 		#pdb.set_trace()
 
+
 		groupFrameSource = self.source[0:len(self.source.sourceString)]
 		openBracket = groupFrameSource.find('{')
 
@@ -124,7 +177,14 @@ class Group(Group):
 		if isFunction:
 			#if not self.parent:
 			#	pdb.set_trace()
-			newNode = Node(name=self.name,source=groupFrameSource,definitionString=self.definitionString,parent=self,lineNumber=self.lineNumber)
+			if self.parent:
+				isSource=False
+				name = self.name
+			else:
+				isSource=True
+				name = self.generateImplicitNodeName(self.name.rsplit('/',1)[-1])
+
+			newNode = Node(name=name,source=groupFrameSource,definitionString=self.definitionString,parent=self,lineNumber=self.lineNumber,isSource=isSource)#isImplicit=True
 			self.nodes.append(newNode)
 
 
@@ -179,6 +239,13 @@ class Group(Group):
 				name = "(anon)"
 			else:
 				name = match.group(1)
+
+			'''
+			if '.' in name:
+				namespace, name = rsplit('.',1)
+				if namespace not in self.getNamespaces():
+			'''
+
 			definitionString = match.group(0)
 			lineNumber = preBlockSource.getLineNumber(match.start(0)+lastBracket)
 			print preBlockSource,name

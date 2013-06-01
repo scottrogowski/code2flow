@@ -26,10 +26,9 @@ def generateDotFile(nodes,edges,groups,hidelegend=False):
 			ret += str(node)+';\n'
 	for edge in edges:
 		ret += str(edge)+';\n'
-	#pdb.set_trace()
-	if False:
-		for group in groups:
-			ret += str(group)+';\n'
+	#if False:
+	for group in groups:
+		ret += str(group)+';\n'
 
 	ret += '}'
 

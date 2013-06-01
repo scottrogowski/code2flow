@@ -32,6 +32,7 @@ def generateEdges(nodes):
 	for node0 in nodes:
 		for node1 in nodes:
 			if node0 != node1 and node0.linksTo(node1):
+				print "yes"
 				edges.append(Edge(node0,node1))
 	return edges
 
@@ -43,7 +44,7 @@ class Node(object):
 
 	namespaceBeforeDotPattern = re.compile(r'[^\w\.]([\w\.]+)\.$',re.MULTILINE)
 
-	def __init__(self,name,definitionString,source,parent,characterPos=0,lineNumber=0): #allow default characterPos, lineNumber for implicit nodes
+	def __init__(self,name,definitionString,source,parent,characterPos=0,lineNumber=0,isSource=False): #allow default characterPos, lineNumber for implicit nodes
 		#basic vars
 		self.name = name
 		self.definitionString = definitionString
@@ -51,6 +52,7 @@ class Node(object):
 		self.parent = parent
 		self.characterPos = characterPos
 		self.lineNumber = lineNumber #The line number the definition is on
+		self.isSource = isSource
 
 		#generate the name patterns for other nodes to search for this one
 		self.pattern = re.compile(r"\W(%s)\s*\("%self.name,re.MULTILINE)  # The name pattern which is found by others eg. node()
@@ -59,7 +61,7 @@ class Node(object):
 
 		self.sameScopePatterns = self.generateSameScopePatterns()  # The pattern to search for when the other node is in the same scope e.g. self.node()
 		self.namespacePatterns = self.generateNamespacePatterns() # The pattern to search for with the namespace eg. Node.node()
-
+		#pdb.set_trace()
 		#just whether there are return statements or not
 		self.returns = self.returnPattern.search(self.source.sourceString)
 
@@ -79,7 +81,10 @@ class Node(object):
 		return [re.compile(r"\W%s\.%s\s*\("%(self.sameScopeKeyword,self.name))]
 
 	def generateNamespacePatterns(self):
-		return [re.compile(r"\W%s\.%s\s*\("%(self.parent.getNamespace(),self.name))]
+		return [
+			re.compile(r"\W%s\.%s\s*\("%(self.getNamespace(),self.name))
+			,re.compile(r"\Wwindow\.%s\.%s\s*\("%(self.getNamespace(),self.name))
+			]
 
 	def getFileGroup(self):
 		return self.parent.getFileGroup()
@@ -96,26 +101,8 @@ class Node(object):
 		self.isInitNode = False
 
 
-
-	def linksTo(self,other):
-		print self.name," links to ",other.name,'?'
-		#if self.parent.name == "SourceCode":
-		#	pdb.set_trace()
-		if other.parent.parent:
-			#if the other is part of a namespace
-			if other.parent == self.parent:
-				#if they are part of the same namespace, we can use the self keyword
-				if any(map(lambda pattern: pattern.search(self.source.sourceString), other.sameScopePatterns)):
-					return True
-
-			#They can always be linked by their namespace
-			if any(map(lambda pattern: pattern.search(self.source.sourceString), other.namespacePatterns)):
-				return True
-		else:
-			#if other is part of the global namespace, we just search for its pattern
-			if other.pattern.search(self.source.sourceString):
-				return True
-		return False
+	def getFullName(self):
+		return self.getNamespace()+'.'+self.name if self.getNamespace() else self.name
 
 
 	def contains(self,other):
@@ -138,7 +125,8 @@ class Node(object):
 		For printing to the DOT file
 		'''
 		attributes = {}
-		attributes['label']="%d: %s"%(self.lineNumber,self.name)
+
+		attributes['label']="%d: %s"%(self.lineNumber,self.getFullName())
 		attributes['shape']="rect"
 		attributes['style']="rounded"
 		#attributes['splines']='ortho'
@@ -155,6 +143,7 @@ class Node(object):
 			for a in attributes:
 				ret += '%s = "%s" '%(a,attributes[a])
 			ret += ']'
+
 		return ret
 
 class Edge(object):
@@ -222,6 +211,9 @@ class Group(object):
 		if self.nodes:
 			for node in self.nodes:
 				ret += node.getUID() + ' '
+				if node.isSource:
+					ret += ";{rank=source; %s}"%node.getUID()
+
 			ret += ';\n'
 		ret += 'label="%s";\n'%self.name;
 		ret += 'style=filled;\n';
@@ -302,8 +294,10 @@ class Group(object):
 		return Node(name=name,definitionString=definitionString,source=source,parent=self,characterPos=beginIdentifierPos,lineNumber=lineNumber)
 
 
-	def generateImplicitNodeName(self):
-		return "(%s global frame | runs on import)"%self.name
+	def generateImplicitNodeName(self,name=''):
+		if not name:
+			name = self.name
+		return "(%s %s frame | runs on import)"%(name,self.globalFrameName)
 
 	def generateImplicitNodeSource(self):
 		'''
@@ -311,7 +305,6 @@ class Group(object):
 		'''
 
 		source = self.source
-		#pdb.set_trace()
 		for node in self.nodes:
 			source.remove(node.source.sourceString)
 
@@ -370,7 +363,6 @@ class SourceCode(object):
 
 			if DEBUG:
 				#print 'REMOVED COMMENTS',self
-				#pdb.set_trace()
 				with open('cleanedSource','w') as outfile:
 					outfile.write(self.sourceString)
 
@@ -432,7 +424,6 @@ class SourceCode(object):
 			return copy.deepcopy(self)
 
 		if self.lastLineNumber()>other.firstLineNumber():
-			pdb.set_trace()
 			raise Exception("When adding two pieces of sourcecode, the second piece must be completely after the first as far as line numbers go")
 
 		sourceString = self.sourceString + other.sourceString
@@ -445,7 +436,6 @@ class SourceCode(object):
 		characterToLineMap = dict(self.characterToLineMap.items() + shiftedCharacterToLineMap.items())
 
 		ret = SourceCode(sourceString=sourceString,characterToLineMap=characterToLineMap)
-		#pdb.set_trace()
 
 		return ret
 
@@ -678,7 +668,6 @@ class SourceCode(object):
 						while originalString[i-1]=='\\':
 							i = originalString.find(blockComment['end'],i+blockCommentLen)+blockCommentLen
 
-						#pdb.set_trace()
 						if i==-1+blockCommentLen:
 							#if we can't find the blockcomment and have reached the end of the file
 							#return the cleaned file
@@ -697,7 +686,6 @@ class SourceCode(object):
 					if match:
 						#print match.group(0)
 						#print originalString[i-5:i+5]
-						#pdb.set_trace()
 						prevI = i
 
 						endMatch = blockComment['end'].search(originalString[i+match.end(0):])
@@ -770,7 +758,6 @@ class Mapper(object):
 			#import astpp
 			#a=ast.parse(fileString)
 			#print astpp.dump(a)
-			#pdb.set_trace()
 
 			#remove .py from filename
 			filename = self.cleanFilename(filename)
@@ -788,7 +775,6 @@ class Mapper(object):
 		for group in fileGroups:
 			group.trimGroups()
 
-		#nodepdb.set_trace()
 		print "Generating edges"
 		edges = generateEdges(nodes)
 

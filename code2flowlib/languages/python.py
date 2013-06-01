@@ -132,6 +132,8 @@ class Group(Group):
 	classPattern = re.compile(r"^class\s(\w+)\s*(\(.*?\))?\s*\:",re.MULTILINE)
 	#implicitName = 'module'
 
+	globalFrameName = 'module'
+
 	def __init__(self,indent='',**kwargs):
 		'''
 		Expects name,indent,source, and optionally parent
