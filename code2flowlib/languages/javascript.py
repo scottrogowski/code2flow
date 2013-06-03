@@ -25,6 +25,9 @@ class Node(Node):
 			if any(map(lambda pattern: pattern.search(self.source.sourceString), other.sameScopePatterns)):
 				return True
 
+		#if self.name == 'isAuthenticated':
+		#	pdb.set_trace()
+
 		#Otherwise, they can always be linked by a shared namespace
 		#must generate namespace here because we are trimming the groups AFTER init of the node
 		if any(map(lambda pattern: pattern.search(self.source.sourceString), other.generateNamespacePatterns())):
@@ -38,7 +41,10 @@ class Node(Node):
 		return False
 
 	def getNamespace(self):
-		return self.parent.getNamespace()
+		if self.parent.name != self.name:
+			return self.parent.getNamespace()
+		else:
+			return self.parent.parent.getNamespace()
 
 
 class Edge(Edge):
@@ -166,11 +172,30 @@ class Group(Group):
 			blockSource = groupFrameSource[openBracket+1:closeBracket]
 
 			newGroup = self.newGroupFromSources(preBlockSource,blockSource)
-			if newGroup and not (newGroup.isAnon and len(newGroup.nodes)==1 and newGroup.nodes[0].name==newGroup.name):
-				self.subgroups.append(newGroup)
-				postBlockSource = groupFrameSource[closeBracket:]
-				groupFrameSource = preBlockSource[:-1*len(newGroup.definitionString)] + postBlockSource
-				closeBracket = closeBracket-len(blockSource)-len(newGroup.definitionString)
+			#print newGroup.name
+			#pdb.set_trace()
+			if newGroup:
+				if not (newGroup.isAnon and len(newGroup.nodes)==1 and newGroup.nodes[0].name==newGroup.name):
+
+					#append the newgroup to it's parent which will usually be self.
+					#it might not be however if the group was defined like window.funcName =
+					newGroup.parent.subgroups.append(newGroup)
+
+					postBlockSource = groupFrameSource[closeBracket:]
+					groupFrameSource = preBlockSource[:-1*len(newGroup.definitionString)] + postBlockSource
+					closeBracket = closeBracket-len(blockSource)-len(newGroup.definitionString)
+				elif newGroup.subgroups:
+					for group in newGroup.subgroups:
+						if group.parent == newGroup:
+							group.parent = self
+
+						group.parent.subgroups.append(group)
+
+					postBlockSource = groupFrameSource[closeBracket:]
+					groupFrameSource = preBlockSource[:-1*len(newGroup.definitionString)] + postBlockSource
+					closeBracket = closeBracket-len(blockSource)-len(newGroup.definitionString)
+
+
 
 			openBracket = groupFrameSource.find('{',closeBracket)
 
@@ -188,37 +213,23 @@ class Group(Group):
 			self.nodes.append(newNode)
 
 
-	FUNCTION_PATTERNS = [
-		re.compile(r".*?\Wfunction\s+(\w+)\s*\(.*?\)\s*\Z",re.DOTALL)
-		,re.compile(r".*?[^a-zA-Z0-9_\.]+([\w\.]+)\s*[\:\=]\s*function\s*\(.*?\)\s*\Z",re.DOTALL) #\.
+	PATTERNS = [
+		{'type':'function','pattern':re.compile(r".*?\Wfunction\s+(\w+)\s*\(.*?\)\s*\Z",re.DOTALL)}
+		,{'type':'function','pattern':re.compile(r".*?[^a-zA-Z0-9_\.]+([\w\.]+)\s*[\:\=]\s*function\s*\(.*?\)\s*\Z",re.DOTALL)}
+		,{'type':'object','pattern':re.compile(r".*?\W([\w\.]+)\s*\=\s*$",re.DOTALL)}
+		,{'type':'anonFunction','pattern':re.compile(r".*?\(\s*function\s*\(.*?\)\s*\Z",re.DOTALL)}
 		]
 
-	OBJECT_PATTERNS = [
-		re.compile(r".*?\W(\w+)\s*\=\s*$",re.DOTALL)
-		]
 
 	ANON_OBJECT_PATTERN = re.compile(r".*?\(\s*$",re.DOTALL)
 
-	ANON_FUNCTION_PATTERN = re.compile(r".*?\(\s*function\s*\(.*?\)\s*\Z",re.DOTALL)
 
 
 	def newGroupFromSources(self,preBlockSource,blockSource):
-
-		for pattern in self.FUNCTION_PATTERNS:
-			newGroup = self.newGroupFromSourcesAndPattern(preBlockSource,blockSource,pattern,isFunction=True)
+		for pattern in self.PATTERNS:
+			newGroup = self.newGroupFromSourcesAndPattern(preBlockSource,blockSource,pattern)
 			if newGroup:
 				return newGroup
-
-		for pattern in self.OBJECT_PATTERNS:
-			newGroup = self.newGroupFromSourcesAndPattern(preBlockSource,blockSource,pattern,isFunction=False)
-			if newGroup:
-				return newGroup
-
-		#if self.ANON_OBJECT_PATTERN.match(preBlockSource.sourceString):
-		newGroup = self.newGroupFromSourcesAndPattern(preBlockSource,blockSource,self.ANON_FUNCTION_PATTERN,isAnon=True)
-		if newGroup:
-			return newGroup
-
 
 		#	return None
 		print
@@ -229,28 +240,83 @@ class Group(Group):
 		return None
 
 
-	def newGroupFromSourcesAndPattern(self,preBlockSource,blockSource,pattern,isFunction=True,isAnon=False):
+	def generateNamespacePatterns(self):
+		return [
+			re.compile(r"\W%s\s*\("%(self.getFullName()))
+			,re.compile(r"\Wwindow\.%s\s*\("%(self.getFullName()))
+			]
+
+	def generateNamespaces(self):
+		return [
+			self.getNamespace()
+			,'window.'+self.getNamespace() if self.getNamespace() else 'window'
+			]
+
+
+	def findNamespace(self,namespace,callingGroup=None):
+		if any(map(lambda thisNamespace: thisNamespace==namespace, self.generateNamespaces())):
+			return self
+		else:
+			for group in self.subgroups:
+				if group!=callingGroup and group.findNamespace(namespace=namespace,callingGroup=self):
+					return group
+			if self.parent and self.parent != callingGroup:
+				return self.parent.findNamespace(namespace=namespace,callingGroup=self)
+			else:
+				return False
+
+
+
+	def newGroupFromSourcesAndPattern(self,preBlockSource,blockSource,pattern):
+		'''
+		Given a functionPattern to test for, sourcecode before the block, and sourcecode within the block,
+		try to generate a new function which will be placed within a group
+
+		'''
+
+		#We are looking for a function name
+		#Start by limiting the search area to that inbetween the last closed bracket and here
+		#Then, try to match the pattern
 		lastBracket = preBlockSource.sourceString.rfind('}')
 		if lastBracket == -1:
 			lastBracket = 0
-		match = pattern.match(preBlockSource.sourceString[lastBracket:])
+		match = pattern['pattern'].match(preBlockSource.sourceString[lastBracket:])
+
+		#If we found a match, generate a group (and the node implicitly)
 		if match:
-			if isAnon:
+
+			#name the function
+			if pattern['type']=='anonFunction':
 				name = "(anon)"
 			else:
 				name = match.group(1)
 
-			'''
+			#pdb.set_trace()
+
+			#determine what group to attach this to.
+			#if there was a dot in the namespace, we might need to attach this to something other than the group it was defined within
+			attachTo = self
 			if '.' in name:
-				namespace, name = rsplit('.',1)
-				if namespace not in self.getNamespaces():
-			'''
+				#pdb.set_trace()
+				namespace, name = name.rsplit('.',1)
+				group = self.findNamespace(namespace,self)
+				if group:
+					attachTo = group
+
+
 
 			definitionString = match.group(0)
 			lineNumber = preBlockSource.getLineNumber(match.start(0)+lastBracket)
-			print preBlockSource,name
 			#pdb.set_trace()
-			return Group(name=name,source=blockSource,definitionString=definitionString,parent=self,lineNumber=lineNumber,isFunction=isFunction,isAnon=isAnon)
+			return Group(
+				name=name
+				,source=blockSource
+				,definitionString=definitionString
+				,parent=attachTo
+				,lineNumber=lineNumber
+				,isFunction=pattern['type'] in ('function','anonFunction')
+				,isAnon=pattern['type'] == 'anonFunction')
+
 		return None
 
 	def trimGroups(self):
@@ -274,8 +340,6 @@ class Group(Group):
 					continue
 			savedSubgroups.append(group)
 		self.subgroups = savedSubgroups
-
-
 
 	def generateNewObjectPattern(self):
 		return re.compile(r'new\s+%s\s*\('%self.name)

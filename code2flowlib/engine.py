@@ -82,9 +82,9 @@ class Node(object):
 
 	def generateNamespacePatterns(self):
 		return [
-			re.compile(r"\W%s\.%s\s*\("%(self.getNamespace(),self.name))
-			,re.compile(r"\Wwindow\.%s\.%s\s*\("%(self.getNamespace(),self.name))
+			re.compile(r"\W%s\s*\("%(self.getFullName()))
 			]
+
 
 	def getFileGroup(self):
 		return self.parent.getFileGroup()
@@ -102,7 +102,11 @@ class Node(object):
 
 
 	def getFullName(self):
+		#if self.isSource():
+		#	return self.name
+		#lse:
 		return self.getNamespace()+'.'+self.name if self.getNamespace() else self.name
+
 
 
 	def contains(self,other):
@@ -206,6 +210,7 @@ class Group(object):
 		'''
 		__str__ is for printing to the DOT file
 		'''
+		#pdb.set_trace()
 		ret = 'subgraph '+self.getUID()
 		ret += '{\n'
 		if self.nodes:
@@ -232,7 +237,7 @@ class Group(object):
 			else:
 				raise Exception()
 		except:
-			return 'cluster'+self.name.replace('/','').replace('.','').replace('-','')+str(self.uid)
+			return 'cluster'+re.sub(r"[/\.\-\(\)\s]",'',self.name)+str(self.uid)
 
 	def generateNodes(self):
 		'''

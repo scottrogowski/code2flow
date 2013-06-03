@@ -75,14 +75,16 @@ Limitations
 
 Code2flow is meant to provide a reasonable conjecture of the structure of simple projects and has many known limitations.
 
-* Objects and functions in arrays are not handled correctly
+* Arrays of functions are not handled
 * The logic for whether or not a function returns is simply looking for 'return' in that function
-* Functions not declared in the initial class definitions (e.g. attached later) are not handled
-* Dynamically generated and lambda functions are not handled
-* Those functions inherited from a parent class are not handled
+* Functions not declared in the initial class/object definitions (e.g. attached later) are mostly not handled
+* Dynamically generated and lambda functions are mostly not handled
+* In python, functions inherited from a parent class are not handled
 * In python, import ... as ... is not handled correctly
 * In javascript, prototypes will result in unpredictable results
 * And so so so many more
+
+Basically, YOU WILL FIND BUGS!
 
 Feature / Language Requests
 ----------------
