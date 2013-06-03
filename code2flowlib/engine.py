@@ -92,6 +92,8 @@ class Node(object):
 	def getFileName(self):
 		return self.parent.getFileName()
 
+	def getNamespace(self):
+		return self.parent.getNamespace()
 
 
 	def determineNodeType(self):
