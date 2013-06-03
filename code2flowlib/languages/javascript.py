@@ -162,7 +162,7 @@ class Group(Group):
 			find the next block to handle
 
 			'''
-			closeBracket = groupFrameSource.endDelimPos(openBracket+1)
+			closeBracket = groupFrameSource.matchingBracketPos(openBracket)
 			if closeBracket == -1:
 				closeBracket = len(groupFrameSource) #TODO this is bad...
 				#pdb.set_trace()
@@ -415,7 +415,7 @@ class Group(Group):
 
 		nodes = [node]
 		start = bracketPos
-		end = self.source.endDelimPos(start+1,'{','}')
+		end = self.source.matchingBracketPos(start)
 		pdb.set_trace()
 
 		print match.group(0)

@@ -54,7 +54,6 @@ from subprocess import call
 
 import code, traceback, signal
 
-DEBUG = True
 
 def debug(sig, frame):
     """Interrupt running process, and provide a python prompt for
@@ -89,8 +88,6 @@ SUPPORTED_LANGUAGES = {'js':'javascript','py':'python'}
 
 if __name__ == "__main__":
 
-
-
 	if not isInstalled('dot'):
 		print "You must have graphviz (specifically dot) installed to run code2flow"
 		sys.exit(1)
@@ -98,7 +95,7 @@ if __name__ == "__main__":
 	cli = argparse.ArgumentParser(description="See flow charts of your source code.\n\rThis EXPERIMENTAL script is useful for documentation and code refactoring in simple projects")
 	cli.add_argument('files', metavar='files', nargs='+', help='The source file you are trying to graph. Currently, only handles python and javascript') #
 	cli.add_argument('-o','--outfile', dest='outfile',help='Filetype can be dot, gv, png, ps, svg, etc. Default is `out.png`',default='out.png')
-	cli.add_argument('--sourcefiletype', dest='sourcefiletype',default=None)
+	cli.add_argument('--language', dest='language',default=None)
 	cli.add_argument('--hidelegend', dest='hidelegend',action='store_true',default=False)
 	#cli.add_argument('-v','--verbose', dest='verbose',action='store_true',default=False)
 	cli.add_argument('-d','--debug', dest='debug',action='store_true',default=False)
@@ -106,35 +103,38 @@ if __name__ == "__main__":
 
 	args = cli.parse_args()
 
-	DEBUG = args.debug
+	#set debug for this and all imported modules
+	import __builtin__
+	__builtin__.DEBUG = args.debug
 
 	if DEBUG:
 		pprint.pprint(args)
 		listen()
 
 	#get all of the files in one list
-	if args.sourcefiletype:
-		sourcefiletype = args.sourcefiletype
+	if args.language:
+		language = args.language
 	else:
-		sourcefiletype = None
+		language = None
 	files = []
 	if DEBUG:
-		print sourcefiletype
+		print language
+
 	def handleFile(fileString,forceAppend=False):
 		'''
-		Figure out the sourcefiletype and if it is okay, attach the file to the files array
+		Figure out the language and if it is okay, attach the file to the files array
 		'''
-		global sourcefiletype
+		global language
 		global files
 
-		#set the sourcefiletype if not set
-		if not sourcefiletype:
-			sourcefiletype = fileString[fileString.rfind('.')+1:]
-			if sourcefiletype not in SUPPORTED_LANGUAGES and not forceAppend:
+		#set the language if not set
+		if not language:
+			language = fileString[fileString.rfind('.')+1:]
+			if language not in SUPPORTED_LANGUAGES and not forceAppend:
 				raise Exception("File not supported")
 
-		#if the file is part of the sourcefiletype we are using, append it
-		if forceAppend or fileString[-1*len(sourcefiletype):]==sourcefiletype:
+		#if the file is part of the language we are using, append it
+		if forceAppend or fileString[-1*len(language):]==language:
 			files.append(fileString)
 
 	#loop through arguments appending all files to the list
@@ -148,14 +148,16 @@ if __name__ == "__main__":
 	#import the module specific to the source language
 	#these modules are superclasses of the engine.py base classes
 
-	if sourcefiletype == 'js':
+	if language == 'js':
 		import code2flowlib.languages.javascript as implementation
-	elif sourcefiletype == 'py':
+	elif language == 'py':
 		import code2flowlib.languages.python as implementation
+	else:
+		raise Exception("The filetype you passed is not yet supported. To force execution, use the --language option")
 
 
-	#do the mapping
 
+	#Do the mapping (a lot happens here)
 	mapper = implementation.Mapper(implementation,files)
 	groups,nodes,edges = mapper.map()
 

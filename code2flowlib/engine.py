@@ -19,8 +19,6 @@ import pprint
 
 from nesting import *
 
-DEBUG = True
-
 currentUID = 0
 
 
@@ -356,7 +354,7 @@ class SourceCode(object):
 
 	def __init__(self,sourceString,parentName='',characterToLineMap=None):
 		'''
-		Remove the comments and build the linenumber/file mapping whild doing so
+		Remove the comments and build the linenumber/file mapping while doing so
 		'''
 		self.sourceString = sourceString
 		self.parentName = parentName
@@ -367,6 +365,7 @@ class SourceCode(object):
 			self.characterToLineMap = {}
 
 			self.removeCommentsAndStrings()
+			pdb.set_trace()
 
 			if DEBUG:
 				#print 'REMOVED COMMENTS',self
@@ -382,12 +381,18 @@ class SourceCode(object):
 	def __getitem__(self,sl):
 		'''
 		If sliced, return a new object with the sourceString and the characterToLineMap sliced by [firstChar:lastChar]
+
+		1. Slice the source string in the obvious way.
+		2. Slice the charactertolinemap
+			a. Remove character mappings that are not in between where we are shifting to
+			b. Take remaining characterPositions and shift them over by start shift
+
 		'''
 		if type(sl) == int:
 			return self.sourceString[sl]
 
 		if type(sl) != slice:
-			raise Exception("Slice not passed?")
+			raise Exception("Slice was not passed")
 
 		if sl.step and (sl.start or sl.stop):
 			raise Exception("Sourcecode slicing does not support the step attribute (e.g. source[from:to:step] is not supported)")
@@ -411,22 +416,28 @@ class SourceCode(object):
 
 		ret.sourceString = ret.sourceString[start:stop]
 
-		#print 'new source',ret.sourceString
-
-		#update the chacter positions of the line breaks up to the end of the source
+		#filter out character mapping we won't be using
 		shiftedCharacterToLineMap = {}
 		characterPositions = ret.characterToLineMap.keys()
-		characterPositions = filter(lambda p: p>=start and p<stop,characterPositions)
+		characterPositions = filter(lambda p: p>=start and p<=stop,characterPositions)
+
+		#shift existing character mappings to reflect the new start position
+		#If we start with 0, no shifting will take place
 		for characterPosition in characterPositions:
 			shiftedCharacterToLineMap[characterPosition-start] = ret.characterToLineMap[characterPosition]
 
-		if 0 not in shiftedCharacterToLineMap:
-			shiftedCharacterToLineMap[0] = self.getLineNumber(start)
+		#we need this to be sure that we can always get the line number no matter where we splice
+		shiftedCharacterToLineMap[0] = self.getLineNumber(start)
 
 		ret.characterToLineMap = shiftedCharacterToLineMap
 		return ret
 
 	def __add__(self,other):
+		'''
+		Add two pieces of sourcecode together shifting the character to line map appropriately
+		'''
+
+		#If one operand is nothing, just return the value of this operand
 		if not other:
 			return copy.deepcopy(self)
 
@@ -473,6 +484,7 @@ class SourceCode(object):
 		ret = self[bracketPos+1:endBracketPos]
 		#pdb.set_trace()
 		return ret
+
 	def remove(self,stringToRemove):
 		print 'Removing',stringToRemove
 
@@ -495,10 +507,17 @@ class SourceCode(object):
 		return self.sourceString.strip()!=''
 
 	def firstLineNumber(self):
-		return min(self.characterToLineMap.values())
+		try:
+			return min(self.characterToLineMap.values())
+		except ValueError:
+			raise Exception("Sourcecode has no line numbers")
 
 	def lastLineNumber(self):
-		return max(self.characterToLineMap.values())
+		try:
+			return max(self.characterToLineMap.values())
+		except ValueError:
+			raise Exception("Sourcecode has no line numbers")
+
 
 	def pop(self):
 		lastLinePos = self.sourceString.rfind('\n')
@@ -587,6 +606,18 @@ class SourceCode(object):
 		else:
 			return None
 
+	def matchingBracketPos(self,bracketPos):
+		delimiterA = self[bracketPos]
+		if delimiterA == '{':
+			delimiterB = '}'
+		else:
+			raise Exception('"%s" is not a known delimiter'%delimiterA)
+
+		if self.sourceString[bracketPos+1]==delimiterB:
+			return bracketPos + 1
+		else:
+			return self.endDelimPos(startAt=bracketPos+1,delimiterA=delimiterA,delimiterB=delimiterB)
+
 	def endDelimPos(self,startAt,delimiterA='{',delimiterB='}'):
 		delimSize = len(delimiterA)
 		if delimSize != len(delimiterB):
@@ -659,12 +690,6 @@ class SourceCode(object):
 			#check if the next characters are a block comment
 			#There are multiple types of block comments so we have to check them all
 			for blockComment in self.blockComments:
-				'''
-				if i==2981:
-					print originalString[i-10:i+10]
-					print originalString[i]
-					pdb.set_trace()
-				'''
 				if type(blockComment['start']) == str:
 					blockCommentLen = len(blockComment['start'])
 					if originalString[i:][:blockCommentLen] == blockComment['start']:
@@ -708,13 +733,14 @@ class SourceCode(object):
 			else:
 				#check if the next characters are an inline comment
 				if originalString[i:][:inlineCommentLen] == self.inlineComments:
-					#if so, find the end of the line and jog forward
-					i = originalString.find("\n",i+inlineCommentLen)
+					#if so, find the end of the line and jog forward. Add one to jog past the newline
+					i = originalString.find("\n",i+inlineCommentLen+1)
 
 					#if we didn't find the end of the line, that is the end of the file. Return
 					if i==-1:
 						return
-					lineCount += 1
+
+					#lineCount += 1
 				else:
 					#Otherwise, it is not a comment. Add to returnstr
 					self.sourceString += originalString[i]
