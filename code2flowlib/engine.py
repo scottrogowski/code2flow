@@ -216,8 +216,8 @@ class Group(object):
 		if self.nodes:
 			for node in self.nodes:
 				ret += node.getUID() + ' '
-				if node.isSource:
-					ret += ";{rank=source; %s}"%node.getUID()
+				#if node.isSource:
+				#	ret += ";{rank=source; %s}"%node.getUID()
 
 			ret += ';\n'
 		ret += 'label="%s";\n'%self.name;
