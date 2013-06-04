@@ -256,15 +256,34 @@ class Group(Group):
 
 		paths.append(relativePath)
 
+
+
 		#TODO there are probably more. We are getting
 		#import languagages.python
 		#but not
 		#import code2flow.languages.python
 		#but this will require knowing how far back we need to go
+
+		#TODO... what does this give us? Always seems blank
 		paths.append('.'.join(thisFullPathList[-2:-1]))
 
+		'''
 		if len(importerFullPathList) == 1 and len(thisFullPathList) == 1:
-			paths.append(thisFullPathList[-1])
+			fullPathList = thisFullPathList[-1]
+			paths.append(fullPathList)
+		'''
+
+		pathArray = os.path.realpath(self.getFileName()).split('/')[::-1]
+		buildPathList = pathArray[0]
+		pathArray = pathArray[1:]
+
+		paths.append(buildPathList)
+		for elem in pathArray:
+			if elem:
+				buildPathList = elem + '.' + buildPathList
+				paths.append(buildPathList)
+
+		#pdb.set_trace()
 
 		return paths
 

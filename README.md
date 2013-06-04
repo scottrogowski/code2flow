@@ -64,10 +64,15 @@ For example:
 code2flow mypythonfile.py -o myflow.jpeg
 ```
 
-Specify multiple files and even use *
+Specify multiple files, import directories, and even use *
 ```bash
-code2flow project/directory/*.py
+code2flow project/directory/*.js
 ```
+
+```bash
+code2flow project/directory --language js
+```
+
 
 Limitations
 -----------

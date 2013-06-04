@@ -8,7 +8,6 @@ Nodes:  which represent functions
 Edges:  which represent function calls
 '''
 
-import abc
 import copy
 import importlib
 import operator
