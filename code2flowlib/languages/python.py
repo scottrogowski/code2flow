@@ -91,9 +91,6 @@ class Node(Node):
 		if other.parent.parent:
 			importNamespace = importNamespace + '.' + other.parent.name if importNamespace else other.parent.name
 
-		if other.name == 'a':
-			pdb.set_trace()
-
 		#If the naive functionName (e.g. \Wmyfunc\( ) appears anywhere in this sourceString, check whether it is actually THAT function
 		match = other.pattern.search(self.source.sourceString)
 		if match:
