@@ -24,7 +24,7 @@ Installation
 Download, navigate to the directory, and run:
 
 ```bash
-sudo ./setup.py install
+sudo python setup.py install
 ```
 
 If you don't have it already, you will also have to install graphviz
