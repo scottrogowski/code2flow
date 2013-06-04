@@ -15,7 +15,6 @@ class Node(Node):
 		#window.any.namespace is exactly the same as any.namespace
 
 
-		print self.name," links to ",other.name,'?'
 		#if self.parent.name == "SourceCode":
 		#	pdb.set_trace()
 		#if other.parent.parent:
@@ -60,12 +59,22 @@ class SourceCode(SourceCode):
 	inlineComments = "//"
 
 class Group(Group):
+	globalFrameName = 'window'
+
+	PATTERNS = [
+		{'type':'function','pattern':re.compile(r".*?\Wfunction\s+(\w+)\s*\(.*?\)\s*\Z",re.DOTALL)}
+		,{'type':'function','pattern':re.compile(r".*?[^a-zA-Z0-9_\.]+([\w\.]+)\s*[\:\=]\s*function\s*\(.*?\)\s*\Z",re.DOTALL)}
+		,{'type':'object','pattern':re.compile(r".*?\W([\w\.]+)\s*\=\s*$",re.DOTALL)}
+		,{'type':'anonFunction','pattern':re.compile(r".*?\(\s*function\s*\(.*?\)\s*\Z",re.DOTALL)}
+		]
+
+	'''
 	REWORD = r"\(.*?\)(\w+[a-zA-Z])\W"
 	REWORDPATH = r"\S+"
 
 	REPARENTFUNCTION = r"\s+(\w+[a-zA-Z])\W"
-
-	globalFrameName = 'window'
+	ANON_OBJECT_PATTERN = re.compile(r".*?\(\s*$",re.DOTALL)
+	'''
 
 	def getNamespace(self):
 		if not self.parent or self.isAnon:
@@ -73,7 +82,6 @@ class Group(Group):
 		else:
 			namespace = self.parent.getNamespace()
 			if namespace:
-				#pdb.set_trace()
 				return namespace+'.'+self.name
 			else:
 				return self.name
@@ -81,109 +89,59 @@ class Group(Group):
 
 	def __init__(self,isFunction=True,isAnon=False,**kwargs):
 		'''
-		With javascript, we want to get the functions and then determine what block they are in
+		Generate a new group
 
-		Or
-
-		We could determine namespaces first and then functions. The problem is that it is difficult to determine what a block is in javascript
-
-		Blocks could be like
-		namespace = {
-			func 1 =
-			func 2 =
-			}
-
-		They could be functions in themselves like
-		namespace = function() {
-			func 1 =
-			func 2 = function
-			}
-
-		So, we could search for function definitions and then seek downwards building the namespace as we go
-
-		The problem is then, what is the difference between a group and a node in javascript?
-
-		When it turns out that a node is a group, we can just put that node into the group? That would probably work
-
-		Or, we could find all namespaces first and then determine which namespace a function is part of
-		That would involve building a javascript ast probably
-		function a() {}
-		a = {}
-		a = function() {}
-
-
-		New way to do this???
-		More like the python way at least and allows for multiple namespace levels
-
-
-		Slice to [:firstOpenBracket]
-
-		search end of slice for functions (can use $ regex)
-			if found:
-				Recursively create new functional group
-		else search end of slice for objects
-			Recursively create new group
-		else
-			pdbsettrace. There might be something else...
-
-		if functiontype: (filegroup is a functiontype)
-			create implicit node out of sliced
-
-		trim those groups with no descendents and no nodes. They are simple objects and out of the scope of this project
-		Those groups with only the implicit node will be deleted and the node will move to the parent group
-
-		We could search for
-
-		filegroup
+		Iteratively find blocks (objects and functions delimited by brackets) within this group and generate subgroups from them
+		If this is a functional group (can call functions and is not a simple array)
+		, remove the subgroups found from the sourcecode and use those to generate the implicit node
 		'''
 
 		super(Group,self).__init__(**kwargs)
 		self.isAnon = isAnon
 
-		print
-		print
-		print self.source
-		print self.name
-		#pdb.set_trace()
+		blocksToRemove = []
 
-
-		groupFrameSource = self.source[0:len(self.source.sourceString)]
+		groupFrameSource = self.source.copy()
 		openBracket = groupFrameSource.find('{')
 
 		while openBracket != -1:
 			'''
-			While we do have a block to handle:
+			While we do have a "next function/object" to handle:
 			* find the close bracket for this block
-			* extract the source of this block
-
-			* update our groupFrameSource which we will use later to build the implicit node
-			* generate the  new group
-
-			find the next block to handle
-
+			* extract the source of the block and the source immediately prior to this block
+			* generate a group from this source and the prior source
+			* if we managed to create a group, see below
 			'''
+
 			closeBracket = groupFrameSource.matchingBracketPos(openBracket)
 			if closeBracket == -1:
-				closeBracket = len(groupFrameSource) #TODO this is bad...
-				#pdb.set_trace()
-			#pdb.set_trace()
+				#TODO this seems bad...
+				print "Could not find closing bracket for open bracket on line %d in file %s"%(groupFrameSource.getLineNumber(openBracket),self.name)
+				print "You might have a syntax error. Setting closing bracket position to EOF"
+				closeBracket = len(groupFrameSource)
 
 			preBlockSource = groupFrameSource[:openBracket]
 			blockSource = groupFrameSource[openBracket+1:closeBracket]
 
 			newGroup = self.newGroupFromSources(preBlockSource,blockSource)
-			#print newGroup.name
-			#pdb.set_trace()
+
 			if newGroup:
+				'''
+				If we did manage to generate a group
+				'''
 				if not (newGroup.isAnon and len(newGroup.nodes)==1 and newGroup.nodes[0].name==newGroup.name):
 
 					#append the newgroup to it's parent which will usually be self.
 					#it might not be however if the group was defined like window.funcName =
 					newGroup.parent.subgroups.append(newGroup)
 
+					blocksToRemove.append(newGroup)
+
+					'''
 					postBlockSource = groupFrameSource[closeBracket:]
 					groupFrameSource = preBlockSource[:-1*len(newGroup.definitionString)] + postBlockSource
 					closeBracket = closeBracket-len(blockSource)-len(newGroup.definitionString)
+					'''
 				elif newGroup.subgroups:
 					for group in newGroup.subgroups:
 						if group.parent == newGroup:
@@ -191,10 +149,12 @@ class Group(Group):
 
 						group.parent.subgroups.append(group)
 
+					blocksToRemove.append(newGroup)
+					'''
 					postBlockSource = groupFrameSource[closeBracket:]
 					groupFrameSource = preBlockSource[:-1*len(newGroup.definitionString)] + postBlockSource
 					closeBracket = closeBracket-len(blockSource)-len(newGroup.definitionString)
-
+					'''
 
 
 			openBracket = groupFrameSource.find('{',closeBracket)
@@ -213,29 +173,22 @@ class Group(Group):
 			self.nodes.append(newNode)
 
 
-	PATTERNS = [
-		{'type':'function','pattern':re.compile(r".*?\Wfunction\s+(\w+)\s*\(.*?\)\s*\Z",re.DOTALL)}
-		,{'type':'function','pattern':re.compile(r".*?[^a-zA-Z0-9_\.]+([\w\.]+)\s*[\:\=]\s*function\s*\(.*?\)\s*\Z",re.DOTALL)}
-		,{'type':'object','pattern':re.compile(r".*?\W([\w\.]+)\s*\=\s*$",re.DOTALL)}
-		,{'type':'anonFunction','pattern':re.compile(r".*?\(\s*function\s*\(.*?\)\s*\Z",re.DOTALL)}
-		]
-
-
-	ANON_OBJECT_PATTERN = re.compile(r".*?\(\s*$",re.DOTALL)
 
 
 
 	def newGroupFromSources(self,preBlockSource,blockSource):
+
 		for pattern in self.PATTERNS:
 			newGroup = self.newGroupFromSourcesAndPattern(preBlockSource,blockSource,pattern)
 			if newGroup:
 				return newGroup
 
 		#	return None
-		print
-		print
-		print preBlockSource.sourceString[-100:]
-		print 'what is this?'
+		if DEBUG:
+			print
+			print
+			print preBlockSource.sourceString[-100:]
+			print 'what is this?'
 		#pdb.set_trace()
 		return None
 
@@ -320,9 +273,10 @@ class Group(Group):
 		return None
 
 	def trimGroups(self):
-		print self.name,
-		print map(lambda x:x.name,self.subgroups)
-		#pdb.set_trace()
+		if DEBUG:
+			print self.name,
+			print map(lambda x:x.name,self.subgroups)
+
 		savedSubgroups = []
 
 		for group in self.subgroups:
@@ -418,8 +372,6 @@ class Group(Group):
 		end = self.source.matchingBracketPos(start)
 		pdb.set_trace()
 
-		print match.group(0)
-
 		return Group(name=name,source=self.source[start:end],definitionString=match.group(0)[::-1])
 
 
@@ -437,75 +389,10 @@ class Mapper(Mapper):
 	#appendedMethodPatterd = re.compile(r"[^a-zA-Z0-9_\.]+(\w+)\.(\w+)\s*\=\s*function\s*",re.MULTILINE|re.DOTALL)
 
 	def generateFileGroup(self,name,source):
+		'''
+		OVERWRITES PARENT
+
+		Generate a group for the file. This will be a function group (isFunction=True)
+		A function group can possibly call other groups.
+		'''
 		return Group(name=name,source=source,isFunction=True)
-	'''
-	def map(self):
-
-
-		for baseObject in ('document','navigator'):
-			groups.append(Group(baseObject))
-
-		#Find all the defined global functions in the file
-		functionMatches = self.functionPattern.finditer(self.fileAsString)
-
-		#Create the node for each global function
-		for functionMatch in functionMatches:
-			nodes.append(self.generateNode(functionMatch,self.fileAsString))
-
-		#Find all methods
-		methodMatches = self.methodPattern.finditer(self.fileAsString)
-
-		#Create the node for each matched method
-		for methodMatch in methodMatches:
-			node = self.generateNode(methodMatch,self.fileAsString)
-			for group in groups:
-				if group.insideGroup(methodMatch.start(1)):
-					print 'inside group'
-					group.addNode(node)
-					matchedGroup = group
-					break
-			else:
-				print 'new group'
-				obp = openBracketPos(self.fileAsString,methodMatch.start(1))
-				matchedGroup = self.generateGroup(obp,self.fileAsString,node)
-				if matchedGroup and matchedGroup.validObj and matchedGroup.name not in map(lambda x: x.name,groups):
-					groups.append(matchedGroup)
-			if matchedGroup and matchedGroup.validObj:
-				nodes.append(node)
-				node.setGroup(matchedGroup)
-
-
-		#Find all anonymous functions
-		anonymousMatches = self.anonymousFunctionPattern.finditer(self.fileAsString)
-		#pdb.set_trace()
-
-		for anonMatch in anonymousMatches:
-			#pdb.set_trace()
-			node = self.generateNode(anonMatch,self.fileAsString,nodeType="anonymous")
-			obp = openBracketPos(self.fileAsString,anonMatch.start(0))
-
-			#if this is not the LAST open bracket position, let this go for now
-			#it is not worth adding little anon functions from jquery
-			#conceptually, these are not even part of the jquery functions but the larger encompassing function
-			if openBracketPos(self.fileAsString,obp-1) > 0:
-				continue
-
-			reversePool = self.fileAsString[:obp][::-1]
-			try:
-				parentName = re.match(self.REWORD,reversePool).group(1)[::-1]
-			except AttributeError:
-				#this happens if we could not find a parent name. If we could not, then pass
-				parentName = "(anonymous wrapped function)"
-
-
-			#pdb.set_trace()
-			parentNode = Node(name=parentName,content='',lineNumber=self.getLineNumber(obp))
-
-			nodes.append(node)
-			nodes.append(parentNode)
-			#edges.append(Edge(parentNode,node))
-
-
-		#TODO self.appendedMethodPattern
-		self.generateEdges()
-	'''

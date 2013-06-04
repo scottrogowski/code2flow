@@ -29,8 +29,11 @@ def generateEdges(nodes):
 	edges = []
 	for node0 in nodes:
 		for node1 in nodes:
+			if DEBUG:
+				print '"%s" links to "%s"?'%(self.name,other.name)
 			if node0 != node1 and node0.linksTo(node1):
-				print "yes"
+				if DEBUG:
+					print "Edge created"
 				edges.append(Edge(node0,node1))
 	return edges
 
@@ -302,7 +305,7 @@ class Group(object):
 	def generateImplicitNodeName(self,name=''):
 		if not name:
 			name = self.name
-		return "(%s %s frame | runs on import)"%(name,self.globalFrameName)
+		return "(%s %s frame (runs on import))"%(name,self.globalFrameName)
 
 	def generateImplicitNodeSource(self):
 		'''
@@ -365,7 +368,6 @@ class SourceCode(object):
 			self.characterToLineMap = {}
 
 			self.removeCommentsAndStrings()
-			pdb.set_trace()
 
 			if DEBUG:
 				#print 'REMOVED COMMENTS',self
@@ -412,7 +414,7 @@ class SourceCode(object):
 		else:
 			stop = sl.stop
 
-		ret = copy.deepcopy(self)
+		ret = self.copy()
 
 		ret.sourceString = ret.sourceString[start:stop]
 
@@ -439,7 +441,7 @@ class SourceCode(object):
 
 		#If one operand is nothing, just return the value of this operand
 		if not other:
-			return copy.deepcopy(self)
+			return self.copy()
 
 		if self.lastLineNumber()>other.firstLineNumber():
 			raise Exception("When adding two pieces of sourcecode, the second piece must be completely after the first as far as line numbers go")
@@ -459,7 +461,7 @@ class SourceCode(object):
 
 	def __sub__(self,other):
 		if not other:
-			return copy.deepcopy(self)
+			return self.copy()
 
 		if self.firstLineNumber()>other.firstLineNumber() or self.lastLineNumber()<other.lastLineNumber():
 			pdb.set_trace()
@@ -478,6 +480,9 @@ class SourceCode(object):
 		secondPart = self[lastPos:]
 
 		return firstPart+secondPart
+
+	def copy(self):
+		return copy.deepcopy(self)
 
 	def getSourceInBlock(self,bracketPos):
 		endBracketPos = self.endDelimPos(bracketPos)
@@ -666,10 +671,10 @@ class SourceCode(object):
 		Character by character, add those characters which are not part of comments to the return string
 		Also generate an array of line number beginnings
 		'''
-		if self.parentName:
-			print "Removing comments and strings from %s..."%self.parentName
-		else:
-			print "Removing comments and strings..."
+		#if self.parentName:
+		#	print "Removing comments and strings from %s..."%self.parentName
+		#else:
+		print "Removing comments and strings..."
 
 
 		originalString = self.sourceString
@@ -780,37 +785,45 @@ class Mapper(object):
 
 
 	def map(self):
-		#for module in self.modules:
-		#	self.modules[module],characterToLineMap = self.removeComments(self.modules[module])
+		'''
+		I. For each file passed,
+			1. Generate the sourcecode for that file
+			2. Generate a group from that file's sourcecode
+				a. The group init will recursively generate all of the subgroups and function nodes for that file
+		II.  Trim the groups bascially removing those which have no function nodes
+		III. Generate the edges
+		IV.  Return the file groups, function nodes, and edges
+		'''
+
 		#get the filename and the fileString
 		#only first file for now
 		nodes = []
 		fileGroups = []
 		for filename,fileString in self.files.items():
-			#import ast
-			#import astpp
-			#a=ast.parse(fileString)
-			#print astpp.dump(a)
-
 			#remove .py from filename
 			filename = self.cleanFilename(filename)
+			print "Mapping %s"%filename
 
-			#Create all of the subgroups (classes) and nodes (functions) for this group
+			#generate sourcecode (remove comments and add line numbers)
 			source = SourceCode(fileString,parentName=filename)
 
-			print "Generating nodes for %s"%filename
+			#Create all of the subgroups (classes) and nodes (functions) for this file
+			print "Generating function nodes..."
 			fileGroup = self.generateFileGroup(name=filename,source=source)
 			fileGroups.append(fileGroup)
 
-			#globalNamespace.generateNodes()
+			#Append nodes generated to all nodes
 			nodes += fileGroup.allNodes()
 
+		#Trimming the groups mostly removes those groups with no function nodes
 		for group in fileGroups:
 			group.trimGroups()
 
-		print "Generating edges"
+		#Figure out what functions map to what
+		print "Generating edges..."
 		edges = generateEdges(nodes)
 
+		#return everything we have done
 		return fileGroups,nodes,edges
 
 	def generateFileGroup(self,name,source):

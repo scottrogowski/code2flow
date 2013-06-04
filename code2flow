@@ -42,6 +42,7 @@ With content, we must pass along objects with filestrings
 
 '''
 
+import __builtin__
 import argparse
 import os
 import pdb
@@ -104,10 +105,11 @@ if __name__ == "__main__":
 	args = cli.parse_args()
 
 	#set debug for this and all imported modules
-	import __builtin__
 	__builtin__.DEBUG = args.debug
 
 	if DEBUG:
+		print 'wtf'
+		pdb.set_trace()
 		pprint.pprint(args)
 		listen()
 
@@ -147,15 +149,12 @@ if __name__ == "__main__":
 
 	#import the module specific to the source language
 	#these modules are superclasses of the engine.py base classes
-
 	if language == 'js':
 		import code2flowlib.languages.javascript as implementation
 	elif language == 'py':
 		import code2flowlib.languages.python as implementation
 	else:
-		raise Exception("The filetype you passed is not yet supported. To force execution, use the --language option")
-
-
+		raise Exception("The file type you passed is not yet supported")
 
 	#Do the mapping (a lot happens here)
 	mapper = implementation.Mapper(implementation,files)
