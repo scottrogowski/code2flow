@@ -20,7 +20,7 @@ class SourceCode(SourceCode):
 		]
 	inlineComments = "#"
 
-	def getSourceInBlock(self,colonPos):
+	def getSourceInBlock(self,colonPos,fullSource=False):
 		indent = getIndent(colonPos,self.sourceString)
 
 		endPos = colonPos
@@ -31,7 +31,17 @@ class SourceCode(SourceCode):
 				endPos += len(line)+1 #+1 for the newlines lost
 			else:
 				break
-		return self[colonPos+1:endPos] #+1 to start beyond colonPos
+
+		if fullSource:
+			startPos = self.sourceString.rfind('\n',0,colonPos)
+			if startPos == -1:
+				startPos = 0
+			else:
+				startPos += 1
+		else:
+			startPos = colonPos+1
+
+		return self[startPos:endPos] #+1 to start beyond colonPos
 
 
 class Node(Node):
@@ -58,7 +68,6 @@ class Node(Node):
 
 
 	def linksTo(self,other):
-		#print self.name," links to ",other.name,'?'
 
 		importNamespace = ''
 
@@ -67,7 +76,7 @@ class Node(Node):
 			importPaths = other.parent.getImportPaths(self.getFileName())
 
 			for importPath in importPaths:
-				regularImport = re.compile(r"^import\s%s\s*$"%re.escape(importPath),re.MULTILINE)
+				regularImport = re.compile(r"^import\s+%s\s*$"%re.escape(importPath),re.MULTILINE)
 				complexImport = re.compile('^from\s%s\simport\s(?:\*|(?:.*?\W%s\W.*?))\s*$'%(re.escape(importPath),re.escape(other.name)),re.MULTILINE)
 				#print importPath
 				#print self.parent.getFileGroup().name
@@ -79,7 +88,11 @@ class Node(Node):
 			else:
 				return False
 
-			#namespacePrefix =
+		if other.parent.parent:
+			importNamespace = importNamespace + '.' + other.parent.name if importNamespace else other.parent.name
+
+		if other.name == 'a':
+			pdb.set_trace()
 
 		#If the naive functionName (e.g. \Wmyfunc\( ) appears anywhere in this sourceString, check whether it is actually THAT function
 		match = other.pattern.search(self.source.sourceString)
@@ -92,7 +105,7 @@ class Node(Node):
 				return True
 
 			#if the other is part of a namespace and we are looking for a namspace
-			if other.parent.parent and hasDot:
+			if hasDot:
 
 				#try finding the namespace of the called object
 				try:
@@ -105,7 +118,7 @@ class Node(Node):
 					namespace = None
 
 				#If the namespaces are the same, that is a match
-				if namespace == importNamespace + other.name and self.getFileGroup() == other.getFileGroup():
+				if namespace == importNamespace:# and self.getFileGroup() == other.getFileGroup(): #+ other.name
 					return True
 
 				#if they are part of the same namespace, we can check for the 'self' keyword
@@ -142,13 +155,17 @@ class Group(Group):
 
 		super(Group,self).__init__(**kwargs)
 
-		if not self.parent:
-			indent = ''
+		#If this is the root node, set indent to nothing
+		#if not self.parent:
+		#	self.indent = ''
 
+		#with the indent set, we can now generate nodes
 		self.generateNodes()
+
+		#If this is the root node, continue generating subgroups and nodes
 		if not self.parent:
 			self.generateSubgroups()
-			self.nodes.append(self.generateImplicitNode())
+			self.nodes.append(self.generateRootNode())
 
 
 	def generateFunctionPatterns(self):
@@ -168,8 +185,9 @@ class Group(Group):
 			colonPos = classMatch.end(0)
 			indent = getIndent(colonPos=colonPos,sourceString=self.source.sourceString)
 			source = self.source.getSourceInBlock(colonPos=colonPos)
+			fullSource = self.source.getSourceInBlock(colonPos=colonPos,fullSource=True)
 			lineNumber = self.source.getLineNumber(colonPos)
-			classGroup = Group(name=name,definitionString=definitionString,indent=indent,source=source,parent=self,lineNumber=lineNumber)
+			classGroup = Group(name=name,definitionString=definitionString,indent=indent,source=source,fullSource=fullSource,parent=self,lineNumber=lineNumber)
 			self.subgroups.append(classGroup)
 
 
@@ -179,10 +197,33 @@ class Group(Group):
 	def generateNewObjectAssignedPattern(self):
 		return re.compile(r'(\w)\s*=\s*%s\s*\('%self.name)
 
-	def generateImplicitNode(self):
-		name = self.generateImplicitNodeName()
+	def generateRootNode(self):
+		name = self.generateRootNodeName()
 		source = self.generateImplicitNodeSource()
 		return Node(name=name,definitionString=None,source=source,parent=self) #isImplicit=True
+
+
+	def generateImplicitNodeSource(self):
+		'''
+		Find all of the code not in any subnode, string it together, and return it as the implicit node
+		'''
+
+		source = self.source.copy()
+		for node in self.nodes:
+			source -= node.fullSource
+
+			#source =source.remove(node.definitionString)
+
+		for group in self.subgroups:
+			source -= group.fullSource
+			'''
+			source.remove(group.source.sourceString)
+			if group.definitionString:
+				#print group.definitionString
+
+				source = source.remove(group.definitionString)
+			'''
+		return source
 
 	def getImportPaths(self,importerFilename):
 		'''

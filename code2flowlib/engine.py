@@ -21,7 +21,6 @@ from nesting import *
 
 currentUID = 0
 
-
 def generateEdges(nodes):
 	'''
 	When a function calls another function, that is an edge
@@ -30,8 +29,8 @@ def generateEdges(nodes):
 	for node0 in nodes:
 		for node1 in nodes:
 			if DEBUG:
-				print '"%s" links to "%s"?'%(self.name,other.name)
-			if node0 != node1 and node0.linksTo(node1):
+				print '"%s" links to "%s"?'%(node0.name,node1.name)
+			if node0.linksTo(node1):
 				if DEBUG:
 					print "Edge created"
 				edges.append(Edge(node0,node1))
@@ -43,20 +42,21 @@ class Node(object):
 	'''
 	returnPattern = re.compile(r"\Wreturn\W",re.MULTILINE)
 
-	namespaceBeforeDotPattern = re.compile(r'[^\w\.]([\w\.]+)\.$',re.MULTILINE)
+	namespaceBeforeDotPattern = re.compile(r'(?:[^\w\.]|\A)([\w\.]+)\.$',re.MULTILINE)
 
-	def __init__(self,name,definitionString,source,parent,characterPos=0,lineNumber=0,isSource=False): #allow default characterPos, lineNumber for implicit nodes
+	def __init__(self,name,definitionString,source,parent,fullSource=None,characterPos=0,lineNumber=0,isFileRoot=False): #allow default characterPos, lineNumber for implicit nodes
 		#basic vars
 		self.name = name
 		self.definitionString = definitionString
 		self.source = source
+		self.fullSource=fullSource or source
 		self.parent = parent
 		self.characterPos = characterPos
 		self.lineNumber = lineNumber #The line number the definition is on
-		self.isSource = isSource
+		self.isFileRoot = isFileRoot
 
 		#generate the name patterns for other nodes to search for this one
-		self.pattern = re.compile(r"\W(%s)\s*\("%self.name,re.MULTILINE)  # The name pattern which is found by others eg. node()
+		self.pattern = re.compile(r"(?:\W|\A)(%s)\s*\("%self.name,re.MULTILINE)  # The name pattern which is found by others eg. node()
 
 		self.determineNodeType() # Init node, etc.
 
@@ -79,11 +79,11 @@ class Node(object):
 
 
 	def generateSameScopePatterns(self):
-		return [re.compile(r"\W%s\.%s\s*\("%(self.sameScopeKeyword,self.name))]
+		return [re.compile(r"(?:\W|\A)%s\.%s\s*\("%(self.sameScopeKeyword,self.name),re.MULTILINE|re.DOTALL)]
 
 	def generateNamespacePatterns(self):
 		return [
-			re.compile(r"\W%s\s*\("%(self.getFullName()))
+			re.compile(r"(?:\W|\A)%s\s*\("%(self.getFullName()),re.MULTILINE|re.DOTALL)
 			]
 
 
@@ -105,10 +105,14 @@ class Node(object):
 
 
 	def getFullName(self):
-		#if self.isSource():
+		#if self.isFileRoot():
 		#	return self.name
 		#lse:
-		return self.getNamespace()+'.'+self.name if self.getNamespace() else self.name
+		namespace = self.getNamespace()
+		if '/' in namespace:
+			namespace = namespace.rsplit('/',1)[1]
+
+		return namespace+'.'+self.name if namespace else self.name
 
 
 
@@ -186,10 +190,11 @@ class Group(object):
 	Groups represent namespaces
 	'''
 
-	def __init__(self,name,source,definitionString='',parent=None,lineNumber=0,**kwargs):
+	def __init__(self,name,source,fullSource=None,definitionString='',parent=None,lineNumber=0,**kwargs):
 		self.name = name
 		self.definitionString = definitionString
 		self.source = source
+		self.fullSource = fullSource or source
 		self.parent = parent
 		self.lineNumber = lineNumber
 
@@ -219,7 +224,7 @@ class Group(object):
 		if self.nodes:
 			for node in self.nodes:
 				ret += node.getUID() + ' '
-				#if node.isSource:
+				#if node.isFileRoot:
 				#	ret += ";{rank=source; %s}"%node.getUID()
 
 			ret += ';\n'
@@ -298,34 +303,16 @@ class Group(object):
 		beginIdentifierPos = reMatch.start(1)
 
 		source = self.source.getSourceInBlock(newBlockDelimPos)
+		fullSource = self.source.getSourceInBlock(newBlockDelimPos,fullSource=True)
 		lineNumber = self.source.getLineNumber(beginIdentifierPos)
-		return Node(name=name,definitionString=definitionString,source=source,parent=self,characterPos=beginIdentifierPos,lineNumber=lineNumber)
+		return Node(name=name,definitionString=definitionString,source=source,fullSource=fullSource,parent=self,characterPos=beginIdentifierPos,lineNumber=lineNumber)
 
 
-	def generateImplicitNodeName(self,name=''):
+	def generateRootNodeName(self,name=''):
 		if not name:
 			name = self.name
 		return "(%s %s frame (runs on import))"%(name,self.globalFrameName)
 
-	def generateImplicitNodeSource(self):
-		'''
-		Find all of the code not in any subnode, string it together, and return it as the implicit node
-		'''
-
-		source = self.source
-		for node in self.nodes:
-			source.remove(node.source.sourceString)
-
-			source =source.remove(node.definitionString)
-
-		for group in self.subgroups:
-			source.remove(group.source.sourceString)
-			if group.definitionString:
-				#print group.definitionString
-
-				source = source.remove(group.definitionString)
-
-		return source
 
 	def trimGroups(self):
 		pass
@@ -399,9 +386,6 @@ class SourceCode(object):
 		if sl.step and (sl.start or sl.stop):
 			raise Exception("Sourcecode slicing does not support the step attribute (e.g. source[from:to:step] is not supported)")
 
-		if sl.start and sl.stop and sl.start>sl.stop:
-			raise Exception("Begin slice cannot be greater than end slice. You passed SourceCode[%d:%d]"%(sl.start,sl.stop))
-
 		if sl.start is None:
 			start = 0
 		else:
@@ -413,6 +397,9 @@ class SourceCode(object):
 			stop = len(self.sourceString)+sl.stop
 		else:
 			stop = sl.stop
+
+		if start>stop:
+			raise Exception("Begin slice cannot be greater than end slice. You passed SourceCode[%d:%d]"%(sl.start,sl.stop))
 
 		ret = self.copy()
 
@@ -470,7 +457,8 @@ class SourceCode(object):
 		firstPos = self.sourceString.find(other.sourceString)
 
 		if firstPos == -1:
-			raise
+			pdb.set_trace()
+			raise Exception('Could not subtract string starting with "%s" from source because string could not be found'%other.sourceString[:50].replace("\n","\\n"))
 
 		lastPos = firstPos + len(other.sourceString)
 
@@ -487,11 +475,11 @@ class SourceCode(object):
 	def getSourceInBlock(self,bracketPos):
 		endBracketPos = self.endDelimPos(bracketPos)
 		ret = self[bracketPos+1:endBracketPos]
-		#pdb.set_trace()
 		return ret
 
 	def remove(self,stringToRemove):
-		print 'Removing',stringToRemove
+		#if DEBUG:
+		#	print 'Removing',stringToRemove
 
 		firstPos = self.sourceString.find(stringToRemove)
 		if firstPos == -1:
@@ -554,7 +542,7 @@ class SourceCode(object):
 			except:
 				pos-=1
 				if pos < 0:
-					raise Exception("could not get line number!!!")
+					raise Exception("could not get line number for position %d"%pos)
 
 	def __str__(self):
 		'''
@@ -691,7 +679,6 @@ class SourceCode(object):
 		#begin analyzing charactes 1 by 1 until we reach the end of the originalString
 		#-blockCommentLen so that we don't go out of bounds
 		while i < len(originalString):
-			#print 'removing',i
 			#check if the next characters are a block comment
 			#There are multiple types of block comments so we have to check them all
 			for blockComment in self.blockComments:
@@ -835,6 +822,8 @@ class Mapper(object):
 	def cleanFilename(self,filename):
 		if '.' in filename:
 			filename = filename[:filename.rfind('.')]
+
+		#filename = filename.rsplit('/',1)[1]
 
 		return filename
 

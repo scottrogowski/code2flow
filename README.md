@@ -10,13 +10,13 @@ Code2flow is especially useful for untangling spaghetti code and getting new dev
 Code2flow is EXPERIMENTAL and meant to provide a **rough overview** of the structure of simple projects. Source code which is just a little esoteric will break this. Even with normal-people code, there are many known limitations (see below) as well as many outright bugs. **Expect MOST aspects of this application to change in future releases.**
 
 Here is what happens when you run it on the python calendar module
-![Alt text](example2.png)
+![Alt text](calendarexample.png)
 
 When you run it on code2flow/languages/python.py
-![Alt text](example.png)
+![Alt text](pythonexample.png)
 
 On jquery
-![Alt text](examplejs.png)
+![Alt text](jqueryexample.png)
 
 
 Installation

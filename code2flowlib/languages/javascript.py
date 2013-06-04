@@ -13,18 +13,14 @@ class Node(Node):
 		#Can either line in local scope using 'this' keyword
 		#Or can link in namespaced/global scope
 		#window.any.namespace is exactly the same as any.namespace
-
-
-		#if self.parent.name == "SourceCode":
-		#	pdb.set_trace()
-		#if other.parent.parent:
+		#TODO when a function is defined within another function, there is no need for self keyword
 
 		#if they are part of the same namespace, we can use the self keyword
 		if other.parent == self.parent:
 			if any(map(lambda pattern: pattern.search(self.source.sourceString), other.sameScopePatterns)):
 				return True
 
-		#if self.name == 'isAuthenticated':
+		#if other.name == 'c':
 		#	pdb.set_trace()
 
 		#Otherwise, they can always be linked by a shared namespace
@@ -32,11 +28,6 @@ class Node(Node):
 		if any(map(lambda pattern: pattern.search(self.source.sourceString), other.generateNamespacePatterns())):
 			return True
 
-
-		#else:
-		#	#if other is part of the global namespace, we just search for its pattern
-		#	if other.pattern.search(self.source.sourceString):
-		#		return True
 		return False
 
 	def getNamespace(self):
@@ -62,10 +53,10 @@ class Group(Group):
 	globalFrameName = 'window'
 
 	PATTERNS = [
-		{'type':'function','pattern':re.compile(r".*?\Wfunction\s+(\w+)\s*\(.*?\)\s*\Z",re.DOTALL)}
-		,{'type':'function','pattern':re.compile(r".*?[^a-zA-Z0-9_\.]+([\w\.]+)\s*[\:\=]\s*function\s*\(.*?\)\s*\Z",re.DOTALL)}
-		,{'type':'object','pattern':re.compile(r".*?\W([\w\.]+)\s*\=\s*$",re.DOTALL)}
-		,{'type':'anonFunction','pattern':re.compile(r".*?\(\s*function\s*\(.*?\)\s*\Z",re.DOTALL)}
+		{'type':'function','pattern':re.compile(r".*?\W(function\s+(\w+)\s*\(.*?\)\s*\Z)",re.DOTALL)}
+		,{'type':'function','pattern':re.compile(r".*?[^a-zA-Z0-9_\.]+(([\w\.]+)\s*[\:\=]\s*function\s*\(.*?\)\s*\Z)",re.DOTALL)}
+		,{'type':'object','pattern':re.compile(r".*?\W(([\w\.]+)\s*\=\s*\Z)",re.DOTALL)}
+		,{'type':'anonFunction','pattern':re.compile(r".*?\(\s*(function\s*\(.*?\)\s*\Z)",re.DOTALL)}
 		]
 
 	'''
@@ -94,6 +85,11 @@ class Group(Group):
 		Iteratively find blocks (objects and functions delimited by brackets) within this group and generate subgroups from them
 		If this is a functional group (can call functions and is not a simple array)
 		, remove the subgroups found from the sourcecode and use those to generate the implicit node
+
+		isFunction means the group is a regular function and has an implicit node
+		not isFunction would mean the group is an object meant for grouping like a = {b=function,c=function}
+
+		isAnon means the function has no name and is not likely to be called outside of this scope
 		'''
 
 		super(Group,self).__init__(**kwargs)
@@ -101,8 +97,7 @@ class Group(Group):
 
 		blocksToRemove = []
 
-		groupFrameSource = self.source.copy()
-		openBracket = groupFrameSource.find('{')
+		openBracket = self.source.find('{')
 
 		while openBracket != -1:
 			'''
@@ -113,90 +108,93 @@ class Group(Group):
 			* if we managed to create a group, see below
 			'''
 
-			closeBracket = groupFrameSource.matchingBracketPos(openBracket)
+			closeBracket = self.source.matchingBracketPos(openBracket)
 			if closeBracket == -1:
-				#TODO this seems bad...
-				print "Could not find closing bracket for open bracket on line %d in file %s"%(groupFrameSource.getLineNumber(openBracket),self.name)
+				print "Could not find closing bracket for open bracket on line %d in file %s"%(self.source.getLineNumber(openBracket),self.name)
 				print "You might have a syntax error. Setting closing bracket position to EOF"
-				closeBracket = len(groupFrameSource)
+				closeBracket = len(self.source)
 
-			preBlockSource = groupFrameSource[:openBracket]
-			blockSource = groupFrameSource[openBracket+1:closeBracket]
-
-			newGroup = self.newGroupFromSources(preBlockSource,blockSource)
+			#Try generating a new group
+			newGroup = self.newGroupFromBlock(openBracket,closeBracket)
 
 			if newGroup:
 				'''
-				If we did manage to generate a group
+				If we did manage to generate a group there are one of two options
+
+				A. The new group was not anonymous, and contained more than an implicit node
+				B. The new group was anonymous but had subgroups in which case we want those subgroups to be our subgroups
+
+				Either way:
+				1. push the newly created group to it's parent  which is probably us unless something like MainMap.blah = function happened
+				2. append this group to the groups we will later have to remove when generating the implicit node
 				'''
 				if not (newGroup.isAnon and len(newGroup.nodes)==1 and newGroup.nodes[0].name==newGroup.name):
-
-					#append the newgroup to it's parent which will usually be self.
-					#it might not be however if the group was defined like window.funcName =
-					newGroup.parent.subgroups.append(newGroup)
-
-					blocksToRemove.append(newGroup)
-
-					'''
-					postBlockSource = groupFrameSource[closeBracket:]
-					groupFrameSource = preBlockSource[:-1*len(newGroup.definitionString)] + postBlockSource
-					closeBracket = closeBracket-len(blockSource)-len(newGroup.definitionString)
-					'''
+						newGroup.parent.subgroups.append(newGroup)
+						blocksToRemove.append(newGroup)
 				elif newGroup.subgroups:
 					for group in newGroup.subgroups:
 						if group.parent == newGroup:
 							group.parent = self
-
 						group.parent.subgroups.append(group)
-
 					blocksToRemove.append(newGroup)
-					'''
-					postBlockSource = groupFrameSource[closeBracket:]
-					groupFrameSource = preBlockSource[:-1*len(newGroup.definitionString)] + postBlockSource
-					closeBracket = closeBracket-len(blockSource)-len(newGroup.definitionString)
-					'''
 
-
-			openBracket = groupFrameSource.find('{',closeBracket)
+			#get the next block to handle
+			openBracket = self.source.find('{',closeBracket)
 
 		if isFunction:
-			#if not self.parent:
-			#	pdb.set_trace()
+			'''
+			If this is a function, generate the implicit node for this group
+			'''
+
+			#Get source by subtracting all of the 'spoken for' blocks
+			source = self.source.copy()
+
+			for block in blocksToRemove:
+				source -= block.fullSource
+
+			#Depending on whether or not this is the file root (global frame)
+			#, set a flag and the node name
 			if self.parent:
-				isSource=False
+				isFileRoot=False
 				name = self.name
 			else:
-				isSource=True
-				name = self.generateImplicitNodeName(self.name.rsplit('/',1)[-1])
+				isFileRoot=True
+				name = self.generateRootNodeName(self.name.rsplit('/',1)[-1])
 
-			newNode = Node(name=name,source=groupFrameSource,definitionString=self.definitionString,parent=self,lineNumber=self.lineNumber,isSource=isSource)#isImplicit=True
+
+			#generate and append the node
+			newNode = Node(name=name,source=source,definitionString=self.definitionString,parent=self,lineNumber=self.lineNumber,isFileRoot=isFileRoot)#isImplicit=True
 			self.nodes.append(newNode)
 
 
 
 
 
-	def newGroupFromSources(self,preBlockSource,blockSource):
+	def newGroupFromBlock(self,openBracket,closeBracket):
+		'''
+		Using the sourcecode before the block, try generating a function using all of the patterns we know about
+		If we can generate it, return a new group with the sourcecode within the block
+		'''
+		preBlockSource = self.source[:openBracket]
+		blockSource = self.source[openBracket:closeBracket+1]
 
 		for pattern in self.PATTERNS:
 			newGroup = self.newGroupFromSourcesAndPattern(preBlockSource,blockSource,pattern)
 			if newGroup:
 				return newGroup
 
-		#	return None
 		if DEBUG:
-			print
-			print
+			print "===================="
 			print preBlockSource.sourceString[-100:]
 			print 'what is this?'
-		#pdb.set_trace()
+
 		return None
 
 
 	def generateNamespacePatterns(self):
 		return [
-			re.compile(r"\W%s\s*\("%(self.getFullName()))
-			,re.compile(r"\Wwindow\.%s\s*\("%(self.getFullName()))
+			re.compile(r"(?:\W|\A)%s\s*\("%(self.getFullName()))
+			,re.compile(r"(?:\W|\A)window\.%s\s*\("%(self.getFullName()))
 			]
 
 	def generateNamespaces(self):
@@ -223,7 +221,8 @@ class Group(Group):
 	def newGroupFromSourcesAndPattern(self,preBlockSource,blockSource,pattern):
 		'''
 		Given a functionPattern to test for, sourcecode before the block, and sourcecode within the block,
-		try to generate a new function which will be placed within a group
+		Try to generate a new group
+
 
 		'''
 
@@ -235,35 +234,33 @@ class Group(Group):
 			lastBracket = 0
 		match = pattern['pattern'].match(preBlockSource.sourceString[lastBracket:])
 
-		#If we found a match, generate a group (and the node implicitly)
+		#If we found a match, generate a group
 		if match:
-
 			#name the function
 			if pattern['type']=='anonFunction':
 				name = "(anon)"
 			else:
-				name = match.group(1)
-
-			#pdb.set_trace()
+				name = match.group(2)
 
 			#determine what group to attach this to.
 			#if there was a dot in the namespace, we might need to attach this to something other than the group it was defined within
 			attachTo = self
 			if '.' in name:
-				#pdb.set_trace()
 				namespace, name = name.rsplit('.',1)
 				group = self.findNamespace(namespace,self)
 				if group:
 					attachTo = group
 
+			#generate the definition and line number
+			definitionString = match.group(1)
+			lineNumber = preBlockSource.getLineNumber(match.start(1)+lastBracket)
+			fullSource = preBlockSource[lastBracket+match.start(1):]+blockSource
 
-
-			definitionString = match.group(0)
-			lineNumber = preBlockSource.getLineNumber(match.start(0)+lastBracket)
-			#pdb.set_trace()
+			#finally, generate the group
 			return Group(
 				name=name
-				,source=blockSource
+				,source=blockSource[1:-1] #source without the brackets
+				,fullSource=fullSource
 				,definitionString=definitionString
 				,parent=attachTo
 				,lineNumber=lineNumber
@@ -280,8 +277,6 @@ class Group(Group):
 		savedSubgroups = []
 
 		for group in self.subgroups:
-			#if group.name =='MainMap':
-			#	pdb.set_trace()
 			group.trimGroups()
 			if not group.subgroups:
 				if not group.nodes:
@@ -328,13 +323,10 @@ class Group(Group):
 			while self.source.sourceString[openDelimPos] == '(':
 				openDelimPos = self.source.openDelimPos(openDelimPos-1)
 		else:
-			pdb.set_trace()
 			print 'what is this?'
-		#print self.source.sourceString[openDelimPos]
-		#pdb.set_trace()
 
 
-
+	"""
 	#TODO return False was just to get past mootools errors
 	def generateGroup(self,bracketPos,node):
 		reversePool = self.source.sourceString[:bracketPos][::-1]
@@ -355,25 +347,21 @@ class Group(Group):
 			if match.group(1)=='function'[::-1]:
 				match = re.search(self.REWORD,reversePool[match.end(1):])
 		except:
-			pdb.set_trace()
 			return False
 
 		try:
 			name = match.group(1)[::-1]
 		except:
-			pdb.set_trace()
 			return False
 		'''
 
-		pdb.set_trace()
 
 		nodes = [node]
 		start = bracketPos
 		end = self.source.matchingBracketPos(start)
-		pdb.set_trace()
 
 		return Group(name=name,source=self.source[start:end],definitionString=match.group(0)[::-1])
-
+	"""
 
 
 class Mapper(Mapper):
@@ -395,4 +383,4 @@ class Mapper(Mapper):
 		Generate a group for the file. This will be a function group (isFunction=True)
 		A function group can possibly call other groups.
 		'''
-		return Group(name=name,source=source,isFunction=True)
+		return Group(name=name,source=source,fullSource=source,isFunction=True)

@@ -8,23 +8,6 @@ Then, with graphviz, open out.gv
 * Brown means trunk function (the function is called by no other function)
 * Inverted arrow means that the called function returns something (it might just be a boolean though)
 
-4/19 TODO:
-We want to add labels to functions because the names must be different otherwise they break graphviz
-
-Tokenize all functions by searching for the function keyword
-Can be:
-function a()
-a = function()
-a:function()
-
-Can also attach functions via
-s.a = function()
-
-Or can have anonymous functions which will be connected to whereever
-
-Determine their namespace immediately (only need to go one deep for now)
-0
-
 Group is the namespace
 group will contain function nodes and possibly subgroups
 There will be one global group to hold everything
@@ -37,8 +20,9 @@ Nodes are functions
 node will contain a parent pointer to the namespace
 Should also have an internal filestring of the content
 
-With content, we must pass along objects with filestrings
+Edges are function calls
 
+With content, we must pass along objects with filestrings
 
 '''
 
@@ -108,8 +92,6 @@ if __name__ == "__main__":
 	__builtin__.DEBUG = args.debug
 
 	if DEBUG:
-		print 'wtf'
-		pdb.set_trace()
 		pprint.pprint(args)
 		listen()
 
@@ -146,6 +128,8 @@ if __name__ == "__main__":
 		elif os.path.isdir(fil):
 			for fi in os.listdir(fil):
 				handleFile(fil)
+		else:
+			raise Exception('Could not find "%s"'%fil)
 
 	#import the module specific to the source language
 	#these modules are superclasses of the engine.py base classes
