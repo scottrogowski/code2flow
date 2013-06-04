@@ -156,6 +156,9 @@ class Node(object):
 
 		return ret
 
+	def isExtraneous(self,edges=None):
+		return False
+
 class Edge(object):
 	'''
 	Edges represent function calls
@@ -809,8 +812,18 @@ class Mapper(object):
 		print "Generating edges..."
 		edges = generateEdges(nodes)
 
+		#Trim off the nodes (mostly global-frame nodes that don't do anything)
+		finalNodes = []
+		for node in nodes:
+			if not node.isExtraneous(edges):
+				finalNodes.append(node)
+			else:
+				node.parent.nodes.remove(node)
+				del node
+
+
 		#return everything we have done
-		return fileGroups,nodes,edges
+		return fileGroups,finalNodes,edges
 
 	def generateFileGroup(self,name,source):
 		'''

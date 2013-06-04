@@ -66,6 +66,20 @@ class Node(Node):
 		else:
 			self.isInitNode = False
 
+	def isExtraneous(self,edges):
+		if self.isRoot():
+			for edge in edges:
+				if edge.node0 == self or edge.node1 == self:
+					return False
+			else:
+				return True
+		return False
+
+	def isRoot(self):
+		if self.parent.parent:
+			return False
+		else:
+			return True
 
 	def linksTo(self,other):
 
@@ -88,7 +102,7 @@ class Node(Node):
 			else:
 				return False
 
-		if other.parent.parent:
+		if not other.isRoot():
 			importNamespace = importNamespace + '.' + other.parent.name if importNamespace else other.parent.name
 
 		#If the naive functionName (e.g. \Wmyfunc\( ) appears anywhere in this sourceString, check whether it is actually THAT function
@@ -98,7 +112,7 @@ class Node(Node):
 			hasDot = self.source.sourceString[matchPos-1] == '.'
 
 			#if the other function is in the global namespace and this call is not referring to any namespace, return true
-			if not other.parent.parent and not hasDot: #TODO js will require the 'window' namespace integrated somehow
+			if other.isRoot() and not hasDot: #TODO js will require the 'window' namespace integrated somehow
 				return True
 
 			#if the other is part of a namespace and we are looking for a namspace
@@ -163,6 +177,7 @@ class Group(Group):
 		if not self.parent:
 			self.generateSubgroups()
 			self.nodes.append(self.generateRootNode())
+
 
 
 	def generateFunctionPatterns(self):
@@ -286,6 +301,11 @@ class Group(Group):
 		#pdb.set_trace()
 
 		return paths
+
+	def trimGroups(self):
+		pass
+
+
 
 class Mapper(Mapper):
 
