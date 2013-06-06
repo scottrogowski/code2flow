@@ -21,7 +21,7 @@ On code2flow/languages/python.py
 Installation
 ------------
 
-Download, navigate to the directory, and run:
+[Download](https://github.com/scottrogowski/code2flow/archive/master.zip), navigate to the directory, and run:
 
 ```bash
 sudo python setup.py install
