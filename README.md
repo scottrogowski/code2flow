@@ -5,6 +5,8 @@ Turn your Python and Javascript source code into DOT flowcharts
 
 Code2flow will sweep through your project source code looking for function definitions. Then it will do another sweep looking for where those functions are called. Code2flow connects the dots and presents you with a flowchart estimating the functional structure of your program.
 
+In other words, code2flow generates callgraphs
+
 Code2flow is especially useful for untangling spaghetti code and getting new developers up to speed.
 
 Code2flow is EXPERIMENTAL and meant to provide a **rough overview** of the structure of simpler projects. There are many known limitations (see below). **Expect MOST aspects of this application to change in future releases.**
