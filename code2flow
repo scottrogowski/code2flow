@@ -73,7 +73,7 @@ SUPPORTED_LANGUAGES = {'js':'javascript','py':'python'}
 
 if __name__ == "__main__":
 
-	if not isInstalled('dot'):
+	if not isInstalled('dot') and not isInstalled('dot.exe'):
 		print "You must have graphviz (specifically dot) installed to run code2flow"
 		sys.exit(1)
 
