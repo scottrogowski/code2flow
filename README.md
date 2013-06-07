@@ -92,10 +92,18 @@ Code2flow is meant to provide a reasonable conjecture of the structure of simple
 
 Basically, code2flow may not diagram your sourcecode exactly as you might expect it to
 
+
+Feedback / Bugs / Contact
+-----------------------------
+
+Please do email!
+scottmrogowski@gmail.com
+
+
 Feature / Language Requests
 ----------------
 
-There is a lot in the pipeline already but those requests which keep coming up repeatedly will get priority.
+There is a lot in the pipeline already but email me  those requests which keep coming up repeatedly will get priority.
 
 To get the feature you want more quickly there are two options:
 
