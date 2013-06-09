@@ -1,19 +1,21 @@
+'''
+All of these classes subclass engine.py classes
+
+Functions that begin with an "_" are local and do not replace anything in engine.py
+'''
+
 from code2flowlib.engine import *
 
 class Node(Node):
 	sameScopeKeyword = 'this'
-
-
-	#def __init__(self,**kwargs):
-	#	super(Node,self).__init__()
-
-
 
 	def linksTo(self,other):
 		#Can either line in local scope using 'this' keyword
 		#Or can link in namespaced/global scope
 		#window.any.namespace is exactly the same as any.namespace
 		#TODO when a function is defined within another function, there is no need for self keyword
+
+		#pdb.set_trace()
 
 		#if they are part of the same namespace, we can use the self keyword
 		if other.parent == self.parent:
@@ -25,7 +27,7 @@ class Node(Node):
 
 		#Otherwise, they can always be linked by a shared namespace
 		#must generate namespace here because we are trimming the groups AFTER init of the node
-		if any(map(lambda pattern: pattern.search(self.source.sourceString), other.generateNamespacePatterns())):
+		if any(map(lambda pattern: pattern.search(self.source.sourceString), other.generateAnyScopePatterns())):
 			return True
 
 		return False
@@ -37,17 +39,17 @@ class Node(Node):
 			return self.parent.parent.getNamespace()
 
 
+	def generateAnyScopePatterns(self):
+		'''
+		How you would call this node from any scope
+		'''
+		return super(Node,self).generateAnyScopePatterns()+[
+			re.compile(r"(?:[^a-zA-Z0-9\.]|\A)window\.%s\s*\("%(self.getFullName()),re.MULTILINE|re.DOTALL)
+			]
+
 class Edge(Edge):
 	pass
 
-class SourceCode(SourceCode):
-	blockComments = [
-		{'start':'"','end':'"'}
-		,{'start':"'",'end':"'"}
-		,{'start':"/*",'end':"*/"}
-		,{'start':re.compile(r'[\=\(]\s*\/[^/]'),'end':re.compile(r'[^\\]/')}
-		]
-	inlineComments = "//"
 
 class Group(Group):
 	globalFrameName = 'window'
@@ -58,24 +60,6 @@ class Group(Group):
 		,{'type':'object','pattern':re.compile(r".*?\W(([\w\.]+)\s*\=\s*\Z)",re.DOTALL)}
 		,{'type':'anonFunction','pattern':re.compile(r".*?\(\s*(function\s*\(.*?\)\s*\Z)",re.DOTALL)}
 		]
-
-	'''
-	REWORD = r"\(.*?\)(\w+[a-zA-Z])\W"
-	REWORDPATH = r"\S+"
-
-	REPARENTFUNCTION = r"\s+(\w+[a-zA-Z])\W"
-	ANON_OBJECT_PATTERN = re.compile(r".*?\(\s*$",re.DOTALL)
-	'''
-
-	def getNamespace(self):
-		if not self.parent or self.isAnon:
-			return ''
-		else:
-			namespace = self.parent.getNamespace()
-			if namespace:
-				return namespace+'.'+self.name
-			else:
-				return self.name
 
 
 	def __init__(self,isFunction=True,isAnon=False,**kwargs):
@@ -115,12 +99,14 @@ class Group(Group):
 				closeBracket = len(self.source)
 
 			#Try generating a new group
+			#This will fail if it is a function pattern we do not understand
 			newGroup = self.newGroupFromBlock(openBracket,closeBracket)
 
 			if newGroup:
 				'''
-				If we did manage to generate a group there are one of two options
+				Append this new group to the proper namespace
 
+				Either
 				A. The new group was not anonymous, and contained more than an implicit node
 				B. The new group was anonymous but had subgroups in which case we want those subgroups to be our subgroups
 
@@ -128,6 +114,7 @@ class Group(Group):
 				1. push the newly created group to it's parent  which is probably us unless something like MainMap.blah = function happened
 				2. append this group to the groups we will later have to remove when generating the implicit node
 				'''
+
 				if not (newGroup.isAnon and len(newGroup.nodes)==1 and newGroup.nodes[0].name==newGroup.name):
 						newGroup.parent.subgroups.append(newGroup)
 						blocksToRemove.append(newGroup)
@@ -142,33 +129,101 @@ class Group(Group):
 			openBracket = self.source.find('{',closeBracket)
 
 		if isFunction:
-			'''
-			If this is a function, generate the implicit node for this group
-			'''
-
-			#Get source by subtracting all of the 'spoken for' blocks
-			source = self.source.copy()
-
-			for block in blocksToRemove:
-				source -= block.fullSource
-
-			#Depending on whether or not this is the file root (global frame)
-			#, set a flag and the node name
-			if self.parent:
-				isFileRoot=False
-				name = self.name
-			else:
-				isFileRoot=True
-				name = self.generateRootNodeName(self.name.rsplit('/',1)[-1])
-
-
-			#generate and append the node
-			newNode = Node(name=name,source=source,definitionString=self.definitionString,parent=self,lineNumber=self.lineNumber,isFileRoot=isFileRoot)#isImplicit=True
+			newNode = self.generateImplicitNode(blocksToRemove)
 			self.nodes.append(newNode)
 
 
 
+	def getNamespace(self):
+		'''
+		Returns the full string namespace of this group including this group's name
 
+		'''
+		if not self.parent:
+			return ''
+		else:
+			ret = self.name
+			if self.parent.getNamespace():
+				ret = self.parent.getNamespace() + '.' + ret
+			return ret
+
+	def trimGroups(self):
+		'''
+		If a group has only the implicit node, make that into a node and trim it
+		'''
+
+		savedSubgroups = []
+
+		for group in self.subgroups:
+			group.trimGroups()
+			if not group.subgroups:
+				if not group.nodes:
+					continue
+				if len(group.nodes)==1 and group.nodes[0].name == group.name:
+					group.nodes[0].parent = self
+					self.nodes.append(group.nodes[0])
+					continue
+			savedSubgroups.append(group)
+		self.subgroups = savedSubgroups
+
+	def generateNewObjectPattern(self):
+		return re.compile(r'new\s+%s\s*\('%self.name)
+
+	def generateNewObjectAssignedPattern(self):
+		return re.compile(r'(\w)\s*=\s*new\s+%s\s*\('%self.name)
+
+	"""
+	def generateNodes(self):
+		'''
+		for each match, generate the node
+		'''
+		functionPatterns = self.generateFunctionPatterns()
+		for pattern in functionPatterns:
+			matches = pattern.finditer(self.source.sourceString)
+			for match in matches:
+				node = self.generateNode(match)
+				self.nodes.append(node)
+				self.generateOrAppendToGroup(node)
+	"""
+
+
+	def generateNamespaces(self):
+		return [
+			self.getNamespace()
+			,'window.'+self.getNamespace() if self.getNamespace() else 'window'
+			]
+
+	def findNamespace(self,namespace,callingGroup=None):
+		if any(map(lambda thisNamespace: thisNamespace==namespace, self.generateNamespaces())):
+			return self
+		else:
+			for group in self.subgroups:
+				if group!=callingGroup and group.findNamespace(namespace=namespace,callingGroup=self):
+					return group
+			if self.parent and self.parent != callingGroup:
+				return self.parent.findNamespace(namespace=namespace,callingGroup=self)
+			else:
+				return False
+
+	def generateImplicitNode(self,blocksToRemove):
+		#Get source by subtracting all of the 'spoken for' blocks
+		source = self.source.copy()
+
+		for block in blocksToRemove:
+			source -= block.fullSource
+
+		#Depending on whether or not this is the file root (global frame)
+		#, set a flag and the node name
+		if self.parent:
+			isFileRoot = False
+			name = self.name
+		else:
+			isFileRoot = True
+			name = self._generateRootNodeName(self.name.rsplit('/',1)[-1])
+
+
+		#generate and append the node
+		return Node(name=name,source=source,definitionString=self.definitionString,parent=self,lineNumber=self.lineNumber,isFileRoot=isFileRoot)#isImplicit=True
 
 	def newGroupFromBlock(self,openBracket,closeBracket):
 		'''
@@ -189,34 +244,6 @@ class Group(Group):
 			print 'what is this?'
 
 		return None
-
-
-	def generateNamespacePatterns(self):
-		return [
-			re.compile(r"(?:\W|\A)%s\s*\("%(self.getFullName()))
-			,re.compile(r"(?:\W|\A)window\.%s\s*\("%(self.getFullName()))
-			]
-
-	def generateNamespaces(self):
-		return [
-			self.getNamespace()
-			,'window.'+self.getNamespace() if self.getNamespace() else 'window'
-			]
-
-
-	def findNamespace(self,namespace,callingGroup=None):
-		if any(map(lambda thisNamespace: thisNamespace==namespace, self.generateNamespaces())):
-			return self
-		else:
-			for group in self.subgroups:
-				if group!=callingGroup and group.findNamespace(namespace=namespace,callingGroup=self):
-					return group
-			if self.parent and self.parent != callingGroup:
-				return self.parent.findNamespace(namespace=namespace,callingGroup=self)
-			else:
-				return False
-
-
 
 	def newGroupFromSourcesAndPattern(self,preBlockSource,blockSource,pattern):
 		'''
@@ -269,48 +296,6 @@ class Group(Group):
 
 		return None
 
-	def trimGroups(self):
-		if DEBUG:
-			print self.name,
-			print map(lambda x:x.name,self.subgroups)
-
-		savedSubgroups = []
-
-		for group in self.subgroups:
-			group.trimGroups()
-			if not group.subgroups:
-				if not group.nodes:
-					#self.subgroups.remove(group)
-					continue
-				if len(group.nodes)==1 and group.nodes[0].name == group.name:
-					group.nodes[0].parent = self
-					self.nodes.append(group.nodes[0])
-					#self.subgroups.remove(group)
-					continue
-			savedSubgroups.append(group)
-		self.subgroups = savedSubgroups
-
-	def generateNewObjectPattern(self):
-		return re.compile(r'new\s+%s\s*\('%self.name)
-
-	def generateNewObjectAssignedPattern(self):
-		return re.compile(r'(\w)\s*=\s*new\s+%s\s*\('%self.name)
-
-	def generateNodes(self):
-		'''
-		for each match, generate the node
-		'''
-		functionPatterns = self.generateFunctionPatterns()
-		for pattern in functionPatterns:
-			matches = pattern.finditer(self.source.sourceString)
-			for match in matches:
-				node = self.generateNode(match)
-				self.nodes.append(node)
-				self.generateOrAppendToGroup(node)
-
-
-
-
 	def generateOrAppendToGroup(self,node):
 		openDelimPos = self.source.openDelimPos(node.characterPos)
 
@@ -325,61 +310,19 @@ class Group(Group):
 		else:
 			print 'what is this?'
 
-
-	"""
-	#TODO return False was just to get past mootools errors
-	def generateGroup(self,bracketPos,node):
-		reversePool = self.source.sourceString[:bracketPos][::-1]
-		#match = re.search(self.REWORD,reversePool)
-
-		#if not match:
-		#	return Node(validObj = False)
-
-		anonReversePattern=re.compile(r"\s*\).*?\(\s*noitcnuf\s*\(")
-		functionReversePattern=re.compile(r"\s*\).*?\(\s*(\w+)\s+noitcnuf")
-		methodReversePattern=re.compile(r"\s*\).*?\(\s*noitcnuf\s*(?:\=|\:)\s*(\w+)")
-		objectReversePattern=re.compile(r"\s*(?:\=|\:)\s*(\w+)")
-
-		'''
-		try:
-			if match.group(1)=='prototype'[::-1]:
-				match = re.search(self.REWORD,reversePool[match.end(1):])
-			if match.group(1)=='function'[::-1]:
-				match = re.search(self.REWORD,reversePool[match.end(1):])
-		except:
-			return False
-
-		try:
-			name = match.group(1)[::-1]
-		except:
-			return False
-		'''
-
-
-		nodes = [node]
-		start = bracketPos
-		end = self.source.matchingBracketPos(start)
-
-		return Group(name=name,source=self.source[start:end],definitionString=match.group(0)[::-1])
-	"""
+class SourceCode(SourceCode):
+	blockComments = [
+		{'start':'"','end':'"'}
+		,{'start':"'",'end':"'"}
+		,{'start':"/*",'end':"*/"}
+		,{'start':re.compile(r'[\=\(]\s*\/[^/]'),'end':re.compile(r'[^\\]/')}
+		]
+	inlineComments = "//"
 
 
 class Mapper(Mapper):
-
-	functionPattern = re.compile(r"\Wfunction\s+(\w+)\s*\(.*?\)\s*\{",re.MULTILINE|re.DOTALL)
-
-	#methods are assigned to the object they are in
-	methodPattern = re.compile(r"[^a-zA-Z0-9_\.]+(\w+)\s*(\:|\=)\s*function\s*\(.*?\)\s*\{",re.MULTILINE|re.DOTALL)
-
-	#anonymous functions are called by functions and therefore assigned to them
-	anonymousFunctionPattern = re.compile(r"\(\s*function\s*\(.*?\)",re.MULTILINE|re.DOTALL)
-
-	#appendedMethodPatterd = re.compile(r"[^a-zA-Z0-9_\.]+(\w+)\.(\w+)\s*\=\s*function\s*",re.MULTILINE|re.DOTALL)
-
 	def generateFileGroup(self,name,source):
 		'''
-		OVERWRITES PARENT
-
 		Generate a group for the file. This will be a function group (isFunction=True)
 		A function group can possibly call other groups.
 		'''

@@ -103,11 +103,9 @@ scottmrogowski@gmail.com
 How to contribute
 -----------------------
 
-1. You can contribute code
-The project is open source and is new so any reasonably useful feature woudl probably be helpful and accepted. New languages are especially appreciated!
+1. You can contribute code! The project is open source and is new so any reasonably useful feature woudl probably be helpful and accepted. New languages are especially appreciated!
 
-2. You can spread the word
-A simple way to help is to share this project with others. If you have a blog, mention code2flow! Linking from relevant questions on StackOverflow or other programming forums also helps quite a bit. I would do it myself but it is unfortunately against the community guidelines. The more exposure this project gets, the more I can devote my time to building it!
+2. You can spread the word! A simple way to help is to share this project with others. If you have a blog, mention code2flow! Linking from relevant questions on StackOverflow or other programming forums also helps quite a bit. I would do it myself but it is unfortunately against the community guidelines. The more exposure this project gets, the more I can devote my time to building it!
 
 
 Feature / Language Requests

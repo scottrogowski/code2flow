@@ -1,3 +1,9 @@
+'''
+All of these classes subclass engine.py classes
+
+Functions that begin with an "_" are local and do not replace anything in engine.py
+'''
+
 from code2flowlib.engine import *
 
 indentPattern = re.compile(r"^( +|\t+)\S",re.MULTILINE)
@@ -7,45 +13,9 @@ def getIndent(colonPos,sourceString):
 	except:
 		pdb.set_trace()
 
-
-
-
-
-class SourceCode(SourceCode):
-	blockComments = [
-		{'start':'"','end':'"'}
-		,{'start':"'",'end':"'"}
-		,{'start':"'''",'end':"'''"}
-		,{'start':'"""','end':'"""'}
-		]
-	inlineComments = "#"
-
-	def getSourceInBlock(self,colonPos,fullSource=False):
-		indent = getIndent(colonPos,self.sourceString)
-
-		endPos = colonPos
-
-		lines = self.sourceString[colonPos:].split('\n')[1:]
-		for line in lines:
-			if line.startswith(indent) or line.strip()=='':
-				endPos += len(line)+1 #+1 for the newlines lost
-			else:
-				break
-
-		if fullSource:
-			startPos = self.sourceString.rfind('\n',0,colonPos)
-			if startPos == -1:
-				startPos = 0
-			else:
-				startPos += 1
-		else:
-			startPos = colonPos+1
-
-		return self[startPos:endPos] #+1 to start beyond colonPos
-
-
 class Node(Node):
 	sameScopeKeyword = 'self'
+	namespaceBeforeDotPattern = re.compile(r'(?:[^\w\.]|\A)([\w\.]+)\.$',re.MULTILINE)
 
 	def generateSameScopePatterns(self):
 		patterns = super(Node,self).generateSameScopePatterns()
@@ -67,6 +37,9 @@ class Node(Node):
 			self.isInitNode = False
 
 	def isExtraneous(self,edges):
+		'''
+		Returns whether we can safely delete this node
+		'''
 		if self.isRoot():
 			for edge in edges:
 				if edge.node0 == self or edge.node1 == self:
@@ -86,18 +59,18 @@ class Node(Node):
 		importNamespace = ''
 
 		#If this is in a different file, figure out what namespace to use
-		if self.getFileGroup() != other.getFileGroup():
-			importPaths = other.parent.getImportPaths(self.getFileName())
+		if self._getFileGroup() != other._getFileGroup():
+			importPaths = other.parent.getImportPaths(self._getFileName())
 
 			for importPath in importPaths:
 				regularImport = re.compile(r"^import\s+%s\s*$"%re.escape(importPath),re.MULTILINE)
 				complexImport = re.compile('^from\s%s\simport\s(?:\*|(?:.*?\W%s\W.*?))\s*$'%(re.escape(importPath),re.escape(other.name)),re.MULTILINE)
 				#print importPath
-				#print self.parent.getFileGroup().name
-				if regularImport.search(self.getFileGroup().source.sourceString):
+				#print self.parent._getFileGroup().name
+				if regularImport.search(self._getFileGroup().source.sourceString):
 					importNamespace += importPath
 					break
-				elif complexImport.search(self.getFileGroup().source.sourceString):
+				elif complexImport.search(self._getFileGroup().source.sourceString):
 					break
 			else:
 				return False
@@ -129,7 +102,7 @@ class Node(Node):
 					namespace = None
 
 				#If the namespaces are the same, that is a match
-				if namespace == importNamespace:# and self.getFileGroup() == other.getFileGroup(): #+ other.name
+				if namespace == importNamespace:# and self._getFileGroup() == other._getFileGroup(): #+ other.name
 					return True
 
 				#if they are part of the same namespace, we can check for the 'self' keyword
@@ -160,7 +133,10 @@ class Group(Group):
 
 	def __init__(self,indent='',**kwargs):
 		'''
-		Expects name,indent,source, and optionally parent
+		Generate a new group
+
+		The only thing special about groups in python is they are delimited by indent
+		This makes things a little bit easier
 		'''
 		self.indent = indent
 
@@ -171,14 +147,26 @@ class Group(Group):
 		#	self.indent = ''
 
 		#with the indent set, we can now generate nodes
-		self.generateNodes()
+		self._generateNodes()
 
 		#If this is the root node, continue generating subgroups and nodes
 		if not self.parent:
 			self.generateSubgroups()
 			self.nodes.append(self.generateRootNode())
 
+	def trimGroups(self):
+		pass
 
+	def _generateNodes(self):
+		'''
+		Find all function definitions, generate the nodes, and append them
+		'''
+		functionPatterns = self.generateFunctionPatterns()
+		for pattern in functionPatterns:
+			functionMatches = pattern.finditer(self.source.sourceString)
+			for functionMatch in functionMatches:
+				node = self.generateNode(functionMatch)
+				self.nodes.append(node)
 
 	def generateFunctionPatterns(self):
 		'''
@@ -186,8 +174,6 @@ class Group(Group):
 		'''
 		indent = self.indent.replace(' ',r'\s').replace('	',r'\t')
 		return [re.compile(r"^%sdef\s(\w+)\s*\(.*?\)\s*\:"%indent,re.MULTILINE|re.DOTALL)]
-
-
 
 	def generateSubgroups(self):
 		classMatches = self.classPattern.finditer(self.source.sourceString)
@@ -202,7 +188,6 @@ class Group(Group):
 			classGroup = Group(name=name,definitionString=definitionString,indent=indent,source=source,fullSource=fullSource,parent=self,lineNumber=lineNumber)
 			self.subgroups.append(classGroup)
 
-
 	def generateNewObjectPattern(self):
 		return re.compile(r'%s\s*\('%self.name)
 
@@ -210,10 +195,9 @@ class Group(Group):
 		return re.compile(r'(\w)\s*=\s*%s\s*\('%self.name)
 
 	def generateRootNode(self):
-		name = self.generateRootNodeName()
+		name = self._generateRootNodeName()
 		source = self.generateImplicitNodeSource()
 		return Node(name=name,definitionString=None,source=source,parent=self) #isImplicit=True
-
 
 	def generateImplicitNodeSource(self):
 		'''
@@ -243,7 +227,7 @@ class Group(Group):
 		'''
 
 		#split paths into their directories
-		thisFullPath = os.path.abspath(self.getFileName())
+		thisFullPath = os.path.abspath(self._getFileName())
 		importerFullPath = os.path.abspath(importerFilename)
 		thisFullPathList = thisFullPath.split('/')
 		importerFullPathList = importerFullPath.split('/')
@@ -288,7 +272,7 @@ class Group(Group):
 			paths.append(fullPathList)
 		'''
 
-		pathArray = os.path.realpath(self.getFileName()).split('/')[::-1]
+		pathArray = os.path.realpath(self._getFileName()).split('/')[::-1]
 		buildPathList = pathArray[0]
 		pathArray = pathArray[1:]
 
@@ -302,12 +286,68 @@ class Group(Group):
 
 		return paths
 
-	def trimGroups(self):
-		pass
 
+	def generateNode(self,reMatch):
+		'''
+		Using the name match, generate the name, source, and parent of this node
+
+		group(0) is the entire definition line ending at the new block delimiter like:
+			def myFunction(a,b,c):
+		group(1) is the identifier name like:
+			myFunction
+		'''
+		name = reMatch.group(1)
+		definitionString = reMatch.group(0)
+
+		newBlockDelimPos = reMatch.end(0)
+		beginIdentifierPos = reMatch.start(1)
+
+		source = self.source.getSourceInBlock(newBlockDelimPos)
+		fullSource = self.source.getSourceInBlock(newBlockDelimPos,fullSource=True)
+		lineNumber = self.source.getLineNumber(beginIdentifierPos)
+		return Node(name=name,definitionString=definitionString,source=source,fullSource=fullSource,parent=self,characterPos=beginIdentifierPos,lineNumber=lineNumber)
+
+
+class SourceCode(SourceCode):
+	blockComments = [
+		{'start':'"','end':'"'}
+		,{'start':"'",'end':"'"}
+		,{'start':"'''",'end':"'''"}
+		,{'start':'"""','end':'"""'}
+		]
+	inlineComments = "#"
+
+	def getSourceInBlock(self,colonPos,fullSource=False):
+		'''
+		Overwrites superclass method
+		'''
+		indent = getIndent(colonPos,self.sourceString)
+
+		endPos = colonPos
+
+		lines = self.sourceString[colonPos:].split('\n')[1:]
+		for line in lines:
+			if line.startswith(indent) or line.strip()=='':
+				endPos += len(line)+1 #+1 for the newlines lost
+			else:
+				break
+
+		if fullSource:
+			startPos = self.sourceString.rfind('\n',0,colonPos)
+			if startPos == -1:
+				startPos = 0
+			else:
+				startPos += 1
+		else:
+			startPos = colonPos+1
+
+		return self[startPos:endPos] #+1 to start beyond colonPos
 
 
 class Mapper(Mapper):
 
 	def generateFileGroup(self,name,source):
+		'''
+		Generate a group for the file. Indent is implicitly none for this group
+		'''
 		return Group(name=name,source=source,indent='')

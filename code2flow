@@ -22,7 +22,13 @@ Should also have an internal filestring of the content
 
 Edges are function calls
 
-With content, we must pass along objects with filestrings
+
+This python file is a wrapper for the functionality. Basically, it will:
+1. parse arguments
+2. read the files
+3. decide which implementation (javascript or python) to use
+4. import that and run the mapper for that implementation
+5. write the dot file
 
 '''
 
