@@ -6,7 +6,7 @@ Functions that begin with an "_" are local and do not replace anything in engine
 
 from code2flowlib.engine import *
 
-indentPattern = re.compile(r"^( +|\t+)\S",re.MULTILINE)
+indentPattern = re.compile(r"^([\t ]*)\S",re.MULTILINE)
 def getIndent(colonPos,sourceString):
 	try:
 		return indentPattern.search(sourceString[colonPos:]).group(1)
@@ -340,8 +340,10 @@ class SourceCode(SourceCode):
 				startPos += 1
 		else:
 			startPos = colonPos+1
-
-		return self[startPos:endPos] #+1 to start beyond colonPos
+		try:
+			return self[startPos:endPos]
+		except:
+			pdb.set_trace()
 
 
 class Mapper(Mapper):
