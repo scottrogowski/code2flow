@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 setup(
 	name='code2flow',
-	version='0.1',
+	version='0.2',
 	description='Visualize your source code as DOT flowcharts',
 	long_description=open('README.md').read(),
 	scripts=['code2flow'],
