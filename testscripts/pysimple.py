@@ -1,8 +1,12 @@
 import pysimple2
 import testscripts.pysimple3
+from pyfolder import *
 
-pysimple2.a()
+obj = pysimple2.h()
+
+obj.a()
 testscripts.pysimple3.g()
+pysimple4.infolderc()
 
 def b():
 	c()

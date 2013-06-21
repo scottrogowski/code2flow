@@ -225,11 +225,16 @@ class Group(Group):
 		'''
 		Return the relative and absolute paths the other filename would use to import this module
 		'''
+		paths = self._getRelativeImportPaths(importerFilename)+self._getAbsoluteImportPaths()
+		return paths
 
+
+	def _getRelativeImportPaths(self,importerFilename):
 		#split paths into their directories
 		thisFullPath = os.path.abspath(self._getFileName())
-		importerFullPath = os.path.abspath(importerFilename)
 		thisFullPathList = thisFullPath.split('/')
+
+		importerFullPath = os.path.abspath(importerFilename)
 		importerFullPathList = importerFullPath.split('/')
 
 		#pop off shared directories
@@ -238,11 +243,8 @@ class Group(Group):
 				assert thisFullPathList[0] == importerFullPathList[0]
 				thisFullPathList.pop(0)
 				importerFullPathList.pop(0)
-			except:
+			except AssertionError:
 				break
-
-
-		paths = []
 
 		relativePath = ''
 
@@ -252,25 +254,19 @@ class Group(Group):
 
 		#add this path from the last common shared directory
 		relativePath += '.'.join(thisFullPathList)
+		paths = []
 
 		paths.append(relativePath)
 
+		try:
+			paths.append(thisFullPathList[-2:-1][0])
+		except:
+			pass
 
+		return paths
 
-		#TODO there are probably more. We are getting
-		#import languagages.python
-		#but not
-		#import code2flow.languages.python
-		#but this will require knowing how far back we need to go
-
-		#TODO... what does this give us? Always seems blank
-		paths.append('.'.join(thisFullPathList[-2:-1]))
-
-		'''
-		if len(importerFullPathList) == 1 and len(thisFullPathList) == 1:
-			fullPathList = thisFullPathList[-1]
-			paths.append(fullPathList)
-		'''
+	def _getAbsoluteImportPaths(self):
+		paths = []
 
 		pathArray = os.path.realpath(self._getFileName()).split('/')[::-1]
 		buildPathList = pathArray[0]
@@ -282,10 +278,7 @@ class Group(Group):
 				buildPathList = elem + '.' + buildPathList
 				paths.append(buildPathList)
 
-		#pdb.set_trace()
-
 		return paths
-
 
 	def generateNode(self,reMatch):
 		'''
