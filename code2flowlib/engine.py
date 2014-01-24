@@ -287,7 +287,7 @@ class Group(object):
 			else:
 				raise Exception()
 		except:
-			return 'cluster'+re.sub(r"[/\.\-\(\)\s]",'',self.name)+str(self.uid)
+			return 'cluster'+re.sub(r"[/\.\-\(\)=\s]",'',self.name)+str(self.uid)
 
 	def _allNodes(self):
 		'''
