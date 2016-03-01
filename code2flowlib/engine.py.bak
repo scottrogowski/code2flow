@@ -39,7 +39,7 @@ def generateEdges(nodes):
 	for node0 in nodes:
 		for node1 in nodes:
 			if DEBUG:
-				print(('"%s" links to "%s"?'%(node0.name,node1.name)))
+				print('"%s" links to "%s"?'%(node0.name,node1.name))
 			if node0.linksTo(node1):
 				if DEBUG:
 					print("Edge created")
@@ -804,7 +804,7 @@ class Mapper(object):
 		for filename,fileString in list(self.files.items()):
 			#remove .py from filename
 			filename = self.simpleFilename(filename)
-			print(("Mapping %s"%filename))
+			print("Mapping %s"%filename)
 
 			#generate sourcecode (remove comments and add line numbers)
 			source = SourceCode(fileString)
@@ -821,7 +821,7 @@ class Mapper(object):
 		for group in fileGroups:
 			group.trimGroups()
 			if DEBUG:
-				print(("Post trim, %s"%group.name))
+				print("Post trim, %s"%group.name)
 				group._pprint()
 
 		#Figure out what functions map to what

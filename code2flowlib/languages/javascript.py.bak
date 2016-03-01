@@ -94,7 +94,7 @@ class Group(Group):
 
 			closeBracket = self.source.matchingBracketPos(openBracket)
 			if closeBracket == -1:
-				print(("Could not find closing bracket for open bracket on line %d in file %s"%(self.source.getLineNumber(openBracket),self.name)))
+				print("Could not find closing bracket for open bracket on line %d in file %s"%(self.source.getLineNumber(openBracket),self.name))
 				print("You might have a syntax error. Setting closing bracket position to EOF")
 				closeBracket = len(self.source)
 
@@ -240,7 +240,7 @@ class Group(Group):
 
 		if DEBUG:
 			print("====================")
-			print((preBlockSource.sourceString[-100:]))
+			print(preBlockSource.sourceString[-100:])
 			print('what is this?')
 
 		return None

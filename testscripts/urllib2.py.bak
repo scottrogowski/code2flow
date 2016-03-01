@@ -1090,12 +1090,12 @@ if __name__ == "__main__":
         try:
             f = urlopen(url, req)
         except IOError as err:
-            print(("IOError:", err))
+            print("IOError:", err)
         except socket.error as err:
-            print(("socket.error:", err))
+            print("socket.error:", err)
         else:
             buf = f.read()
             f.close()
-            print(("read %d bytes" % len(buf)))
+            print("read %d bytes" % len(buf))
         print()
         time.sleep(0.1)
