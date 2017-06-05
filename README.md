@@ -1,5 +1,13 @@
+Notes from 2017
+--------------
+- This is an older project which I am no longer working on. It was built before ES6 existed and before Python 3 had much usage. While it was always experimental and will probably still give you insights into your code, it will increasingly show signs of age. I am also unable to addess any issues, bugs, or pull requests.
+- Like anyone who has been an engineer for more than 6 months, I am downright embarrassed by code I wrote when I was younger and this is no exception. Tabs!?!? What was I thinking????
+- The domain, code2flow.com is unrelated to this project and as far as I can tell through the internet archive, they launched their service after this repository was created. I've never heard anything from them and it doesn't appear like they use anything from here
+
 code2flow
 =========
+
+*caution*
 
 Turn your Python and Javascript source code into DOT flowcharts
 
@@ -115,6 +123,6 @@ There is a lot in the pipeline already but email me! Those requests which keep c
 
 To get the feature you want more quickly there are two options:
 
-A. The project is open source so it is easy to contribute. 
+A. The project is open source so it is easy to contribute.
 
 B. I am available for hire on contract and will happily build your request or just do headstands for you all day for the correct amount of money. For more about me, visit http://scottrogowski.com/about
