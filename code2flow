@@ -118,24 +118,28 @@ if __name__ == "__main__":
 		global files
 
 		#set the language if not set
-		if not language:
-			language = fileString[fileString.rfind('.')+1:]
-			if language not in SUPPORTED_LANGUAGES and not forceAppend:
-				raise Exception("File not supported")
+		language = fileString[fileString.rfind('.')+1:]
+		if language not in SUPPORTED_LANGUAGES and not forceAppend:
+			return
 
 		#if the file is part of the language we are using, append it
 		if forceAppend or fileString[-1*len(language):]==language:
 			files.append(fileString)
 
 	#loop through arguments appending all files to the list
+	s = []
 	for fil in args.files:
+		s.append(fil)
+	while len(s) > 0:
+		fil = s[-1]
+		print(fil)
+		s.pop()
 		if os.path.isfile(fil):
-			handleFile(fil,forceAppend=True)
+			handleFile(fil,forceAppend=False)
 		elif os.path.isdir(fil):
 			for fi in os.listdir(fil):
-				handleFile(fil)
-		else:
-			raise Exception('Could not find "%s"'%fil)
+				print("Listing " + fil + " " + fil + "/" + fi)
+				s.append(fil + "/" + fi)
 
 	#import the module specific to the source language
 	#these modules are superclasses of the engine.py base classes
