@@ -132,13 +132,11 @@ if __name__ == "__main__":
 		s.append(fil)
 	while len(s) > 0:
 		fil = s[-1]
-		print(fil)
 		s.pop()
 		if os.path.isfile(fil):
 			handleFile(fil,forceAppend=False)
 		elif os.path.isdir(fil):
 			for fi in os.listdir(fil):
-				print("Listing " + fil + " " + fil + "/" + fi)
 				s.append(fil + "/" + fi)
 
 	#import the module specific to the source language
