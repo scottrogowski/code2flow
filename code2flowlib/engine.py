@@ -688,7 +688,7 @@ class SourceCode(object):
 
 		inlineCommentLen = len(self.inlineComments)
 
-		#begin analyzing charactes 1 by 1 until we reach the end of the originalString
+		#begin analyzing characters 1 by 1 until we reach the end of the originalString
 		#-blockCommentLen so that we don't go out of bounds
 		while i < len(originalString):
 			#check if the next characters are a block comment
