@@ -1,7 +1,9 @@
-### Notes from 2017
-- This is an older project which I am no longer working on. It was built before ES6 existed and before Python 3 had much usage. While it was always experimental and will probably still give you insights into your code, it will increasingly show signs of age. I am also unable to addess any issues, bugs, or pull requests.
-- Like anyone who has been an engineer for more than 6 months, I am downright embarrassed by code I wrote when I was younger and this is no exception. Tabs!?!? What was I thinking????
-- The domain, code2flow.com is unrelated to this project and as far as I can tell through the internet archive, they launched their service after this repository was created. I've never heard anything from them and it doesn't appear like they use anything from here
+### Updates from April 2021
+- I've entered into a contract with generous sponsor to update code2flow
+- The new version will support Python3, ECMAScript 2018, PHP8, & Ruby3
+- Most of the project will be rewritten and licensed under the MIT license. As always, existing code never changes license.
+- The domain, code2flow.com is unrelated to this project and as far as I can tell through the internet archive, they launched their service after this repository was created. I've never heard anything from them and it doesn't appear like they use anything from here.
+- The pip install, code2flow, has been claimed by a different unrelated project. For now, *don't install* code2flow from pip. Scroll to the installation section for instructions.
 
 code2flow
 =========
@@ -116,10 +118,6 @@ How to contribute
 Feature / Language Requests
 ----------------
 
-There is a lot in the pipeline already but email me! Those requests which keep coming up repeatedly will get priority.
+1. Code2flow is open source and contributions are welcome!
 
-To get the feature you want more quickly there are two options:
-
-A. The project is open source so it is easy to contribute.
-
-B. I am available for hire on contract and will happily build your request or just do headstands for you all day for the correct amount of money. For more about me, visit http://scottrogowski.com/about
+2. You can email me. I am an independent contractor and can be convinced to add more for a suitable amount of money :).
