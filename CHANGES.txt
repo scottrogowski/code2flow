@@ -1,2 +1,0 @@
-v0.1, 5/23/2013 -- Initial release 
-v0.2, 6/8/2013 -- Cleaned up code. Remove comments runs much faster. Test scripts. Template.py implementation file. More to come!
