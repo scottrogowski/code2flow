@@ -37,6 +37,7 @@ import logging
 import os
 
 import lib.dotgenerator as dotgenerator
+import lib.engine as engine
 import lib.languages.python as python_implementation
 import lib.languages.javascript as js_implementation
 
@@ -140,7 +141,7 @@ def code2flow(raw_sources, output_file, language, hide_legend, quiet):
         implementation = js_implementation
 
     # Do the mapping (a lot happens here)
-    mapper = implementation.Mapper(implementation, sources)
+    mapper = engine.Mapper(implementation, sources)
     groups, nodes, edges = mapper.map()
 
     dotgenerator.write_dot_file(dot_file=dot_file, nodes=nodes, edges=edges, groups=groups, hide_legend=args.hide_legend)

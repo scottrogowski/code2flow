@@ -341,16 +341,15 @@ class SourceCode():
     '''
 
     # These two must be subclassed
-    blockComments = []
-    inlineComments = ''
     delimA = '{'
     delimB = '}'
 
-    def __init__(self, sourceString, characterToLineMap=None):
+    def __init__(self, sourceString, characterToLineMap=None, imp=None):
         '''
         Remove the comments and build the linenumber/file mapping while doing so
         '''
         self.sourceString = sourceString
+        self.imp = imp
 
         if characterToLineMap:
             self.characterToLineMap = characterToLineMap
@@ -444,7 +443,7 @@ class SourceCode():
 
         characterToLineMap = dict(list(self.characterToLineMap.items()) + list(shiftedCharacterToLineMap.items()))
 
-        ret = SourceCode(sourceString=sourceString, characterToLineMap=characterToLineMap)
+        ret = SourceCode(sourceString=sourceString, characterToLineMap=characterToLineMap, imp=self.imp)
 
         return ret
 
@@ -571,22 +570,6 @@ class SourceCode():
         else:
             return None
 
-    def getSourceInBlock(self, bracketPos):
-        '''
-        Get the source within two matching brackets
-        '''
-        otherBracketPosition = self.matchingBracketPos(bracketPos)
-
-        if bracketPos < otherBracketPosition:
-            startBracketPos = bracketPos
-            endBracketPos = otherBracketPosition
-        else:
-            startBracketPos = otherBracketPosition
-            endBracketPos = bracketPos
-
-        ret = self[startBracketPos + 1:endBracketPos]
-        return ret
-
     def matchingBracketPos(self, bracketPos):
         '''
         Find the matching bracket position
@@ -671,14 +654,14 @@ class SourceCode():
         lineCount += 1  # set up for next line which will be two
         i = 0
 
-        inlineCommentLen = len(self.inlineComments)
+        inlineCommentLen = len(self.imp.SourceCode.inlineComments)
 
         # begin analyzing charactes 1 by 1 until we reach the end of the originalString
         # -blockCommentLen so that we don't go out of bounds
         while i < len(originalString):
             # check if the next characters are a block comment
             # There are multiple types of block comments so we have to check them all
-            for blockComment in self.blockComments:
+            for blockComment in self.imp.SourceCode.blockComments:
                 if type(blockComment['start']) == str:
                     blockCommentLen = len(blockComment['start'])
                     if originalString[i:][:blockCommentLen] == blockComment['start']:
@@ -721,7 +704,7 @@ class SourceCode():
                         break
             else:
                 # check if the next characters are an inline comment
-                if originalString[i:][:inlineCommentLen] == self.inlineComments:
+                if originalString[i:][:inlineCommentLen] == self.imp.SourceCode.inlineComments:
                     # if so, find the end of the line and jog forward. Add one to jog past the newline
                     i = originalString.find("\n", i + inlineCommentLen + 1)
 
@@ -737,6 +720,9 @@ class SourceCode():
                         self.characterToLineMap[len(self.sourceString)] = lineCount
                         lineCount += 1
                     i += 1
+
+    def getSourceInBlock(self, startPos, fullSource=False):
+        return self.imp.SourceCode.getSourceInBlock(self, startPos, fullSource)
 
 
 class Mapper():
@@ -761,10 +747,10 @@ class Mapper():
 
         global Node, Edge, Group, Mapper, SourceCode
         Node = implementation.Node
-        Edge = implementation.Edge
         Group = implementation.Group
-        Mapper = implementation.Mapper
-        SourceCode = implementation.SourceCode
+        # Mapper = implementation.Mapper
+        # SourceCode = implementation.SourceCode
+        self.imp = implementation.Imp
 
         for f in files:
             with open(f) as fi:
@@ -791,7 +777,7 @@ class Mapper():
             logging.info(f"Mapping {filename}...")
 
             # generate sourcecode (remove comments and add line numbers)
-            source = SourceCode(fileString)
+            source = SourceCode(fileString, imp=self.imp)
 
             # Create all of the subgroups (classes) and nodes (functions) for this file
             logging.info("Generating function nodes...")
@@ -828,4 +814,4 @@ class Mapper():
         Dummy function probably superclassed
         This will initialize the global group for the entire source file
         '''
-        return Group(name=name, source=source)
+        return self.imp.Mapper.generateFileGroup(name=name, source=source)

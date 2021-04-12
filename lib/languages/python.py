@@ -121,10 +121,6 @@ class Node(engine.Node):
         return False
 
 
-class Edge(engine.Edge):
-    pass
-
-
 class Group(engine.Group):
     classPattern = re.compile(r"^class\s(\w+)\s*(\(.*?\))?\s*\:", re.MULTILINE)
     # implicitName = 'module'
@@ -182,8 +178,8 @@ class Group(engine.Group):
             definitionString = classMatch.group(0)
             colonPos = classMatch.end(0)
             indent = getIndent(colonPos=colonPos, sourceString=self.source.sourceString)
-            source = self.source.getSourceInBlock(colonPos=colonPos)
-            fullSource = self.source.getSourceInBlock(colonPos=colonPos, fullSource=True)
+            source = self.source.getSourceInBlock(startPos=colonPos)
+            fullSource = self.source.getSourceInBlock(startPos=colonPos, fullSource=True)
             lineNumber = self.source.getLineNumber(colonPos)
             classGroup = Group(name=name, definitionString=definitionString, indent=indent, source=source, fullSource=fullSource, parent=self, lineNumber=lineNumber)
             self.subgroups.append(classGroup)
@@ -293,7 +289,7 @@ class Group(engine.Group):
         return Node(name=name, definitionString=definitionString, source=source, fullSource=fullSource, parent=self, characterPos=beginIdentifierPos, lineNumber=lineNumber)
 
 
-class SourceCode(engine.SourceCode):
+class SourceCode():
     blockComments = [
         {'start': '"', 'end': '"'},
         {'start': "'", 'end': "'"},
@@ -302,15 +298,16 @@ class SourceCode(engine.SourceCode):
     ]
     inlineComments = "#"
 
-    def getSourceInBlock(self, colonPos, fullSource=False):
+    @staticmethod
+    def getSourceInBlock(sourcecode, startPos, fullSource=False):
         '''
         Overwrites superclass method
         '''
-        indent = getIndent(colonPos, self.sourceString)
+        indent = getIndent(startPos, sourcecode.sourceString)
 
-        endPos = colonPos
+        endPos = startPos
 
-        lines = self.sourceString[colonPos:].split('\n')[1:]
+        lines = sourcecode.sourceString[startPos:].split('\n')[1:]
         for line in lines:
             if line.startswith(indent) or line.strip() == '':
                 endPos += len(line) + 1  # +1 for the newlines lost
@@ -318,20 +315,25 @@ class SourceCode(engine.SourceCode):
                 break
 
         if fullSource:
-            startPos = self.sourceString.rfind('\n', 0, colonPos)
+            startPos = sourcecode.sourceString.rfind('\n', 0, startPos)
             if startPos == -1:
                 startPos = 0
             else:
                 startPos += 1
         else:
-            startPos = colonPos + 1
-        return self[startPos:endPos]
+            startPos = startPos + 1
+        return sourcecode[startPos:endPos]
 
 
-class Mapper(engine.Mapper):
-
-    def generateFileGroup(self, name, source):
+class Mapper():
+    @staticmethod
+    def generateFileGroup(name, source):
         '''
         Generate a group for the file. Indent is implicitly none for this group
         '''
         return Group(name=name, source=source, indent='')
+
+
+class Imp():
+    Mapper = Mapper
+    SourceCode = SourceCode

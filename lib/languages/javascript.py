@@ -46,10 +46,6 @@ class Node(engine.Node):
         ]
 
 
-class Edge(engine.Edge):
-    pass
-
-
 class Group(engine.Group):
     globalFrameName = 'window'
 
@@ -306,7 +302,7 @@ class Group(engine.Group):
             logging.info('what is this?')  # TODO2021
 
 
-class SourceCode(engine.SourceCode):
+class SourceCode():
     blockComments = [
         {'start': '"', 'end': '"'},
         {'start': "'", 'end': "'"},
@@ -315,9 +311,27 @@ class SourceCode(engine.SourceCode):
     ]
     inlineComments = "//"
 
+    @staticmethod
+    def getSourceInBlock(sourcecode, startPos, fullSource=False):
+        '''
+        Get the source within two matching brackets
+        '''
+        otherBracketPosition = sourcecode.matchingBracketPos(startPos)
 
-class Mapper(engine.Mapper):
-    def generateFileGroup(self, name, source):
+        if startPos < otherBracketPosition:
+            startBracketPos = startPos
+            endBracketPos = otherBracketPosition
+        else:
+            startBracketPos = otherBracketPosition
+            endBracketPos = startPos
+
+        ret = sourcecode[startBracketPos + 1:endBracketPos]
+        return ret
+
+
+class Mapper():
+    @staticmethod
+    def generateFileGroup(name, source):
         '''
         Generate a group for the file. This will be a function group (isFunction=True)
         A function group can possibly call other groups.
