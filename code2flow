@@ -39,12 +39,12 @@ import os
 import lib.dotgenerator as dotgenerator
 import lib.engine as engine
 import lib.languages.python as python_implementation
-import lib.languages.javascript as js_implementation
+# import lib.languages.javascript as js_implementation
 
 DESCRIPTION = "Generate flow charts from your source code."
-SUPPORTED_LANGUAGES = {
-    'js': 'javascript',
-    'py': 'python'
+LANGUAGES = {
+    # 'js': js_implementation,
+    'py': python_implementation
 }
 
 logging.basicConfig(format="Code2Flow: %(message)s", level=logging.INFO)
@@ -70,8 +70,9 @@ def get_sources_and_language(raw_sources, language):
         if os.path.isfile(source):
             individual_files.append(source)
             continue
-        for _, _, files in os.walk(source):
-            individual_files += files
+        for root, _, files in os.walk(source):
+            for f in files:
+                individual_files.append(os.path.join(root, f))
 
     if not individual_files:
         raise Exception("No source files found from %r" % raw_sources)
@@ -79,7 +80,7 @@ def get_sources_and_language(raw_sources, language):
     if not language:
         for source in individual_files:
             suffix = source.rsplit('.', 1)[-1]
-            if suffix in SUPPORTED_LANGUAGES:
+            if suffix in LANGUAGES:
                 language = suffix
                 break
         else:
@@ -93,7 +94,9 @@ def get_sources_and_language(raw_sources, language):
     if not sources:
         logging.info("Could not find any source files given %r and language %r" % (raw_sources, language))
 
-    logging.info("Processing %d source file(s) %r..." % (len(sources), sources))
+    logging.info("Processing %d source file(s):" % (len(sources)))
+    for source in sources:
+        logging.info("  " + source)
     ignored_files = set(sources) - set(individual_files)
     if ignored_files:
         logging.info("(%d file(s) were discarded %r)" % (len(ignored_files), ignored_files))
@@ -133,16 +136,10 @@ def code2flow(raw_sources, output_file, language, hide_legend, quiet):
         dot_file, extension = output_file.rsplit('.', 1)
         dot_file += '.gv'
 
-    # import the module specific to the source language
-    # these modules are superclasses of the engine.py base classes
-    if language == 'py':
-        implementation = python_implementation
-    elif language == 'js':
-        implementation = js_implementation
+    lang = LANGUAGES[language].Lang
 
-    # Do the mapping (a lot happens here)
-    mapper = engine.Mapper(implementation, sources)
-    groups, nodes, edges = mapper.map()
+    # Do the mapping (where the magic happens)
+    groups, nodes, edges = engine.map_it(lang, sources)
 
     dotgenerator.write_dot_file(dot_file=dot_file, nodes=nodes, edges=edges, groups=groups, hide_legend=args.hide_legend)
 

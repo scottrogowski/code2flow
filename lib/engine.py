@@ -10,25 +10,28 @@ Then, there are two other classes:
 Sourcecode: An object to hold and manipulate the sourcecode
 Mapper:         Runs the show
 
-The implementation files (javascript.py and python.py) subclass every one of these classes sometimes replacing functions and sometimes adding completely new functions
+The implementation files (javascript.py and python.py) subclass every one of these
+classes sometimes replacing functions and sometimes adding completely new functions
 
 This way, we can share a lot of code between languages while still preserving full language flexibility
 
 Functions that begin with an "_" are not replaced by any implementation
 '''
 
+import collections
 import copy
 import logging
 import pprint
 import re
+import secrets
 
-from .mutablestring import MString
+# from .mutablestring import MString
 
 # for generating UIDs for groups and nodes
 currentUID = 0
 
 
-def generateEdges(nodes):
+def _generate_edges(nodes):
     '''
     When a function calls another function, that is an edge
     This is in the global scope because edges can exist between any node and not just between groups
@@ -36,11 +39,21 @@ def generateEdges(nodes):
     edges = []
     for node0 in nodes:
         for node1 in nodes:
-            logging.info(f'"{node0.name}" links to "{node1.name}"?')
-            if node0.linksTo(node1):
-                logging.info("Edge created")
+            # logging.info(f'"{node0.name}" links to "{node1.name}"?')
+            if node0.links_to(node1, nodes):
+                # logging.info("Yes. Edge created")
                 edges.append(Edge(node0, node1))
     return edges
+
+
+def _get_char_to_line_map(source_string):
+    line_number = 1
+    char_to_line_map = {}
+    for i, c in enumerate(source_string):
+        char_to_line_map[i] = line_number
+        if c == '\n':
+            line_number += 1
+    return char_to_line_map
 
 
 class Node():
@@ -49,107 +62,89 @@ class Node():
     '''
 
     # How we know if a function returns
-    returnPattern = re.compile(r"\Wreturn\W", re.MULTILINE)
+    return_pattern = re.compile(r"\Wreturn\W", re.MULTILINE)
 
-    def __init__(self, name, definitionString, source, parent, fullSource=None, characterPos=0, lineNumber=0, isFileRoot=False):  # allow default characterPos, lineNumber for implicit nodes
+    def __init__(self, name, source, parent,
+                 character_pos=0, line_number=0, is_file_root=False, lang=None):
         # basic vars
         self.name = name
-        self.definitionString = definitionString
         self.source = source
-        self.fullSource = fullSource or source
         self.parent = parent
-        self.characterPos = characterPos
-        self.lineNumber = lineNumber  # The line number the definition is on
-        self.isFileRoot = isFileRoot
+        self.character_pos = character_pos
+        self.line_number = line_number  # The line number the definition is on
+        self.is_file_root = is_file_root
+        self.lang = lang
 
         # generate the name patterns for other nodes to search for this one
-        self.pattern = re.compile(r"(?:\W|\A)(%s)\s*\(" % self.name, re.MULTILINE)  # The name pattern which is found by others eg. node()
+        # self.pattern is the name pattern which is found by others eg. node()
+        self.pattern = re.compile(r"(?:\W|\A)(%s)\s*\(" % self.name, re.MULTILINE)
 
-        self.determineNodeType()  # Init node, etc.
+        self.is_init_node = self.lang.is_init_node(name)  # Init node, etc.
 
-        self.sameScopePatterns = self.generateSameScopePatterns()  # The pattern to search for when the other node is in the same scope e.g. self.node()
-        self.namespacePatterns = self.generateAnyScopePatterns()  # The pattern to search for with the namespace eg. Node.node()
+        # The pattern to search for when the other node is in the same scope e.g. self.node()
+        # self.same_scope_patterns = self.lang.generate_same_scope_patterns(name)
+
+        # The pattern to search for with the namespace eg. Node.node()
+        # self.namespace_patterns = self.lang.generate_scope_patterns(self.get_full_name())
 
         # determine whether there are return statements or not
-        self.returns = self.returnPattern.search(self.source.sourceString)
+        self.returns = self.return_pattern.search(self.source.source_string)
 
         # increment the identifier
         # Needed for the sake of a unique node name for graphviz
-        global currentUID
-        self.uid = currentUID
-        currentUID += 1
+        self.uid = secrets.token_hex()
 
         # Assume it is a leaf and a trunk until determined otherwise
-        self.isLeaf = True  # it calls nothing else
-        self.isTrunk = True  # nothing calls it
+        self.is_leaf = True  # it calls nothing else
+        self.is_trunk = True  # nothing calls it
 
-    def generateSameScopePatterns(self):
-        return [re.compile(r"(?:\W|\A)%s\.%s\s*\(" % (self.sameScopeKeyword, self.name), re.MULTILINE | re.DOTALL)]
+    def __repr__(self):
+        return "<Node %s from %r:%d parent=%r>" % (
+            self.name, self.source.filename, self.line_number, self.parent.name)
 
-    def generateAnyScopePatterns(self):
-        return [
-            re.compile(r"(?:[^a-zA-Z0-9\.]|\A)%s\s*\(" % (self.getFullName()), re.MULTILINE | re.DOTALL)
-        ]
-
-    def getNamespace(self):
-        return self.parent.getNamespace()
-
-    def determineNodeType(self):
-        '''
-        Dummy meant to be subclassed if we do extra calculations to determine node type
-        '''
-        self.isInitNode = False
-
-    def getFullName(self):
+    def get_full_name(self):
         '''
         Return the name with the namespace
         '''
-        namespace = self.getNamespace()
+        namespace = self.lang.get_node_namespace(self.parent, self.name)
         if '/' in namespace:
             namespace = namespace.rsplit('/', 1)[1]
 
         return namespace + '.' + self.name if namespace else self.name
 
-    def linksTo(self, other):
-        raise NotImplementedError
+    def links_to(self, other, all_nodes):
+        return self.lang.links_to(self, other, all_nodes)
 
     def contains(self, other):
-        return other.linksTo(self)
+        return other.links_to(self)
 
-    def isExtraneous(self, edges=None):
-        '''
-        Dummy function meant to be subclassed
-        Will contain logic that will determine whether this node can be removed during trimming
-        '''
-        return False
-
-    def _getUID(self):
+    def get_UID(self):
         return 'node' + str(self.uid)
 
-    def _getFileGroup(self):
-        return self.parent._getFileGroup()
+    def get_file_group(self):
+        return self.parent.get_file_group()
 
-    def _getFileName(self):
-        return self.parent._getFileName()
+    def get_filename(self):
+        return self.parent.get_filename()
 
-    def __str__(self):
+    def to_dot(self):
         '''
         For printing to the DOT file
         '''
         attributes = {}
 
-        attributes['label'] = "%d: %s" % (self.lineNumber, self.getFullName())
+        attributes['label'] = "%d: %s" % (self.line_number, self.get_full_name())
         attributes['shape'] = "rect"
         attributes['style'] = "rounded"
         # attributes['splines']='ortho'
-        if self.isTrunk:
+        if self.is_trunk:
             attributes['style'] += ',filled'
             attributes['fillcolor'] = 'coral'
-        elif self.isLeaf:
+        elif self.is_leaf:
             attributes['style'] += ',filled'
             attributes['fillcolor'] = 'green'
 
-        ret = self._getUID()
+        ret = self.get_UID()
         if attributes:
             ret += ' [splines=ortho '
             for a in attributes:
@@ -169,22 +164,22 @@ class Edge():
 
         # When we draw the edge, we know the calling function is definitely not a leaf...
         # and the called function is definitely not a trunk
-        node0.isLeaf = False
-        node1.isTrunk = False
+        node0.is_leaf = False
+        node1.is_trunk = False
 
-    def __str__(self):
+    def to_dot(self):
         '''
         For printing to the DOT file
         '''
-        ret = self.node0._getUID() + ' -> ' + self.node1._getUID()
+        ret = self.node0.get_UID() + ' -> ' + self.node1.get_UID()
         if self.node1.returns:
             ret += ' [color="blue" penwidth="2"]'
         return ret
 
-    def hasEndNode(self, node1):
+    def has_end_node(self, node1):
         return node1 == self.node1
 
-    def hasStartNode(self, node0):
+    def has_start_node(self, node0):
         return node0 == self.node0
 
 
@@ -193,13 +188,13 @@ class Group():
     Groups represent namespaces
     '''
 
-    def __init__(self, name, source, fullSource=None, definitionString='', parent=None, lineNumber=0, **kwargs):
+    def __init__(self, name, source_code,
+                 parent=None, line_number=0, lang=None):
         self.name = name
-        self.definitionString = definitionString
-        self.source = source
-        self.fullSource = fullSource or source
+        self.source = source_code
         self.parent = parent
-        self.lineNumber = lineNumber
+        self.line_number = line_number
+        self.lang = lang
 
         self.nodes = []
         self.subgroups = []
@@ -207,26 +202,30 @@ class Group():
         # So that we can track object calls as well like:
         # a = Obj()
         # a.b()
-        self.newObjectPattern = self.generateNewObjectPattern()
-        self.newObjectAssignedPattern = self.generateNewObjectAssignedPattern()
+        # TODO2021 OOOOF this might be bad... These objects can be passed everywhere
+        # and change names all the time. Let's see how we can handle this...
+        self.new_object_pattern = self.lang.generate_new_object_pattern(name)
+        self.new_object_assigned_pattern = self.lang.generate_new_object_assigned_pattern(name)
 
-        # increment the identifier
         # Needed for the sake of a unique node name for graphviz
-        global currentUID
-        self.uid = currentUID
-        currentUID += 1
+        self.uid = secrets.token_hex()
 
-    def __str__(self):
+    def __repr__(self):
+        return "<Group %r from %r line=%d nodes=%d subgroups=%d>" % (
+            self.name, self.source.filename, self.line_number,
+            len(self.nodes), len(self.subgroups))
+
+    def to_dot(self):
         '''
-        __str__ is for printing to the DOT file
+        for printing to the DOT file
         '''
-        ret = 'subgraph ' + self._getUID()
+        ret = 'subgraph ' + self.get_UID()
         ret += '{\n'
         if self.nodes:
             for node in self.nodes:
-                ret += node._getUID() + ' '
-                # if node.isFileRoot:
-                #    ret += ";{rank=source; %s}"%node._getUID()
+                ret += node.get_UID() + ' '
+                # if node.is_file_root:
+                #    ret += ";{rank=source; %s}"%node.get_UID()
 
             ret += ';\n'
         ret += 'label="%s";\n' % self.name
@@ -238,23 +237,12 @@ class Group():
         ret += '}'
         return ret
 
-    def getNamespace(self):
-        '''
-        Returns the full string namespace of this group including this groups name
-        '''
-        # TODO more complex namespaces involving parents and modules
-        # js implements something a bit more complicated already
-        # python uses this
+    def get_namespace(self):
+        return self.lang.get_group_namespace(self.parent, self.name)
 
-        return self.name
-
-    def trimGroups(self):
-        pass
-
-    def _generateRootNodeName(self, name=''):
-        if not name:
-            name = self.name
-        return "(%s %s frame (runs on import))" % (name, self.globalFrameName)
+    def root_node_name(self, name=''):
+        name = name or self.name
+        return "(%s (global scope))" % (name)
 
     def _pprint(self, printHere=True):
         '''
@@ -268,7 +256,7 @@ class Group():
         else:
             return dict(tree)
 
-    def _getUID(self):
+    def get_UID(self):
         '''
         Something
         '''
@@ -280,37 +268,87 @@ class Group():
         except Exception:
             return 'cluster' + re.sub(r"[/\.\-\(\)=\s]", '', self.name) + str(self.uid)
 
-    def _allNodes(self):
+    def all_nodes(self):
         '''
         Every node in this namespace and all descendent namespaces
         '''
-        nodes = self.nodes
+        nodes = list(self.nodes)
         for subgroup in self.subgroups:
-            nodes += subgroup._allNodes()
+            nodes += subgroup.all_nodes()
         return nodes
 
-    def _getFileGroup(self):
+    def get_file_group(self):
         if self.parent:
-            return self.parent._getFileGroup()
+            return self.parent.get_file_group()
         else:
             return self
 
-    def _getFileName(self):
-        return self._getFileGroup().name
+    def get_filename(self):
+        return self.get_file_group().name
+
+
+def _remove_comments_and_strings(source_string, lang):
+    """
+    Remove all comments and strings from the sourcecode and
+    adjust the char_to_line_map
+    """
+    char_to_line_map = _get_char_to_line_map(source_string)
+
+    for comment_group in lang.comments:
+        while True:
+            matches = {
+                token: regex.search(source_string)
+                for token, regex in comment_group.items()
+            }
+            match_positions = {
+                token: match.span()[0]
+                for token, match in matches.items() if match
+            }
+            if not match_positions:
+                break
+
+            match_token_to_use = min(match_positions.items(), key=lambda m: m[1])[0]
+            comment_re = comment_group[match_token_to_use]
+
+            match = comment_re.search(source_string)
+            new_source_string = comment_re.sub(r'\1\3', source_string, count=1)
+            new_char_to_line_map = {}
+            span_start, span_end = match.span(2)
+            match_len = span_end - span_start
+            for char_pos, line_number in char_to_line_map.items():
+                if char_pos < span_start:
+                    new_char_to_line_map[char_pos] = line_number
+                    continue
+                if char_pos < span_end:
+                    continue
+                new_char_to_line_map[char_pos - match_len] = line_number
+            source_string = new_source_string
+            char_to_line_map = new_char_to_line_map
+    return source_string, char_to_line_map
+
+
+def _print_source(source_string, char_to_line_map):
+    lines = collections.defaultdict(str)
+    for char_pos, line_number in char_to_line_map.items():
+        lines[line_number] += source_string[char_pos]
+    ret = ''
+    for line_number, char in sorted(lines.items()):
+        ret += f'{line_number}: {char}'
+    return ret
 
 
 class SourceCode():
     '''
     SourceCode is a convenient object object representing:
-        source text (sourceString)
-        a line number array (characterToLineMap)
+        source text (source_string)
+        a line number array (char_to_line_map)
 
-    A sourcecode object is maintained internally in both the Group and Node and classes
+    A sourcecode object is maintained internally in both Group and Node objects
 
-    Implementations will probably only have to overwrite the two properties:
-        blockComments
-        strings
-    Although Python does overwrite more because of it's indent system
+    # Implementations will probably only have to overwrite the two properties:
+    #     block_comments
+    #     strings
+    # Although Python does overwrite more because of it's indent system
 
     The sourcecode object supports the following primitive operations
         sc = SourceCode()
@@ -324,103 +362,117 @@ class SourceCode():
 
     And these are the methods
         copy() #deepcopy
-        firstLineNumber() #of the entire object
-        lastLineNumber()  #of the entire object
+        first_line_number() #of the entire object
+        last_line_number()  #of the entire object
         remove(string) #and return new sourcecode
         pop() #return last line
-        getPosition(lineNumber) #get character index at linenumber
-        getLineNumber(characterPos) #get line number of character
-        find(what,start) #run sourceString.find()
-        extractBetweenDelimiters(a,b,startAt) #return new sourcecode between the first pair of delimiters after startAt
-        getSourceInBlock(bracketPos) #Return the source to the matching bracket
-        matchingBracketPos(bracketPos) #Return the matching bracket position
-        endDelimPos(startAt,a,b) #return the position of the nearest end bracket given a position in the block
-        openDelimPos(startAt) #return the position of the nearest begin bracket given a position in the block
-        _removeCommentsAndStrings() #called on init. Does as it says changing the object
+        _get_position(line_number) #get character index at line_number
+        get_line_number(character_pos) #get line number of character
+        find(what,start) #run source_string.find()
+        extract_between_delimiters(a,b,start_at) #return new sourcecode between the first pair of delimiters after start_at
+        get_source_in_block(bracket_pos) #Return the source to the matching bracket
+        matching_bracket_pos(bracket_pos) #Return the matching bracket position
+        _end_delim_pos(start_at,a,b) #return the position of the nearest end bracket given a position in the block
+        _open_delim_pos(start_at) #return the position of the nearest begin bracket given a position in the block
+        _remove_comments_and_strings() #called on init. Does as it says changing the object
 
     '''
+    __slots__ = [
+        'source_string',
+        'char_to_line_map',
+        'lang',
+        'filename'
+    ]
 
-    # These two must be subclassed
-    delimA = '{'
-    delimB = '}'
+    delim_a = '{'
+    delim_b = '}'
+    delim_len = 1
 
-    def __init__(self, sourceString, characterToLineMap=None, imp=None):
+    def __init__(self, source_string, char_to_line_map=None, filename=None, lang=None):
         '''
-        Remove the comments and build the linenumber/file mapping while doing so
+        Remove the comments and build the line_number/file mapping while doing so
         '''
-        self.sourceString = sourceString
-        self.imp = imp
+        self.source_string = source_string
+        self.lang = lang
+        self.filename = filename
 
-        if characterToLineMap:
-            self.characterToLineMap = characterToLineMap
-        else:
-            self.characterToLineMap = {}
+        if char_to_line_map:
+            self.char_to_line_map = char_to_line_map
+            return
+        self.char_to_line_map = _get_char_to_line_map(source_string)
+        self.source_string, self.char_to_line_map = _remove_comments_and_strings(source_string, lang)
 
-            self._removeCommentsAndStrings()
-            self.sourceString = str(self.sourceString)  # convert back to regular python string from mutable string
+    def __str__(self):
+        '''
+        For debugging. Print the source with line numbers
+        '''
+        return _print_source(self.source_string, self.char_to_line_map)
 
-            # TODO2021 probably remove
-            with open('cleanedSource', 'w') as outfile:
-                outfile.write(self.sourceString)
+    def __repr__(self):
+        ret = "<SourceCode %r from=%d to=%d>" % (
+            self.filename, self.first_line_number(), self.last_line_number())
+        return ret
 
-        self.delimLen = len(self.delimA)
+    def __bool__(self):
+        '''
+        __bool__ is object evaluates to True or False
+        source_string will be False when the source_string has nothing or nothing but whitespace
+        '''
+        return self.source_string.strip() != ''
 
     def __len__(self):
-        return len(self.sourceString)
+        return len(self.source_string)
 
     def __getitem__(self, sl):
         '''
-        If sliced, return a new object with the sourceString and the characterToLineMap sliced by [firstChar:lastChar]
+        If sliced, return a new object with the source_string and the char_to_line_map sliced by [firstChar:lastChar]
 
         1. Slice the source string in the obvious way.
-        2. Slice the charactertolinemap
+        2. Slice the char_to_line_map
             a. Remove character mappings that are not in between where we are shifting to
-            b. Take remaining characterPositions and shift them over by start shift
+            b. Take remaining char_positions and shift them over by start shift
 
         '''
         if type(sl) == int:
-            return self.sourceString[sl]
+            return self.source_string[sl]
 
-        if type(sl) != slice:
-            raise Exception("Slice was not passed")
+        assert type(sl) == slice
 
-        if sl.step and (sl.start or sl.stop):
-            raise Exception("Sourcecode slicing does not support the step attribute (e.g. source[from:to:step] is not supported)")
-
-        if sl.start is None:
-            start = 0
-        else:
-            start = sl.start
+        start = sl.start or 0
 
         if sl.stop is None:
-            stop = len(self.sourceString)
+            stop = len(self.source_string)
         elif sl.stop < 0:
-            stop = len(self.sourceString) + sl.stop
+            stop = len(self.source_string) + sl.stop
         else:
             stop = sl.stop
 
         if start > stop:
-            raise Exception("Begin slice cannot be greater than end slice. You passed SourceCode[%d:%d]" % (sl.start, sl.stop))
+            raise Exception("Begin slice > end slice. You passed SourceCode[%d:%d]" % (sl.start, sl.stop))
 
-        ret = self.copy()
+        if start == stop:
+            return None
 
-        ret.sourceString = ret.sourceString[start:stop]
+        new_source_code_obj = self.copy()
+
+        new_source_code_obj.source_string = new_source_code_obj.source_string[start:stop]
 
         # filter out character mapping we won't be using
-        shiftedCharacterToLineMap = {}
-        characterPositions = list(ret.characterToLineMap.keys())
-        characterPositions = list([p for p in characterPositions if p >= start and p <= stop])
+        shifted_char_to_line_map = {}
+        char_positions = list(new_source_code_obj.char_to_line_map.keys())
+        char_positions = list(p for p in char_positions if start <= p < stop)
 
         # shift existing character mappings to reflect the new start position
         # If we start with 0, no shifting will take place
-        for characterPosition in characterPositions:
-            shiftedCharacterToLineMap[characterPosition - start] = ret.characterToLineMap[characterPosition]
+        for char_pos in char_positions:
+            shifted_char_to_line_map[char_pos - start] = new_source_code_obj.char_to_line_map[char_pos]
 
         # we need this to be sure that we can always get the line number no matter where we splice
-        shiftedCharacterToLineMap[0] = self.getLineNumber(start)
+        shifted_char_to_line_map[0] = self.get_line_number(start)
 
-        ret.characterToLineMap = shiftedCharacterToLineMap
-        return ret
+        new_source_code_obj.char_to_line_map = shifted_char_to_line_map
+
+        return new_source_code_obj
 
     def __add__(self, other):
         '''
@@ -431,118 +483,97 @@ class SourceCode():
         if not other:
             return self.copy()
 
-        if self.lastLineNumber() > other.firstLineNumber():
-            raise Exception("When adding two pieces of sourcecode, the second piece must be completely after the first as far as line numbers go")
+        assert self.last_line_number() <= other.first_line_number()
 
-        sourceString = self.sourceString + other.sourceString
+        source_string = self.source_string + other.source_string
 
-        shiftedCharacterToLineMap = {}
-        characterPositions = list(other.characterToLineMap.keys())
-        for characterPosition in characterPositions:
-            shiftedCharacterToLineMap[characterPosition + len(self.sourceString)] = other.characterToLineMap[characterPosition]
+        shifted_char_to_line_map = {}
+        char_positions = list(other.char_to_line_map.keys())
+        for char_pos in char_positions:
+            shifted_char_to_line_map[char_pos + len(self.source_string)] = other.char_to_line_map[char_pos]
 
-        characterToLineMap = dict(list(self.characterToLineMap.items()) + list(shiftedCharacterToLineMap.items()))
+        char_to_line_map = dict(list(self.char_to_line_map.items()) + list(shifted_char_to_line_map.items()))
 
-        ret = SourceCode(sourceString=sourceString, characterToLineMap=characterToLineMap, imp=self.imp)
-
+        ret = SourceCode(source_string=source_string,
+                         char_to_line_map=char_to_line_map,
+                         filename=self.filename,
+                         lang=self.lang)
         return ret
 
     def __sub__(self, other):
         if not other:
             return self.copy()
 
-        if self.firstLineNumber() > other.firstLineNumber() or self.lastLineNumber() < other.lastLineNumber():
-            raise Exception("When subtracting a piece of one bit of sourcecode from another, the second must lie completely within the first")
+        try:
+            assert self.first_line_number() <= other.first_line_number()
+            assert other.last_line_number() <= self.last_line_number()
+        except:
+            print('\a'); import ipdb; ipdb.set_trace()
 
-        firstPos = self.sourceString.find(other.sourceString)
+        first_pos = self.source_string.find(other.source_string)
+        assert first_pos != -1
 
-        if firstPos == -1:
-            raise Exception('Could not subtract string starting with "%s" from source because string could not be found' % other.sourceString[:50].replace("\n", "\\n"))
+        last_pos = first_pos + len(other.source_string)
 
-        lastPos = firstPos + len(other.sourceString)
-
-        firstPart = self[:firstPos]
-
-        secondPart = self[lastPos:]
-
-        return firstPart + secondPart
-
-    def __bool__(self):
-        '''
-        __bool__ is object evaluates to True or False
-        sourceString will be False when the sourceString has nothing or nothing but whitespace
-        '''
-        return self.sourceString.strip() != ''
-
-    def __str__(self):
-        '''
-        Mostly for debugging. Print the source with line numbers
-        '''
-        ret = ''
-        for i, char in enumerate(self.sourceString):
-            if i in self.characterToLineMap:
-                ret += '%d: ' % self.characterToLineMap[i]
-            ret += char
+        ret = self[:first_pos] + self[last_pos:]
         return ret
 
     def copy(self):
-        return copy.deepcopy(self)
+        ret = SourceCode(copy.deepcopy(self.source_string),
+                         copy.deepcopy(self.char_to_line_map),
+                         filename=self.filename,
+                         lang=self.lang)
+        return ret
 
-    def firstLineNumber(self):
+    def first_line_number(self):
         '''
         First line number of the entire source
         '''
-        try:
-            return min(self.characterToLineMap.values())
-        except ValueError:
-            raise Exception("Sourcecode has no line numbers")
+        return min(self.char_to_line_map.values())
 
-    def lastLineNumber(self):
+    def last_line_number(self):
         '''
         Last line number of the entire source
         '''
-        try:
-            return max(self.characterToLineMap.values())
-        except ValueError:
-            raise Exception("Sourcecode has no line numbers")
+        return max(self.char_to_line_map.values())
 
-    def remove(self, stringToRemove):
+    def remove(self, string_to_remove):
         '''
         Remove a string. Does not alter object in place
         '''
-        firstPos = self.sourceString.find(stringToRemove)
-        if firstPos == -1:
+        first_pos = self.source_string.find(string_to_remove)
+        if first_pos == -1:
             raise Exception("String not found in source")
-        lastPos = firstPos + len(stringToRemove)
-        return self[:firstPos] + self[lastPos:]
+        last_pos = first_pos + len(string_to_remove)
+        return self[:first_pos] + self[last_pos:]
 
     def pop(self):
         '''
         Pop off the last line
         '''
-        lastLinePos = self.sourceString.rfind('\n')
-        ret = self.sourceString[lastLinePos:]
-        self = self[:lastLinePos]
+        last_line_pos = self.source_string.rfind('\n')
+        ret = self.source_string[last_line_pos:]
+        self = self[:last_line_pos]
 
         return ret
 
-    def getPosition(self, lineNumberRequest):
+    def _get_position(self, line_number_request):
         '''
-        From lineNumber, get the character position
+        From line_number, get the character position
         '''
-        for pos, lineNumber in self.characterToLineMap.items():
-            if lineNumber == lineNumberRequest:
+        for pos, line_number in self.char_to_line_map.items():
+            if line_number == line_number_request:
                 return pos
 
         raise Exception("Could not find line number in source")
 
-    def getLineNumber(self, pos):
+    def get_line_number(self, pos):
         '''
-        Decrement until we find the first character of the line and can get the linenumber
+        Decrement until we find the first character of the line and can get the line_number
         '''
         while True:
             try:
-                return self.characterToLineMap[pos]
+                return self.char_to_line_map[pos]
             except Exception:
                 pos -= 1
                 if pos < 0:
@@ -552,266 +583,151 @@ class SourceCode():
         '''
         Pass through 'find' makes implementations cleaner
         '''
-        return self.sourceString.find(what, start)
+        return self.source_string.find(what, start)
 
-    def extractBetweenDelimiters(self, startAt=0):
+    def extract_between_delimiters(self, start_at=0):
         '''
-        Return the source between the first pair of delimiters after 'startAt'
+        Return the source between the first pair of delimiters after 'start_at'
         '''
-
-        start = self.sourceString.find(self.delimA, startAt)
+        start = self.source_string.find(self.delim_a, start_at)
         if start == -1:
             return None
-        start += self.delimLen
+        start += self.delim_len
 
-        endPos = self.endDelimPos(start, self.delimA, self.delimB)
-        if endPos != -1:
-            return self[start:endPos]
+        end_pos = self._end_delim_pos(start, self.delim_a, self.delim_b)
+        if end_pos != -1:
+            return self[start:end_pos]
         else:
             return None
 
-    def matchingBracketPos(self, bracketPos):
+    def matching_bracket_pos(self, bracket_pos):
         '''
         Find the matching bracket position
         '''
 
-        delim = self[bracketPos]
-        if delim == self.delimA:
-            if self.sourceString[bracketPos + 1] == self.delimB:
-                return bracketPos + 1
+        delim = self[bracket_pos]
+        if delim == self.delim_a:
+            if self.source_string[bracket_pos + 1] == self.delim_b:
+                return bracket_pos + 1
             else:
-                return self.endDelimPos(startAt=bracketPos + 1)
-        elif delim == self.delimB:
-            if self.sourceString[bracketPos - 1] == self.delimA:
-                return bracketPos - 1
+                return self._end_delim_pos(start_at=bracket_pos + 1)
+        elif delim == self.delim_b:
+            if self.source_string[bracket_pos - 1] == self.delim_a:
+                return bracket_pos - 1
             else:
-                return self.openDelimPos(startAt=bracketPos - 1)
+                return self._open_delim_pos(start_at=bracket_pos - 1)
         else:
             raise Exception('"%s" is not a known delimiter' % delim)
 
-    def endDelimPos(self, startAt):
+    def _end_delim_pos(self, start_at):
         '''
-        Find the nearest end delimiter assuming that 'startAt' is inside of a block
+        Find the nearest end delimiter assuming that 'start_at' is inside of a block
         '''
 
         count = 1
-        i = startAt
-        while i < len(self.sourceString) and count > 0:
-            tmp = self.sourceString[i:i + self.delimLen]
-            if tmp == self.delimA:
+        i = start_at
+        while i < len(self.source_string) and count > 0:
+            tmp = self.source_string[i:i + self.delim_len]
+            if tmp == self.delim_a:
                 count += 1
-                i += self.delimLen
-            elif tmp == self.delimB:
+                i += self.delim_len
+            elif tmp == self.delim_b:
                 count -= 1
-                i += self.delimLen
+                i += self.delim_len
             else:
                 i += 1
 
         if count == 0:
-            return i - self.delimLen
+            return i - self.delim_len
         else:
             return -1
 
-    def openDelimPos(self, pos):
+    def _open_delim_pos(self, pos):
         '''
         Find the nearest begin delimiter assuming that 'pos' is inside of a block
         TODO there is probably no reason why this also includes parenthesis
-        TODO this should probably just be the same function as endDelimPos
+        TODO this should probably just be the same function as _end_delim_pos
         '''
 
         count = 0
         i = pos
         while i >= 0 and count >= 0:
-            if self.sourceString[i] in ('}', ')'):
+            if self.source_string[i] in ('}', ')'):
                 count += 1
-            elif self.sourceString[i] in ('{', '('):
+            elif self.source_string[i] in ('{', '('):
                 count -= 1
             i -= 1
 
         if count == -1:
             return i + 1
+        return 0
+
+    def get_source_in_block(self, start_pos):
+        return self.lang.get_source_in_block(self, start_pos)
+
+
+def _get_nodes_and_groups(raw_source_by_filename, lang):
+    nodes = []
+    file_groups = []
+    for filename, raw_source in raw_source_by_filename.items():
+        # remove .py from filename
+        logging.info(f"Getting source for {filename}...")
+
+        # generate sourcecode (remove comments and add line numbers)
+        source_code = SourceCode(raw_source, filename=filename, lang=lang)
+
+        # Create all of the subgroups (classes) and nodes (functions) for this file
+        logging.info("Generating groups and nodes...")
+        file_group = lang.generate_file_group(name=filename,
+                                              source_code=source_code,
+                                              lang=lang)
+        file_groups.append(file_group)
+
+        # Append nodes generated to all nodes
+        nodes += file_group.all_nodes()
+    return nodes, file_groups
+
+
+def map_it(lang, filenames):
+    '''
+    I. For each file passed,
+        1. Generate the sourcecode for that file
+        2. Generate a group from that file's sourcecode
+            a. The group init will recursively generate all of the subgroups and function nodes for that file
+    II.  Trim the groups bascially removing those which have no function nodes
+    III. Generate the edges
+    IV.  Return the file groups, function nodes, and edges
+    '''
+
+    # get the filename and the file_raw_source
+    # only first file for now
+
+    raw_source_by_filename = {}
+    for filename in filenames:
+        with open(filename) as f:
+            raw_source_by_filename[filename] = f.read()
+
+    nodes, file_groups = _get_nodes_and_groups(raw_source_by_filename, lang)
+
+    # Trimming the groups mostly removes those groups with no function nodes
+    # TODO in Python we don't remove shit
+    for group in file_groups:
+        lang.trim_groups(group)
+        logging.info(f"Post trim, {group.name}...")
+        group._pprint()
+
+    # Figure out what functions map to what
+    logging.info("Generating edges...")
+    edges = _generate_edges(nodes)
+
+    # Trim off the nodes (mostly global-frame nodes that don't do anything)
+    final_nodes = []
+    for node in nodes:
+        if not lang.is_extraneous(node, edges):
+            final_nodes.append(node)
         else:
-            return 0
+            node.parent.nodes.remove(node)
+            del node  # TODO
 
-    def _removeCommentsAndStrings(self):
-        '''
-
-        Two things happen here:
-        a. Character by character, add those characters which are not part of comments or strings to a new string
-           Same the new string as the 'sourceString' variable
-        b. At the same time, generate an array of line number beginnings called the 'characterToLineMap'
-
-        This uses a mutable string to save time on adding
-
-        '''
-        logging.info("Removing comments and strings...")
-
-        originalString = str(self.sourceString)
-        self.sourceString = MString('')  # TODO2021 Mutable string is something we wrote. Real import was deprecated in Python3. Not sure why this was supposed to be mutable.
-        self.characterToLineMap = {}
-        lineCount = 1
-        self.characterToLineMap[0] = lineCount  # character 0 is line #1
-        lineCount += 1  # set up for next line which will be two
-        i = 0
-
-        inlineCommentLen = len(self.imp.SourceCode.inlineComments)
-
-        # begin analyzing charactes 1 by 1 until we reach the end of the originalString
-        # -blockCommentLen so that we don't go out of bounds
-        while i < len(originalString):
-            # check if the next characters are a block comment
-            # There are multiple types of block comments so we have to check them all
-            for blockComment in self.imp.SourceCode.blockComments:
-                if type(blockComment['start']) == str:
-                    blockCommentLen = len(blockComment['start'])
-                    if originalString[i:][:blockCommentLen] == blockComment['start']:
-                        # if it was a block comment, jog forward
-                        prevI = i
-                        i = originalString.find(blockComment['end'], i + blockCommentLen) + blockCommentLen
-
-                        while originalString[i - 1] == '\\':
-                            i = originalString.find(blockComment['end'], i + blockCommentLen) + blockCommentLen
-
-                        if i == -1 + blockCommentLen:
-                            # if we can't find the blockcomment and have reached the end of the file
-                            # return the cleaned file
-                            return
-
-                        # increment the newlines
-                        lineCount += originalString[prevI:i].count('\n')
-
-                        # still want to see the comments, just not what is inside
-                        self.sourceString.append(blockComment['start'] + blockComment['end'])
-
-                        break
-                else:
-                    # is a regex blockcomment... sigh js sigh...
-                    match = blockComment['start'].match(originalString[i:])
-                    if match:
-                        # print match.group(0)
-                        # print originalString[i-5:i+5]
-                        prevI = i
-
-                        endMatch = blockComment['end'].search(originalString[i + match.end(0):])
-
-                        if endMatch:
-                            i = i + match.end(0) + endMatch.end(0)
-                        else:
-                            return
-
-                        # increment the newlines
-                        lineCount += originalString[prevI:i].count('\n')
-                        break
-            else:
-                # check if the next characters are an inline comment
-                if originalString[i:][:inlineCommentLen] == self.imp.SourceCode.inlineComments:
-                    # if so, find the end of the line and jog forward. Add one to jog past the newline
-                    i = originalString.find("\n", i + inlineCommentLen + 1)
-
-                    # if we didn't find the end of the line, that is the end of the file. Return
-                    if i == -1:
-                        return
-                else:
-                    # Otherwise, it is not a comment. Add to returnstr
-                    self.sourceString.append(originalString[i])
-
-                    # if the originalString is a newline, then we must note this
-                    if originalString[i] == '\n':
-                        self.characterToLineMap[len(self.sourceString)] = lineCount
-                        lineCount += 1
-                    i += 1
-
-    def getSourceInBlock(self, startPos, fullSource=False):
-        return self.imp.SourceCode.getSourceInBlock(self, startPos, fullSource)
-
-
-class Mapper():
-    '''
-    The primary class of the engine which gets called first
-    Mapper is meant to be abstract and subclassed by various languages
-    '''
-
-    SINGLE_QUOTE_PATTERN = re.compile(r'(?<!\\)"')
-    DOUBLE_QUOTE_PATTERN = re.compile(r"(?<!\\)'")
-
-    files = {}
-
-    def __init__(self, implementation, files):
-        '''
-        Two things are happening:
-        1. We are overwriting all of the classes with the implementation's classes
-            So if we are working with a javascript file, the implementation variable points to javascript.py
-            Then, we overwrite every class in engine.py with all of the javascript.py's classes
-        2. We are loading the source files into the mapper class
-        '''
-
-        global Node, Edge, Group, Mapper, SourceCode
-        Node = implementation.Node
-        Group = implementation.Group
-        # Mapper = implementation.Mapper
-        # SourceCode = implementation.SourceCode
-        self.imp = implementation.Imp
-
-        for f in files:
-            with open(f) as fi:
-                self.files[f] = fi.read()
-
-    def map(self):
-        '''
-        I. For each file passed,
-            1. Generate the sourcecode for that file
-            2. Generate a group from that file's sourcecode
-                a. The group init will recursively generate all of the subgroups and function nodes for that file
-        II.  Trim the groups bascially removing those which have no function nodes
-        III. Generate the edges
-        IV.  Return the file groups, function nodes, and edges
-        '''
-
-        # get the filename and the fileString
-        # only first file for now
-        nodes = []
-        fileGroups = []
-        for filename, fileString in self.files.items():
-            # remove .py from filename
-            filename = filename.rsplit('.', 1)[0]
-            logging.info(f"Mapping {filename}...")
-
-            # generate sourcecode (remove comments and add line numbers)
-            source = SourceCode(fileString, imp=self.imp)
-
-            # Create all of the subgroups (classes) and nodes (functions) for this file
-            logging.info("Generating function nodes...")
-            fileGroup = self.generateFileGroup(name=filename, source=source)
-            fileGroups.append(fileGroup)
-
-            # Append nodes generated to all nodes
-            nodes += fileGroup._allNodes()
-
-        # Trimming the groups mostly removes those groups with no function nodes
-        for group in fileGroups:
-            group.trimGroups()
-            logging.info(f"Post trim, {group.name}...")
-            group._pprint()
-
-        # Figure out what functions map to what
-        logging.info("Generating edges...")
-        edges = generateEdges(nodes)
-
-        # Trim off the nodes (mostly global-frame nodes that don't do anything)
-        finalNodes = []
-        for node in nodes:
-            if not node.isExtraneous(edges):
-                finalNodes.append(node)
-            else:
-                node.parent.nodes.remove(node)
-                del node
-
-        # return everything we have done
-        return fileGroups, finalNodes, edges
-
-    def generateFileGroup(self, name, source):
-        '''
-        Dummy function probably superclassed
-        This will initialize the global group for the entire source file
-        '''
-        return self.imp.Mapper.generateFileGroup(name=name, source=source)
+    # return everything we have done
+    return file_groups, final_nodes, edges

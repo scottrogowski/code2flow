@@ -3,10 +3,10 @@ def write_dot_file(dot_file, nodes, edges, groups, hide_legend=False):
     Write the dot file
     '''
     with open(dot_file, 'w') as outfile:
-        outfile.write(generatedot_file(nodes, edges, groups, hide_legend))
+        outfile.write(generate_dot_file(nodes, edges, groups, hide_legend))
 
 
-def generatedot_file(nodes, edges, groups, hide_legend=False):
+def generate_dot_file(nodes, edges, groups, hide_legend=False):
     '''
     Return the string for the entire dot_file
     To be appended:
@@ -33,13 +33,12 @@ def generatedot_file(nodes, edges, groups, hide_legend=False):
                 </table></td></tr></table>
                 >];}"""
     for node in nodes:
-        if str(node):
-            ret += str(node) + ';\n'
+        if node.to_dot():
+            ret += node.to_dot() + ';\n'
     for edge in edges:
-        ret += str(edge) + ';\n'
+        ret += edge.to_dot() + ';\n'
     for group in groups:
-        ret += str(group) + ';\n'
-
+        ret += group.to_dot() + ';\n'
     ret += '}'
 
     return ret
