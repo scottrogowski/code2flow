@@ -1,3 +1,5 @@
 __pycache__
 out.*
 cleanedSource
+.coverage
+htmlcov

@@ -12,17 +12,18 @@ Code2flow generate DOT flowcharts from your Python and Javascript projects
 
 The algorithm is simple:
 
-1. Gather function definitions from your project's source code
-2. Determine where in your source those functions are called
+1. Find function definitions in your project's source code.
+2. Determine where those functions are called.
 3. Connect the dots. 
 
-The end result is a flowchart which approximates the functional structure of your program.
+The result is a flowchart which approximates the functional structure of your program. In other words, *code2flow generates callgraphs*.
 
-In other words, *code2flow generates callgraphs*.
+Code2flow is useful for:
+- Untangling spaghetti code.
+- Identifying orphaned functions
+- Getting new developers up to speed.
 
-Code2flow is especially useful for untangling spaghetti code and getting new developers up to speed.
-
-Code2flow is EXPERIMENTAL and meant to provide a **rough overview** of the structure of simpler projects. There are many known limitations (see below).
+Code2flow is EXPERIMENTAL and will provide a **rough overview** of the structure of simpler projects. There are many known limitations (see below).
 
 Here is what happens when you run it on jquery
 ![Alt text](jqueryexample.png)
@@ -59,16 +60,6 @@ Or, for javascript
 code2flow myjavascriptfile.js
 ```
 
-By default, code2flow will render a DOT file, out.gv and a PNG file, out.png.
-
-You can also render the flowchart in any of the formats that graphviz supports:
-bmp canon cgimage cmap cmapx cmapx_np dot eps exr fig **gif** gv imap imap_np ismap jp2 jpe **jpeg** jpg pct pdf pic pict plain plain-ext **png** pov ps ps2 psd sgi **svg** svgz tga tif tiff tk vml vmlz x11 xdot xlib
-
-For example:
-```bash
-code2flow mypythonfile.py -o myflow.jpeg
-```
-
 You can also specify multiple files or import directories
 
 ```bash
@@ -83,30 +74,32 @@ code2flow project/directory/*.js
 code2flow project/directory --language js
 ```
 
+There are a ton of command line options, to see them all, run
+
+```bash
+code2flow --help
+```
+
 
 Limitations
 -----------
 
-Code2flow is meant to provide a reasonable conjecture of the structure of simple projects and has many known limitations.
+Code2flow provides an approximation of the structure of simple projects. Fundamentally, it works by using regular expressions - not abstract syntax trees. Therefore, it has many known limitations:
 
-* Arrays of functions are not handled
-* The logic for whether or not a function returns is simply looking for 'return' in that function
-* Functions not declared in the initial class/object definitions (e.g. attached later) are mostly not handled
-* Dynamically generated and lambda functions are mostly not handled
-* In python, functions inherited from a parent class are not handled
-* In python, import ... as ... is not handled correctly
-* In javascript, prototypes will result in unpredictable results
-* And many more
+* Functions with identical names in different namespaces are loudly skipped.
+* Imports outside of the project directory (including standard library) which share names with your defined functions, will not be handled correctly. Instead when you call the imported function, code2flow will link to your local functions.
+* Anonymous or generated functions are not handled.
+* Calling functions in anything except the most basic way is probably not handled.
+* Etc.
 
-Basically, code2flow may not diagram your sourcecode exactly as you might expect it to
-
+Think of Code2Flow as a starting point rather than a magic wand. After code2flow generates your flowchart, you probably need to spend some time cleaning up the output using a dot file editor. For a list of editors, look [here](https://graphviz.org/resources/).
 
 License
 -----------------------------
 
 Code2flow is licensed under the MIT license.
 Prior to the rewrite in April 2021, code2flow was licensed under LGPL. The last commit under that license was 24b2cb854c6a872ba6e17409fbddb6659bf64d4c. 
-The April 2021 rewrite was substantial and a safe assumption would be to consider the entire project to be under MIT.
+The April 2021 rewrite was substantial so it's probably reasonable to treat code2flow as completely MIT-licensed.
 
 
 Feedback / Bugs / Contact
@@ -127,4 +120,4 @@ How to contribute
 Feature / Language Requests
 ----------------
 
-Email me. I am an independent contractor and can be convinced to add to the project for an appropriate amount of money :).
+Email me. I am an independent contractor and can be convinced to work on this for an appropriate amount of money.

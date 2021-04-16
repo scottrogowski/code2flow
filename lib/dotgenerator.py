@@ -1,44 +1,47 @@
-def write_dot_file(dot_file, nodes, edges, groups, hide_legend=False):
-    '''
-    Write the dot file
-    '''
-    with open(dot_file, 'w') as outfile:
-        outfile.write(generate_dot_file(nodes, edges, groups, hide_legend))
+from .model import TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR
+
+LEGEND = """subgraph legend{
+    rank = min;
+    label = "legend";
+    Legend [shape=none, margin=0, label = <
+        <table cellspacing="0" cellpadding="0" border="1"><tr><td>Code2flow Legend</td></tr><tr><td>
+        <table cellspacing="0">
+        <tr><td>Regular function</td><td width="50px"></td></tr>
+        <tr><td>Trunk function (nothing calls this)</td><td bgcolor='%s'></td></tr>
+        <tr><td>Leaf function (this calls nothing else)</td><td bgcolor='%s'></td></tr>
+        <tr><td>Function call</td><td><font color='%s'>&#8594;</font></td></tr>
+        </table></td></tr></table>
+        >];
+}""" % (TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR)
 
 
-def generate_dot_file(nodes, edges, groups, hide_legend=False):
+def write_dot_file(filename, nodes, edges, groups, hide_legend=False,
+                   no_grouping=False):
     '''
-    Return the string for the entire dot_file
-    To be appended:
-    - A legend
-    - Nodes
-    - Edges
-    - Groups
+    Write a dot file that can be read by graphviz
+
+    :param filename str:
+    :param nodes list[Node]: functions
+    :param edges list[Edge]: function calls
+    :param groups list[Group]: classes and files
+    :param hide_legend bool:
+    :rtype: None
     '''
-    ret = "digraph G {\n"
-    ret += "concentrate = true;"
+
+    content = "digraph G {\n"
+    content += "concentrate=true;\n"
+    content += 'splines="ortho";\n'
+    content += 'rankdir="LR";\n'
     if not hide_legend:
-        ret += """
-            subgraph legend{
-            rank = min;
-            label = "legend";
-            Legend [shape=none, margin=0, label = <
-                <table cellspacing="0" cellpadding="0" border="1"><tr><td>Code2flow Legend</td></tr><tr><td>
-                <table cellspacing="0">
-                <tr><td>Regular function</td><td width="50px"></td></tr>
-                <tr><td>Trunk function (nothing calls this)</td><td bgcolor='coral'></td></tr>
-                <tr><td>Leaf function (this calls nothing else)</td><td bgcolor='green'></td></tr>
-                <tr><td>Function call which returns no value</td><td>&#8594;</td></tr>
-                <tr><td>Function call returns some value</td><td><font color='blue'>&#8594;</font></td></tr>
-                </table></td></tr></table>
-                >];}"""
+        content += LEGEND
     for node in nodes:
-        if node.to_dot():
-            ret += node.to_dot() + ';\n'
+        content += node.to_dot(no_grouping) + ';\n'
     for edge in edges:
-        ret += edge.to_dot() + ';\n'
-    for group in groups:
-        ret += group.to_dot() + ';\n'
-    ret += '}'
+        content += edge.to_dot() + ';\n'
+    if not no_grouping:
+        for group in groups:
+            content += group.to_dot()
+    content += '}'
 
-    return ret
+    with open(filename, 'w') as outfile:
+        outfile.write(content)
