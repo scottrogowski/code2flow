@@ -84,12 +84,13 @@ code2flow --help
 Limitations
 -----------
 
-Code2flow provides an approximation of the structure of simple projects. Fundamentally, it works by using regular expressions - not abstract syntax trees. Therefore, it has many known limitations:
+Code2flow approximates the structure of simple projects. Fundamentally, it works by using regular expressions - not abstract syntax trees. Therefore, it has many known limitations:
 
-* Functions with identical names in different namespaces are loudly skipped.
-* Imports outside of the project directory (including standard library) which share names with your defined functions, will not be handled correctly. Instead when you call the imported function, code2flow will link to your local functions.
-* Anonymous or generated functions are not handled.
-* Calling functions in anything except the most basic way is probably not handled.
+* All functions without definitions are skipped.
+* Functions with identical names in different namespaces are (loudly) skipped. E.g. If you have two classes with methods, "add_element()", code2flow cannot distinguish between these and skips them.
+* Imported functions from outside of your project directory (including from the standard library) which share names with your defined functions will not be handled correctly. Instead when you call the imported function, code2flow will link to your local functions. E.g. if you have a function "search()" and call, "import re; re.search()", code2flow links (incorrectly) to your defined function.
+* Anonymous or generated functions are skipped.
+* Renamed functions are not handled.
 * Etc.
 
 Think of Code2Flow as a starting point rather than a magic wand. After code2flow generates your flowchart, you probably need to spend some time cleaning up the output using a dot file editor. For a list of editors, look [here](https://graphviz.org/resources/).
