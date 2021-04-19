@@ -10,32 +10,43 @@ import os
 
 import lib.dotgenerator as dotgenerator
 import lib.engine as engine
-import lib.languages.python as python_implementation
+from lib.languages.python import Python
+# from lib.languages.javascript import Javascript
+
 # import lib.languages.javascript as js_implementation
 
 DESCRIPTION = "Generate flow charts from your source code. " \
               "See the README at https://github.com/scottrogowski/code2flow."
 LANGUAGES = {
-    # 'js': js_implementation,
-    'py': python_implementation
+    # 'js': Javascript,
+    'py': Python
 }
 VALID_EXTENSIONS = {'.png', '.svg', '.dot', '.gv'}
 
 
-def is_exe(fpath):
-    return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+def is_installed(executable_cmd):
+    """
+    Determine whether a command can be run or not
 
-
-def is_installed(program):
+    :param list[str] individual_files:
+    :rtype: str
+    """
     for path in os.environ["PATH"].split(os.pathsep):
         path = path.strip('"')
-        exe_file = os.path.join(path, program)
-        if is_exe(exe_file):
+        exe_file = os.path.join(path, executable_cmd)
+        if os.path.isfile(exe_file) and os.access(exe_file, os.X_OK):
             return True
     return False
 
 
 def determine_language(individual_files):
+    """
+    Given a list of filepaths, determine the language from the first
+    valid extension
+
+    :param list[str] individual_files:
+    :rtype: str
+    """
     for source, _ in individual_files:
         suffix = source.rsplit('.', 1)[-1]
         if suffix in LANGUAGES:
@@ -46,6 +57,15 @@ def determine_language(individual_files):
 
 
 def get_sources_and_language(raw_sources, language):
+    """
+    Given a list of files and directories, return just files.
+    If we are not passed a language, determine it.
+    Filter out files that are not of that language
+
+    :param list[str] raw_sources: file or directory paths
+    :param str|None language: Input language
+    :rtype: (list, str)
+    """
     individual_files = []
     for source in sorted(raw_sources):
         if os.path.isfile(source):
@@ -92,6 +112,7 @@ def code2flow(raw_sources, output_filename, language, hide_legend,
 
     :param list[str] raw_sources: file or directory paths
     :param str output_filename: path to the output file. SVG/PNG will generate an image.
+    :param str language: input language extension
     :param bool hide_legend: Omit the legend from the output
     :param str exclude_namespaces: Comma separated list of namespaces to exclude
     :param str exclude_functions: Comma separated list of functions to exclude
@@ -123,25 +144,11 @@ def code2flow(raw_sources, output_filename, language, hide_legend,
         output_filename, extension = output_filename.rsplit('.', 1)
         output_filename += '.gv'
 
-    lang = LANGUAGES[language].Lang
+    lang = LANGUAGES[language]
 
     # Do the mapping (where the magic happens)
-    groups, nodes, edges = engine.map_it(lang, sources, no_trimming)
-
-    if exclude_namespaces:
-        for namespace in exclude_namespaces.split(','):
-            before_len = len(groups)
-            groups = [g for g in groups if g.name != namespace]
-            if before_len == len(groups):
-                logging.warning(f"Could not exclude namespace '{namespace}' "
-                                "because it was not found")
-    if exclude_functions:
-        for function_name in exclude_functions.split(','):
-            before_len = len(nodes)
-            nodes = [n for n in nodes if n.name != function_name]
-            if before_len == len(groups):
-                logging.warning(f"Could not exclude function '{function_name}' "
-                                "because it was not found")
+    groups, nodes, edges = engine.map_it(lang, sources, no_trimming,
+                                         exclude_namespaces, exclude_functions)
 
     logging.info("Generating dot file...")
     dotgenerator.write_dot_file(output_filename, nodes=nodes, edges=edges,

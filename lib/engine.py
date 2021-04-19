@@ -8,6 +8,12 @@ random.seed(42)
 
 
 def flatten(nested_list):
+    """
+    Given a list of lists, return a flattened list
+
+    :param list[list] nested_list:
+    :rtype: list
+    """
     return [el for sublist in nested_list for el in sublist]
 
 
@@ -33,80 +39,130 @@ def _generate_edges(nodes):
     return edges
 
 
-def _get_char_to_line_map(string_data):
-    line_number = 1
-    char_to_line_map = {}
-    for i, c in enumerate(string_data):
-        char_to_line_map[i] = line_number
-        if c == '\n':
-            line_number += 1
-    return char_to_line_map
-
-
 def _get_groups_from_raw_files(raw_source_by_filename, lang):
     """
+    Given a dictionary of raw source files, generate the SourceCode and
+    the groups (which includes the nodes) for each file
 
+    :param dict[str, str] raw_source_by_filename:
+    :param BaseLang lang:
+    :rtype: list[Group]
     """
     file_groups = []
     for filename, raw_source in raw_source_by_filename.items():
-        # remove .py from filename
         logging.info(f"Processing {filename}...")
 
         # generate sourcecode (remove comments and add line numbers)
         source_code = SourceCode(raw_source, filename=filename, lang=lang)
 
         # Create all of the subgroups (classes) and nodes (functions) for this file
-        file_group = lang.generate_file_group(name=filename,
-                                              source_code=source_code,
-                                              lang=lang)
+        file_group = lang.generate_file_group(filename=filename,
+                                              source_code=source_code)
         logging.info("  Extracted %d namespaces and %d functions.",
                      len(file_group.subgroups), len(file_group.all_nodes()))
         file_groups.append(file_group)
     return file_groups
 
 
-def map_it(lang, filenames, no_trimming):
+def _exclude_namespaces(groups, exclude_namespaces):
+    """
+    Exclude namespaces (classes/modules) which match any of the exclude_namespaces
+
+    :param list[Group] groups:
+    :param str exclude_namespaces: (comma delimited)
+    :rtype: list[Group]
+    """
+    for namespace in exclude_namespaces.split(','):
+        found = False
+        for group in list(groups):
+            if group.name == namespace:
+                groups.remove(group)
+                found = True
+            for subgroup in list(group.subgroups):
+                if subgroup.name == namespace:
+                    group.subgroups.remove(subgroup)
+                    found = True
+        if not found:
+            logging.warning(f"Could not exclude namespace '{namespace}' "
+                            "because it was not found")
+    return groups
+
+
+def _exclude_functions(groups, exclude_functions):
+    """
+    Exclude nodes (functions) which match any of the exclude_functions
+
+    :param list[Group] groups:
+    :param str exclude_functions: (comma delimited)
+    :rtype: list[Group]
+    """
+    for function_name in exclude_functions.split(','):
+        found = False
+        for group in list(groups):
+            for node in list(group.nodes):
+                if node.name == function_name:
+                    group.nodes.remove(node)
+                    found = True
+            for subgroup in list(group.subgroups):
+                for node in list(subgroup.nodes):
+                    if node.name == function_name:
+                        subgroup.nodes.remove(node)
+                        found = True
+        if not found:
+            logging.warning(f"Could not exclude function '{function_name}' "
+                            "because it was not found")
+    return groups
+
+
+def map_it(lang, filenames, no_trimming, exclude_namespaces, exclude_functions):
     '''
-    I. For each file passed,
-        1. Generate the sourcecode for that file
-        2. Generate a group from that file's sourcecode
-            a. The group init will recursively generate all of the subgroups and function nodes for that file
-    II.  Trim the groups bascially removing those which have no function nodes
-    III. Generate the edges
-    IV.  Return the file groups, function nodes, and edges
+    Given a language implementation and a list of filenames, do these things:
+    1. Read their raw source
+    2. Find all groups (classes/modules/etc) and nodes (functions) in all sources
+    3. Trim out groups without function nodes
+    4. Determine what nodes connect to what other nodes
+    5. Trim again
+
+    :param BaseLang lang:
+    :param list[str] filenames:
+    :param bool no_trimming:
+    :rtype: (list[Group], list[Node], list[Edge])
     '''
 
-    # get the filename and the file_raw_source
-    # only first file for now
-
+    # 1. Read raw sources
     raw_source_by_filename = {}
     for filename in sorted(filenames):
         with open(filename) as f:
             raw_source_by_filename[filename] = f.read()
 
+    # 2. Find all groups and nodes in all sources
     file_groups = _get_groups_from_raw_files(raw_source_by_filename, lang)
-    nodes = flatten(g.all_nodes() for g in file_groups)
+    if exclude_namespaces:
+        file_groups = _exclude_namespaces(file_groups, exclude_namespaces)
+    if exclude_functions:
+        file_groups = _exclude_functions(file_groups, exclude_functions)
 
-    # Trimming the groups mostly removes those groups with no function nodes
+    all_nodes = flatten(g.all_nodes() for g in file_groups)
+
+    # 3. Trim groups without nodes
     if not no_trimming:
         logging.info("Trimming namespaces without functions...")
         lang.trim_groups(file_groups)
 
-    # Figure out what functions map to what
+    # 4. Figure out what functions map to what
     logging.info("Generating edges...")
-    edges = _generate_edges(nodes)
+    edges = _generate_edges(all_nodes)
 
-    # Trim off the nodes (mostly global-frame nodes that don't do anything)
+    # 5. Trim nodes that didn't connect to anything
     if no_trimming:
-        final_nodes = nodes
+        final_nodes = all_nodes
     else:
         final_nodes = []
-        for node in nodes:
+        for node in all_nodes:
             # final_nodes.append(node)
             if not lang.is_extraneous(node, edges):
                 final_nodes.append(node)
             else:
                 node.parent.nodes.remove(node)
 
-    # return everything we have done
     return file_groups, final_nodes, edges

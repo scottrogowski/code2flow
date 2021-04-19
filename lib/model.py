@@ -28,14 +28,6 @@ class Node():
         # self.pattern is the name pattern which is found by others eg. node()
         self.pattern = re.compile(r"(?:\W|\A)(%s)\s*\(" % self.name, re.MULTILINE)
 
-        self.is_init_node = self.lang.is_init_node(name)  # Init node, etc.
-
-        # The pattern to search for when the other node is in the same scope e.g. self.node()
-        # self.same_scope_patterns = self.lang.generate_same_scope_patterns(name)
-
-        # The pattern to search for with the namespace eg. Node.node()
-        # self.namespace_patterns = self.lang.generate_scope_patterns(self.get_name())
-
         # increment the identifier
         # Needed for the sake of a unique node name for graphviz
         self.uid = random.randbytes(4).hex()
@@ -141,14 +133,6 @@ class Group():
 
         self.nodes = []
         self.subgroups = []
-
-        # So that we can track object calls as well like:
-        # a = Obj()
-        # a.b()
-        # TODO2021 OOOOF this might be bad... These objects can be passed everywhere
-        # and change names all the time. Let's see how we can handle this...
-        self.new_object_pattern = self.lang.generate_new_object_pattern(name)
-        self.new_object_assigned_pattern = self.lang.generate_new_object_assigned_pattern(name)
 
         # Needed for the sake of a unique node name for graphviz
         self.uid = random.randbytes(4).hex()
