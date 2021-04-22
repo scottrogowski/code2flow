@@ -18,10 +18,12 @@ from lib.languages.python import Python
 DESCRIPTION = "Generate flow charts from your source code. " \
               "See the README at https://github.com/scottrogowski/code2flow."
 LANGUAGES = {
-    # 'js': Javascript,
     'py': Python
+    # 'js': Javascript,
+    # 'php': PHP,
+    # 'rb': Ruby,
 }
-VALID_EXTENSIONS = {'.png', '.svg', '.dot', '.gv'}
+VALID_EXTENSIONS = {'.png', '.svg', '.dot', '.gv', '.jgv'}
 
 
 def is_installed(executable_cmd):

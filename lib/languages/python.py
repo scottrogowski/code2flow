@@ -125,6 +125,34 @@ def _generate_group(name, source_code,
     return group
 
 
+def _get_modules(sc):
+    ret = []
+    for match in re.finditer(r"^import\s+([a-zA-Z0-9_.]+)\s*$",
+                             sc, re.MULTILINE):
+        ret.append(
+            {'filename': match.group(1).split('.')[-1] + '.py',
+             'token': match.group(1)})
+    for match in re.finditer(r"^from\s+([a-zA-Z0-9_.]+)\s+import\s+([a-zA-Z0-9_., ]+)\s*$",
+                             sc, re.MULTILINE):
+        filename = match.group(1).split('.')[-1] + '.py'
+        tokens = match.group(2)
+        for token in tokens.split(','):
+            token = token.strip()
+            ret.append(
+                {'filename': filename,
+                 'token': token})
+    for match in re.finditer(r"^from\s+([a-zA-Z0-9_.]+)\s+import\s+\((.*?)\)\s*",
+                             sc, re.MULTILINE):
+        filename = match.group(1).split('.')[-1] + '.py'
+        tokens = match.group(2)
+        for token in tokens.split(','):
+            token = token.strip()
+            ret.append(
+                {'filename': filename,
+                 'token': token})
+    return ret
+
+
 class Python(base.BaseLang):
     comments = {
         '"""': re.compile(r'([^\\]?)(""""""|""".*?[^\\]""")', re.DOTALL),
@@ -146,15 +174,35 @@ class Python(base.BaseLang):
 
     @staticmethod
     def links_to(node, other, all_nodes):
+        """
+        Determine whether anything in node calls the other.
+        Returns whether one calls the other. If they don't, return the name of
+        the other node if it is a duplicate node and that's why we couldn't
+        resolve
+
+        :param node Node:
+        :param other Node:
+        :param all_nodes list[Node]:
+        :rype: bool, str
+        """
         all_names = [n.name for n in all_nodes]
         if all_names.count(other.name) > 1:
             # We don't touch double nodes
+            # TODO we should actually try to resolve
             return False, other.name
 
-        func_regex = re.compile(r'^(|.*?[^a-zA-Z0-9_]+)%s\s*\(' % other.name, re.MULTILINE)
+        if other.is_local_to(node):
+            local_func_regex = re.compile(r'(|.*?[^a-zA-Z0-9_]+)%s\s*\(' % other.name,
+                                          re.MULTILINE)
+            if local_func_regex.search(node.source.source_string):
+                return True, None
+            return False, None
+        func_regex = re.compile(r'\s+([a-zA-Z0-9_.]+)\.%s\s*\(' % other.name, re.MULTILINE)
+        for match in func_regex.finditer(node.source.source_string):
+            from_var = match.group(1)
+            if from_var not in excluded_tokens:
+                return True, None
 
-        if func_regex.search(node.source.source_string):
-            return True, None
         return False, None
 
     @staticmethod
@@ -191,7 +239,6 @@ class Python(base.BaseLang):
             else:
                 break
 
-        # colon_pos = colon_pos + 1
         return source_code[end_identifier_pos:end_pos]
 
     @staticmethod

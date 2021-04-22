@@ -153,16 +153,16 @@ def map_it(lang, filenames, no_trimming, exclude_namespaces, exclude_functions):
     logging.info("Generating edges...")
     edges = _generate_edges(all_nodes)
 
-    # 5. Trim nodes that didn't connect to anything
     if no_trimming:
-        final_nodes = all_nodes
-    else:
-        final_nodes = []
-        for node in all_nodes:
-            # final_nodes.append(node)
-            if not lang.is_extraneous(node, edges):
-                final_nodes.append(node)
-            else:
-                node.parent.nodes.remove(node)
+        return file_groups, all_nodes, edges
+
+    # 5. Trim nodes that didn't connect to anything
+    final_nodes = []
+    for node in all_nodes:
+        # final_nodes.append(node)
+        if not lang.is_extraneous(node, edges):
+            final_nodes.append(node)
+        else:
+            node.parent.nodes.remove(node)
 
     return file_groups, final_nodes, edges

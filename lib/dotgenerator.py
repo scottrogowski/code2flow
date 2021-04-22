@@ -41,7 +41,7 @@ def write_dot_file(filename, nodes, edges, groups, hide_legend=False,
     if not no_grouping:
         for group in groups:
             content += group.to_dot()
-    content += '}'
+    content += '}\n'
 
     with open(filename, 'w') as outfile:
         outfile.write(content)
