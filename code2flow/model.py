@@ -13,15 +13,15 @@ class Node():
     Nodes represent functions
     '''
 
-    def __init__(self, name, source, parent,
-                 character_pos=0, line_number=0, is_file_root=False, lang=None):
+    def __init__(self, name, long_name, source, parent,
+                 character_pos=0, line_number=0, lang=None):
         # basic vars
         self.name = name
+        self.long_name = long_name
         self.source = source
         self.parent = parent
         self.character_pos = character_pos
         self.line_number = line_number  # The line number the definition is on
-        self.is_file_root = is_file_root
         self.lang = lang
 
         # generate the name patterns for other nodes to search for this one
@@ -44,11 +44,22 @@ class Node():
         '''
         Return the name with the namespace
         '''
-        name = self.name + '()'
+        name = self.long_name + '()'
 
         if not full or not self.parent:
             return name
         return self.parent.name + '.' + name
+
+    def chained_name(self):
+        names = [self.name]
+        parent = self.parent
+        while True:
+            if not parent:
+                break
+            names.append(parent.name)
+            parent = parent.parent
+        names.reverse()
+        return names[0] + ':' + '.'.join(names[1:])
 
     def links_to(self, other, all_nodes):
         return self.lang.links_to(self, other, all_nodes)
@@ -73,6 +84,7 @@ class Node():
         attributes = {
             # 'splines': "ortho",
             'label': f"{self.line_number}: {self.get_display_name(full=no_grouping)}",
+            'name': self.chained_name(),
             'shape': "rect",
             'style': 'rounded,filled',
         }
@@ -123,9 +135,10 @@ class Group():
     Groups represent namespaces
     '''
 
-    def __init__(self, name, source_code,
+    def __init__(self, name, long_name, source_code,
                  parent=None, line_number=0, lang=None):
         self.name = name
+        self.long_name = long_name
         self.source = source_code
         self.parent = parent
         self.line_number = line_number
@@ -161,8 +174,13 @@ class Group():
             ret += '    '
             ret += ' '.join(node.get_UID() for node in self.nodes)
             ret += ';\n'
-        ret += '    label="%s";\n' % self.get_dispay_name()
-        ret += '    style=filled;\n'
+        attributes = {
+            'label': self.get_dispay_name(),
+            'name': self.name,
+            'style': 'filled',
+        }
+        for k, v in attributes.items():
+            ret += f'{k}="{v}" '
         ret += '    graph[style=dotted];\n'
         for subgroup in self.subgroups:
             ret += '    ' + ('\n'.join('    ' + ln for ln in
@@ -172,15 +190,15 @@ class Group():
 
     def get_dispay_name(self):
         if not self.parent:
-            return "file: " + self.name
-        return "class: " + self.name
+            return "file: " + self.long_name
+        return "class: " + self.long_name
 
     def get_namespace(self):
         return self.lang.get_group_namespace(self.parent, self.name)
 
-    def root_node_name(self, name=''):
-        name = name or self.name
-        return "%s (global scope)" % (name)
+    # def root_node_name(self, name=''):
+    #     name = name or self.long_name
+    #     return "%s (global scope)" % (name)
 
     def _pprint(self, printHere=True):
         '''
@@ -314,14 +332,15 @@ class SourceCode():
     __slots__ = [
         'string_data',
         'lang',
-        'filename'
+        'filename',
+        'original_source',
     ]
 
     delim_a = '{'
     delim_b = '}'
     delim_len = 1
 
-    def __init__(self, string_data, filename=None, lang=None):
+    def __init__(self, string_data, filename=None, lang=None, original_source=None):
         '''
         Remove the comments and build the line_number/file mapping while doing so
         '''
@@ -331,6 +350,7 @@ class SourceCode():
         self.string_data = string_data
         self.lang = lang
         self.filename = filename
+        self.original_source = original_source or self
 
     def __str__(self):
         '''
@@ -378,7 +398,7 @@ class SourceCode():
             stop = sl.stop
 
         if start == stop:
-            return SourceCode("", self.filename, self.lang)
+            return SourceCode("", self.filename, self.lang, self.original_source)
         assert start < stop
 
         new_source_code_obj = self.copy()
@@ -435,7 +455,8 @@ class SourceCode():
     def copy(self):
         ret = SourceCode(list(self.string_data),
                          filename=self.filename,
-                         lang=self.lang)
+                         lang=self.lang,
+                         original_source=self)
         return ret
 
     def first_line_number(self):

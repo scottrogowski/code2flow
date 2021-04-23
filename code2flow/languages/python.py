@@ -1,10 +1,11 @@
 '''
 '''
 
+import os
 import re
 
-from lib import model
-from lib.languages import base
+from .. import model
+from . import base
 
 
 INDENT_PATTERN = re.compile(r"^([\t ]*)", re.MULTILINE)
@@ -61,6 +62,7 @@ def _generate_node(group, def_match):
     source_in_block = group.source.get_source_in_block(end_identifier_pos, colon_pos)
     line_number = group.source.get_line_number(begin_identifier_pos)
     return model.Node(name=name,
+                      long_name=name + '()',
                       source=source_in_block,
                       parent=group, character_pos=begin_identifier_pos,
                       line_number=line_number, lang=Python)
@@ -86,21 +88,20 @@ def _generate_subgroups(group):
         indent = _get_indent(colon_pos=colon_pos, source_string=group.source.source_string)
         source_code = group.source.get_source_in_block(end_identifier_pos, colon_pos)
         line_number = group.source.get_line_number(colon_pos)
-        class_group = _generate_group(name=name, indent=indent,
-                                      source_code=source_code, parent=group,
-                                      line_number=line_number)
+        class_group = _generate_group(name=name, long_name=f"class {name}()",
+                                      indent=indent, source_code=source_code,
+                                      parent=group, line_number=line_number)
         subgroups.append(class_group)
     return subgroups
 
 
 def _generate_root_node(group):
-    name = group.root_node_name()
     source = _generate_implicit_node_sources(group)
-    return model.Node(name=name, source=source,
-                      parent=group, lang=Python)
+    return model.Node(name='(global)', long_name=group.name + " (global scope)",
+                      source=source, parent=group, lang=Python)
 
 
-def _generate_group(name, source_code,
+def _generate_group(name, long_name, source_code,
                     parent=None, line_number=0, indent=''):
     '''
     Generate a new group
@@ -110,6 +111,7 @@ def _generate_group(name, source_code,
     '''
     group = model.Group(
         name=name,
+        long_name=long_name,
         source_code=source_code,
         parent=parent,
         line_number=line_number,
@@ -125,15 +127,25 @@ def _generate_group(name, source_code,
     return group
 
 
-def _get_modules(sc):
+def _get_modules(source_string):
+    """
+    Given a source string, return all of the module imports including their filename
+    Any token with a filename that we don't process is filtered out of the final
+    results
+
+    # TODO import as
+
+    :param source_string str:
+    :rtype: list[dict]
+    """
     ret = []
     for match in re.finditer(r"^import\s+([a-zA-Z0-9_.]+)\s*$",
-                             sc, re.MULTILINE):
+                             source_string, re.MULTILINE):
         ret.append(
             {'filename': match.group(1).split('.')[-1] + '.py',
              'token': match.group(1)})
     for match in re.finditer(r"^from\s+([a-zA-Z0-9_.]+)\s+import\s+([a-zA-Z0-9_., ]+)\s*$",
-                             sc, re.MULTILINE):
+                             source_string, re.MULTILINE):
         filename = match.group(1).split('.')[-1] + '.py'
         tokens = match.group(2)
         for token in tokens.split(','):
@@ -142,7 +154,7 @@ def _get_modules(sc):
                 {'filename': filename,
                  'token': token})
     for match in re.finditer(r"^from\s+([a-zA-Z0-9_.]+)\s+import\s+\((.*?)\)\s*",
-                             sc, re.MULTILINE):
+                             source_string, re.MULTILINE):
         filename = match.group(1).split('.')[-1] + '.py'
         tokens = match.group(2)
         for token in tokens.split(','):
@@ -151,6 +163,25 @@ def _get_modules(sc):
                 {'filename': filename,
                  'token': token})
     return ret
+
+
+def _is_local_to(node, other):
+    """
+    Checkes whether other is in node's local scope.
+    If it is, downstream, it will be important to handle it as a local-only regex
+
+    :param node Node:
+    :param other Node:
+    :rtype: bool
+    """
+
+    # Must be in same file
+    if other.source.filename != node.source.filename:
+        return False
+    # Other must be in global scope
+    if other.parent.parent is not None:
+        return False
+    return True
 
 
 class Python(base.BaseLang):
@@ -191,17 +222,20 @@ class Python(base.BaseLang):
             # TODO we should actually try to resolve
             return False, other.name
 
-        if other.is_local_to(node):
-            local_func_regex = re.compile(r'(|.*?[^a-zA-Z0-9_]+)%s\s*\(' % other.name,
-                                          re.MULTILINE)
-            if local_func_regex.search(node.source.source_string):
-                return True, None
-            return False, None
+        # if _is_local_to(node, other):
+        local_func_regex = re.compile(r'(|.*?[^a-zA-Z0-9_]+)%s\s*\(' % other.name,
+                                      re.MULTILINE)
+        if local_func_regex.search(node.source.source_string):
+            return True, None
+        return False, None
+
         func_regex = re.compile(r'\s+([a-zA-Z0-9_.]+)\.%s\s*\(' % other.name, re.MULTILINE)
         for match in func_regex.finditer(node.source.source_string):
-            from_var = match.group(1)
-            if from_var not in excluded_tokens:
-                return True, None
+            # TODO
+            # from_var = match.group(1)
+            # if from_var not in excluded_tokens:
+            #     return True, None
+            return True, None
 
         return False, None
 
@@ -246,4 +280,8 @@ class Python(base.BaseLang):
         '''
         Generate a group for the file. Indent is implicitly none for this group
         '''
-        return _generate_group(name=filename, source_code=source_code, indent='')
+        return _generate_group(name=os.path.split(filename)[1], long_name=filename, source_code=source_code, indent='')
+
+    @staticmethod
+    def get_tokens_to_exclude(source_code):
+        return _get_modules(source_code.source_string)

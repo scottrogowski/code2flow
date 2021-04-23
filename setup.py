@@ -11,7 +11,7 @@ setup(
     description='Visualize your source code as DOT flowcharts',
     long_description=open('README.md').read(),
     long_description_content_type="text/markdown",
-    scripts=['code2flow'],
+    scripts=['scripts/code2flow'],
     license='MIT',
     author='Scott Rogowski',
     author_email='scottmrogowski@gmail.com',

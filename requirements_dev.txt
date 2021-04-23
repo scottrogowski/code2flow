@@ -1,0 +1,4 @@
+# Testing
+pytest>=6.0.2,<6.1
+coverage>=4.5,<4.6  # downgraded for --concurrency flag
+pygraphviz>=1.7,<2.0
