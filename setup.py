@@ -18,7 +18,7 @@ setup(
     url=url_base,
     download_url=download_url,
     packages=find_packages(),
-    python_requires='>=3.8',  # for walrun operator
+    python_requires='>=3.8',  # for walrus operator
     classifiers=(
         'Natural Language :: English',
         "Programming Language :: Python :: 3",

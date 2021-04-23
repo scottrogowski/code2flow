@@ -196,9 +196,6 @@ class Group():
     def get_namespace(self):
         return self.lang.get_group_namespace(self.parent, self.name)
 
-    # def root_node_name(self, name=''):
-    #     name = name or self.long_name
-    #     return "%s (global scope)" % (name)
 
     def _pprint(self, printHere=True):
         '''
