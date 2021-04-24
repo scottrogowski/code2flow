@@ -88,7 +88,7 @@ def _generate_subgroups(group):
         indent = _get_indent(colon_pos=colon_pos, source_string=group.source.source_string)
         source_code = group.source.get_source_in_block(end_identifier_pos, colon_pos)
         line_number = group.source.get_line_number(colon_pos)
-        class_group = _generate_group(name=name, long_name=f"class {name}()",
+        class_group = _generate_group(name=name, long_name=name + "()",
                                       indent=indent, source_code=source_code,
                                       parent=group, line_number=line_number)
         subgroups.append(class_group)
@@ -250,12 +250,13 @@ class Python(base.BaseLang):
         # return ret
 
     @staticmethod
-    def get_group_namespace(group_parent, name):
+    def get_group_namespace(group):
         '''
         Returns the full string namespace of this group including this groups name
         '''
-
-        return group_parent.name if group_parent else name
+        if group.name.endswith('.py'):
+            return group.name[:-3]
+        return group.name
 
     @staticmethod
     def get_source_in_block(source_code, end_identifier_pos, colon_pos):

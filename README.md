@@ -7,8 +7,9 @@
 
 code2flow
 =========
+![Version 0.3.0](https://img.shields.io/badge/version-0.3.0-yellow) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage 89%](https://img.shields.io/badge/coverage-89%25-yellow) ![License MIT](https://img.shields.io/badge/license-MIT-green])
 
-Code2flow generate DOT flowcharts from your Python and Javascript projects
+Code2flow generates [call graphs](https://en.wikipedia.org/wiki/Call_graph) for your Python and Javascript projects. 
 
 The algorithm is simple:
 
@@ -16,28 +17,22 @@ The algorithm is simple:
 2. Determine where those functions are called.
 3. Connect the dots. 
 
-The result is a flowchart which approximates the functional structure of your program. In other words, *code2flow generates callgraphs*.
-
 Code2flow is useful for:
 - Untangling spaghetti code.
 - Identifying orphaned functions
 - Getting new developers up to speed.
 
-Code2flow is EXPERIMENTAL and will provide a **rough overview** of the structure of simpler projects. There are many known limitations (see below).
+Code2flow will provide a **pretty good estimate** of your project's structure. No algorithm can generate a perfect call graph for a [dynamic language](https://en.wikipedia.org/wiki/Dynamic_programming_language) - even less so if that language is [duck-typed](https://en.wikipedia.org/wiki/Duck_typing). 
 
-Here is what happens when you run it on jquery
-![Alt text](jqueryexample.png)
+See the known limitations in the section below.
 
-On the python calendar module
-![Alt text](calendarexample.png)
+Think of Code2flow as a starting point rather than a magic wand. After code2flow generates your callgraph, you might need to edit the output using a dot file editor. You can find a list of editors [here](https://graphviz.org/resources/).
 
-On code2flow/languages/python.py
-![Alt text](pythonexample.png)
 
 Installation
 ------------
 
-[Download](https://github.com/scottrogowski/code2flow/archive/master.zip), navigate to the directory, and run:
+For now, do _not_ pip install (code2flow is under the control of a different project). Instead, run:
 
 ```bash
 python setup.py install
@@ -80,11 +75,22 @@ There are a ton of command line options, to see them all, run
 code2flow --help
 ```
 
+How code2flow works
+------------
+
+Code2flow approximates the structure of projects in dynamic languages. It is not possible to generate a perfect callgraph for a dynamic language. Code2flow works by using regular expressions - not abstract syntax trees. This is a concious design choice. Regular expressions allow code2flow to utilize heuristics that are unavailable in strict ASTs. The end result is more connections and more accurate connections. 
+
+Detailed algorithm:
+
+1. Remove all comments and strings from the source.
+2. Identify and isolate all groups. Groups are files, modules, or classes and basically represent namespaces where functions live.
+3. From the groups, identify and isolate all function definitions. These are called "nodes" internally.
+4. For each node, generate a series of regular expressions that represent all the ways it can be called in different namespaces.
+5. Search each node for each other node's regular expressions. This is a O(n^2) operation. If a match is found, connect the two nodes. If there is an ambiguity (two matches of nodes with the same token), loudly identify that ambiguity and skip.
+
 
 Limitations
 -----------
-
-Code2flow approximates the structure of simple projects. Fundamentally, it works by using regular expressions - not abstract syntax trees. Therefore, it has many known limitations:
 
 * All functions without definitions are skipped.
 * Functions with identical names in different namespaces are (loudly) skipped. E.g. If you have two classes with methods, "add_element()", code2flow cannot distinguish between these and skips them.
@@ -93,7 +99,7 @@ Code2flow approximates the structure of simple projects. Fundamentally, it works
 * Renamed functions are not handled.
 * Etc.
 
-Think of Code2Flow as a starting point rather than a magic wand. After code2flow generates your flowchart, you probably need to spend some time cleaning up the output using a dot file editor. For a list of editors, look [here](https://graphviz.org/resources/).
+
 
 License
 -----------------------------
@@ -115,7 +121,7 @@ How to contribute
 
 1. You can contribute code! Code2flow has its limitations. Attempts to address these limitation would probably be helpful and accepted. New languages are especially appreciated!
 
-2. You can spread the word! A simple way to help is to share this project with others. If you have a blog, mention code2flow! Linking from relevant questions on StackOverflow or other programming forums also helps quite a bit. I would do it myself but it is unfortunately against the community guidelines. The more exposure this project gets, the more I can devote my time to building it!
+2. You can spread the word! A simple way to help is to share this project with others. If you have a blog, mention code2flow! Linking from relevant questions on StackOverflow or other forums also helps quite a bit.
 
 
 Feature / Language Requests

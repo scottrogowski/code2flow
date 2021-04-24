@@ -44,7 +44,7 @@ class Node():
         '''
         Return the name with the namespace
         '''
-        name = self.long_name + '()'
+        name = self.long_name
 
         if not full or not self.parent:
             return name
@@ -194,8 +194,7 @@ class Group():
         return "class: " + self.long_name
 
     def get_namespace(self):
-        return self.lang.get_group_namespace(self.parent, self.name)
-
+        return self.lang.get_group_namespace(self)
 
     def _pprint(self, printHere=True):
         '''

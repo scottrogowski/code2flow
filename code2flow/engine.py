@@ -59,8 +59,8 @@ def determine_language(individual_files):
         if suffix in LANGUAGES:
             logging.info("Implicitly detected language as %r.", suffix)
             return suffix
-    raise Exception(f"Language could not be detected from input {individual_files}. ",
-                    "Try explicitly passing the language flag.")
+    raise AssertionError(f"Language could not be detected from input {individual_files}. ",
+                         "Try explicitly passing the language flag.")
 
 
 def get_sources_and_language(raw_source_paths, language):
@@ -73,6 +73,7 @@ def get_sources_and_language(raw_source_paths, language):
     :param str|None language: Input language
     :rtype: (list, str)
     """
+
     individual_files = []
     for source in sorted(raw_source_paths):
         if os.path.isfile(source):
@@ -83,7 +84,7 @@ def get_sources_and_language(raw_source_paths, language):
                 individual_files.append((os.path.join(root, f), False))
 
     if not individual_files:
-        raise Exception("No source files found from %r" % raw_source_paths)
+        raise AssertionError("No source files found from %r" % raw_source_paths)
     logging.info("Found %d files from sources argument.", len(individual_files))
 
     if not language:
@@ -99,8 +100,8 @@ def get_sources_and_language(raw_source_paths, language):
                          source, language)
 
     if not sources:
-        raise Exception("Could not find any source files given {raw_source_paths} "
-                        "and language {language}")
+        raise AssertionError("Could not find any source files given {raw_source_paths} "
+                             "and language {language}")
 
     sources = sorted(list(sources))
     logging.info("Processing %d source file(s)." % (len(sources)))
@@ -173,17 +174,18 @@ def _exclude_namespaces(groups, exclude_namespaces):
     Exclude namespaces (classes/modules) which match any of the exclude_namespaces
 
     :param list[Group] groups:
-    :param str exclude_namespaces: (comma delimited)
+    :param list exclude_namespaces:
     :rtype: list[Group]
     """
-    for namespace in exclude_namespaces.split(','):
+    for namespace in exclude_namespaces:
         found = False
         for group in list(groups):
-            if group.name == namespace:
+            print('\a'); from icecream import ic; ic(group.get_namespace())
+            if group.get_namespace() == namespace:
                 groups.remove(group)
                 found = True
             for subgroup in list(group.subgroups):
-                if subgroup.name == namespace:
+                if subgroup.get_namespace() == namespace:
                     group.subgroups.remove(subgroup)
                     found = True
         if not found:
@@ -197,10 +199,10 @@ def _exclude_functions(groups, exclude_functions):
     Exclude nodes (functions) which match any of the exclude_functions
 
     :param list[Group] groups:
-    :param str exclude_functions: (comma delimited)
+    :param list exclude_functions:
     :rtype: list[Group]
     """
-    for function_name in exclude_functions.split(','):
+    for function_name in exclude_functions:
         found = False
         for group in list(groups):
             for node in list(group.nodes):
@@ -218,8 +220,8 @@ def _exclude_functions(groups, exclude_functions):
     return groups
 
 
-def map_it(lang, filenames, no_trimming=False,
-           exclude_namespaces='', exclude_functions=''):
+def map_it(lang, filenames, exclude_namespaces, exclude_functions,
+           no_trimming=False):
     '''
     Given a language implementation and a list of filenames, do these things:
     1. Read their raw source
@@ -231,8 +233,8 @@ def map_it(lang, filenames, no_trimming=False,
     :param BaseLang lang:
     :param list[str] filenames:
     :param bool no_trimming:
-    :param str exclude_namespaces:
-    :param str exclude_functions:
+    :param list exclude_namespaces:
+    :param list exclude_functions:
 
     :rtype: (list[Group], list[Node], list[Edge])
     '''
@@ -323,7 +325,7 @@ def _is_installed(executable_cmd):
 
 
 def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
-              exclude_namespaces='', exclude_functions='',
+              exclude_namespaces=None, exclude_functions=None,
               no_grouping=False, no_trimming=False, level=logging.INFO):
     """
     Top-level function. Generate a diagram based on source code.
@@ -333,25 +335,32 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
     :param str|file output_file: path to the output file. SVG/PNG will generate an image.
     :param str language: input language extension
     :param bool hide_legend: Omit the legend from the output
-    :param str exclude_namespaces: Comma separated list of namespaces to exclude
-    :param str exclude_functions: Comma separated list of functions to exclude
+    :param list exclude_namespaces: List of namespaces to exclude
+    :param list exclude_functions: List of functions to exclude
     :param bool no_grouping: Don't group functions into namespaces in the final output
     :param bool no_trimming: Don't trim orphaned functions / namespaces
     :param int level: logging level
     :rtype: None
     """
 
+    if not isinstance(raw_source_paths, list):
+        raw_source_paths = [raw_source_paths]
+    exclude_namespaces = exclude_namespaces or []
+    assert isinstance(exclude_namespaces, list)
+    exclude_functions = exclude_functions or []
+    assert isinstance(exclude_functions, list)
+
     logging.basicConfig(format="Code2Flow: %(message)s", level=level)
 
     sources, language = get_sources_and_language(raw_source_paths, language)
 
     if isinstance(output_file, str) and (not any(output_file.endswith(ext) for ext in VALID_EXTENSIONS)):
-        raise Exception("Output filename must end in one of: %r" % VALID_EXTENSIONS)
+        raise AssertionError("Output filename must end in one of: %r" % VALID_EXTENSIONS)
 
     final_img_filename = None
     if isinstance(output_file, str) and (output_file.endswith('.png') or output_file.endswith('.svg')):
         if not _is_installed('dot') and not _is_installed('dot.exe'):
-            raise Exception(
+            raise AssertionError(
                 "Can't generate a flowchart image because neither `dot` nor "
                 "`dot.exe` was found. Either install graphviz (see the README) "
                 "or set your --output argument to a 'dot' filename like out.dot "
@@ -363,8 +372,9 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
     lang = LANGUAGES[language]
 
     # Do the mapping (where the magic happens)
-    groups, nodes, edges = map_it(lang, sources, no_trimming,
-                                  exclude_namespaces, exclude_functions)
+    groups, nodes, edges = map_it(lang, sources, no_trimming=no_trimming,
+                                  exclude_namespaces=exclude_namespaces,
+                                  exclude_functions=exclude_functions)
 
     logging.info("Generating dot file...")
     if isinstance(output_file, str):
@@ -382,11 +392,7 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
         logging.info("Translating dot file to image... %s", output_file)
         command = ["dot", "-T" + extension, output_file]
         with open(final_img_filename, 'w') as f:
-            try:
-                subprocess.run(command, stdout=f, check=True)
-            except subprocess.CalledProcessError as ex:
-                logging.error("There was an issue generating the image file output")
-                raise ex
+            subprocess.run(command, stdout=f, check=True)
 
     logging.info("Completed your flowchart! To see it, open %r.",
                  final_img_filename or output_file)
