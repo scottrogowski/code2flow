@@ -28,6 +28,9 @@ See the known limitations in the section below.
 
 Think of Code2flow as a starting point rather than a magic wand. After code2flow generates your callgraph, you might need to edit the output using a dot file editor. You can find a list of editors [here](https://graphviz.org/resources/).
 
+*code2flow running against itself*
+TODO abspath https://raw.githubusercontent.com/scottrogowski/code2flow/master/assets/code2flow_output.png
+![code2flow running against itself](assets/code2flow_output.png)
 
 Installation
 ------------
