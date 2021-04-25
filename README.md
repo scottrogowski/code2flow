@@ -22,20 +22,20 @@ Code2flow is useful for:
 - Identifying orphaned functions
 - Getting new developers up to speed.
 
-Code2flow will provide a **pretty good estimate** of your project's structure. No algorithm can generate a perfect call graph for a [dynamic language](https://en.wikipedia.org/wiki/Dynamic_programming_language) - even less so if that language is [duck-typed](https://en.wikipedia.org/wiki/Duck_typing). 
+Code2flow will provide a **pretty good estimate** of your project's structure. No algorithm can generate a perfect call graph for a [dynamic language](https://en.wikipedia.org/wiki/Dynamic_programming_language) - even less so if that language is [duck-typed](https://en.wikipedia.org/wiki/Duck_typing).
 
 See the known limitations in the section below.
 
-Think of Code2flow as a starting point rather than a magic wand. After code2flow generates your callgraph, you might need to edit the output using a dot file editor. You can find a list of editors [here](https://graphviz.org/resources/).
-
 *code2flow running against itself*
+
 TODO abspath https://raw.githubusercontent.com/scottrogowski/code2flow/master/assets/code2flow_output.png
+
 ![code2flow running against itself](assets/code2flow_output.png)
 
 Installation
 ------------
 
-For now, do _not_ pip install (code2flow is under the control of a different project). Instead, run:
+For now, do _not_ pip install (The code2flow name is held by a different project). Instead, run:
 
 ```bash
 python setup.py install
@@ -86,22 +86,24 @@ Code2flow approximates the structure of projects in dynamic languages. It is not
 Detailed algorithm:
 
 1. Remove all comments and strings from the source.
-2. Identify and isolate all groups. Groups are files, modules, or classes and basically represent namespaces where functions live.
+2. Identify and isolate all groups. Groups are files, modules, or classes. More precisely, groups are namespaces where functions live.
 3. From the groups, identify and isolate all function definitions. These are called "nodes" internally.
 4. For each node, generate a series of regular expressions that represent all the ways it can be called in different namespaces.
 5. Search each node for each other node's regular expressions. This is a O(n^2) operation. If a match is found, connect the two nodes. If there is an ambiguity (two matches of nodes with the same token), loudly identify that ambiguity and skip.
+6. Trim orphaned nodes and groups.
+7. Output results.
 
 
-Limitations
------------
+Known limitations
+-----------------
 
-* All functions without definitions are skipped.
-* Functions with identical names in different namespaces are (loudly) skipped. E.g. If you have two classes with methods, "add_element()", code2flow cannot distinguish between these and skips them.
-* Imported functions from outside of your project directory (including from the standard library) which share names with your defined functions will not be handled correctly. Instead when you call the imported function, code2flow will link to your local functions. E.g. if you have a function "search()" and call, "import re; re.search()", code2flow links (incorrectly) to your defined function.
-* Anonymous or generated functions are skipped.
-* Renamed functions are not handled.
-* Etc.
+Code2flow is internally powered by regular expressions. Most limitations stem from tokens not being named what the engine expects them to be named.
 
+* All functions without definitions are skipped. This most often happens when a file is not included.
+* Functions with identical names in different namespaces are (loudly) skipped. E.g. If you have two classes with identically named methods, code2flow cannot distinguish between these and skips them.
+* Imported functions from outside of your project directory (including from the standard library) which share names with your defined functions may not be handled correctly. Instead when you call the imported function, code2flow will link to your local functions. E.g. if you have a function "search()" and call, "import searcher; searcher.search()", code2flow may link (incorrectly) to your defined function.
+* Anonymous or generated functions are skipped. This includes lambdas and factories.
+* If a function is renamed, either explicitly or by being passed around as a parameter, it will be skipped.
 
 
 License
@@ -122,7 +124,7 @@ scottmrogowski@gmail.com
 How to contribute
 -----------------------
 
-1. You can contribute code! Code2flow has its limitations. Attempts to address these limitation would probably be helpful and accepted. New languages are especially appreciated!
+1. You can contribute code! Code2flow has limitations. Attempts to address these limitation would probably be helpful and accepted. Separately, new languages will be especially appreciated!
 
 2. You can spread the word! A simple way to help is to share this project with others. If you have a blog, mention code2flow! Linking from relevant questions on StackOverflow or other forums also helps quite a bit.
 

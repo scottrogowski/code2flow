@@ -8,9 +8,9 @@ from .. import model
 from . import base
 
 
-INDENT_PATTERN = re.compile(r"^([\t ]*)", re.MULTILINE)
-NAMESPACE_BEFORE_DOT_PATTERN = re.compile(r'(?:[^\w\.]|\A)([\w\.]+)\.$', re.MULTILINE)
-GROUP_CLASS_PATTERN = re.compile(r"^class ([a-zA-Z_][a-zA-Z0-9_]*) *\(.*?:\s*?$",
+INDENT_PATTERN = re.compile(r"^\b|^\t+|^ +", re.MULTILINE)
+# NAMESPACE_BEFORE_DOT_PATTERN = re.compile(r'(?:[^\w\.]|\A)([\w\.]+)\.$', re.MULTILINE)
+GROUP_CLASS_PATTERN = re.compile(r"^class ([a-zA-Z_]\w*) *\(.*?:\s*?$",
                                  re.MULTILINE | re.DOTALL)
 
 
@@ -18,7 +18,7 @@ def _get_indent(colon_pos, source_string):
     """
     Given the position of a colon and string, return the indent characters
     """
-    return INDENT_PATTERN.search(source_string[colon_pos + 1:]).group(1)
+    return INDENT_PATTERN.search(source_string[colon_pos + 1:]).group(0)
 
 
 def _get_def_regex_from_indent(indent):
@@ -26,8 +26,8 @@ def _get_def_regex_from_indent(indent):
     Return the regex for function definition at this indent level
     '''
     indent = indent.replace(' ', r'\s').replace('   ', r'\t')
-    ret = re.compile(r"^%sdef ([a-zA-Z_][a-zA-Z0-9_]*) *\(.*?:\s*?$" % indent,
-                     re.MULTILINE | re.DOTALL)
+    ret = re.compile(r"^%sdef ([a-zA-Z_]\w*) *\(.*?:\s*$" % indent,
+                     re.MULTILINE | re.DOTALL | re.ASCII)
     return ret
 
 
@@ -139,12 +139,12 @@ def _get_modules(source_string):
     :rtype: list[dict]
     """
     ret = []
-    for match in re.finditer(r"^import\s+([a-zA-Z0-9_.]+)\s*$",
+    for match in re.finditer(r"^import\s+([\w.]+)\s*$",
                              source_string, re.MULTILINE):
         ret.append(
             {'filename': match.group(1).split('.')[-1] + '.py',
              'token': match.group(1)})
-    for match in re.finditer(r"^from\s+([a-zA-Z0-9_.]+)\s+import\s+([a-zA-Z0-9_., ]+)\s*$",
+    for match in re.finditer(r"^from\s+([\w.]+)\s+import\s+([\w., ]+)\s*$",
                              source_string, re.MULTILINE):
         filename = match.group(1).split('.')[-1] + '.py'
         tokens = match.group(2)
@@ -153,7 +153,7 @@ def _get_modules(source_string):
             ret.append(
                 {'filename': filename,
                  'token': token})
-    for match in re.finditer(r"^from\s+([a-zA-Z0-9_.]+)\s+import\s+\((.*?)\)\s*",
+    for match in re.finditer(r"^from\s+([\w.]+)\s+import\s+\((.*?)\)\s*",
                              source_string, re.MULTILINE):
         filename = match.group(1).split('.')[-1] + '.py'
         tokens = match.group(2)
@@ -223,13 +223,13 @@ class Python(base.BaseLang):
             return False, other.name
 
         # if _is_local_to(node, other):
-        local_func_regex = re.compile(r'(|.*?[^a-zA-Z0-9_]+)%s\s*\(' % other.name,
+        local_func_regex = re.compile(r'(|.*?\W+)%s\s*\(' % other.name,
                                       re.MULTILINE)
         if local_func_regex.search(node.source.source_string):
             return True, None
         return False, None
 
-        func_regex = re.compile(r'\s+([a-zA-Z0-9_.]+)\.%s\s*\(' % other.name, re.MULTILINE)
+        func_regex = re.compile(r'\s+([\w.]+)\.%s\s*\(' % other.name, re.MULTILINE)
         for match in func_regex.finditer(node.source.source_string):
             # TODO
             # from_var = match.group(1)
@@ -238,6 +238,81 @@ class Python(base.BaseLang):
             return True, None
 
         return False, None
+
+    """
+    TODO I'm having a heck of a time solving this problem.
+
+    Core issue first. I need to determine whether two nodes are connected. If
+    they are in the same file and are named identically, connect them.
+
+    If we have a situation like import re; re.search, and we have another function
+    called search, don't connect those.
+
+    If we have two functions in different files, and we can establish with certainty
+    which we call, connect them
+
+    I think we have two calls, naked call and object call.
+
+    naked call is:
+    doit()
+
+    object call is:
+    a.doit()
+
+    in naked call, we can connect within the file or we can connect from
+    very specific imports.
+
+    in object call, we need to try to determine what the object is first.
+    To do that, there are two options:
+    1. We need to look back in the sourcecode before the call and
+    see whether the object is an instantiation of a specific group.
+    2. We need to look back through the encompassing scope and see whether the
+    object is an instantiation of a specific group.
+
+    I think it might make sense to go the other direction. If we can
+    identify for every line what type every token is, then we have this
+    dictionary and can connect them more rationally. It would most-likely
+    follow standard programming language rules.
+
+    so in the global scope, we move forward line-by-line marking
+    known tokens.
+
+    Shit, but what do we do in the case of branches?
+    if blah
+        a = objA()
+    else:
+        b = objB()
+
+    this only really works if we have a single line:
+    a = objA()
+
+    So certainly, we can make a resolution heuristic for that.
+    But how often does that actually happen? Not that often, really.
+    The re.search case would then be another heuristic.
+
+    So I think for each object call, we will first run a series of resolution
+    heuristics to see if we can establish definitive group ownership over the
+    function. If we can't, we just hope that only one matches.
+
+    I think that's good.
+
+
+    So we can resolve membership through a list of heuristics. Conflicting heuristics will be sorted by priority. Enclosing group will be checked first. Objects instantiated in the shallowest group always go before the deepest group. Then, I think line number can help as long as it's not in a branch
+
+    We can only realistically check for a=A(), import a from Z or similar situations. Anything else will be too complex.
+
+    Will need to be careful with "a = B() or C()" situations. For object instantiation, this has to be the last thing that happens on the line.
+
+    "self." Can establish some level of membership. Certainly. Object subclassing might be an issue though.
+
+
+
+
+
+
+
+
+    """
 
     @staticmethod
     def trim_groups(groups):

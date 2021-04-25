@@ -2,6 +2,7 @@ import logging
 import os
 import random
 import subprocess
+import time
 
 from .model import Edge, SourceCode, TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR
 
@@ -115,6 +116,7 @@ def _generate_edges(nodes):
     '''
     When a function calls another function, that is an edge
     This is in the global scope because edges can exist between any node and not just between groups
+    TODO multiprocessing
     '''
     edges = []
     dup_names = set()
@@ -180,7 +182,6 @@ def _exclude_namespaces(groups, exclude_namespaces):
     for namespace in exclude_namespaces:
         found = False
         for group in list(groups):
-            print('\a'); from icecream import ic; ic(group.get_namespace())
             if group.get_namespace() == namespace:
                 groups.remove(group)
                 found = True
@@ -260,7 +261,7 @@ def map_it(lang, filenames, exclude_namespaces, exclude_functions,
         lang.trim_groups(file_groups)
 
     # 4. Figure out what functions map to what
-    logging.info("Generating edges...")
+    logging.info("Generating edges. This may take a while...")
     edges = _generate_edges(all_nodes)
 
     if no_trimming:
@@ -342,6 +343,7 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
     :param int level: logging level
     :rtype: None
     """
+    start_time = time.time()
 
     if not isinstance(raw_source_paths, list):
         raw_source_paths = [raw_source_paths]
@@ -394,5 +396,6 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
         with open(final_img_filename, 'w') as f:
             subprocess.run(command, stdout=f, check=True)
 
+    logging.info("Finished processing in %.2f seconds" % (time.time() - start_time))
     logging.info("Completed your flowchart! To see it, open %r.",
                  final_img_filename or output_file)

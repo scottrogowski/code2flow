@@ -3,8 +3,7 @@
 import argparse
 import logging
 
-from code2flow import code2flow, VALID_EXTENSIONS
-
+from lib.engine import code2flow, VALID_EXTENSIONS
 
 DESCRIPTION = "Generate flow charts from your source code. " \
               "See the README at https://github.com/scottrogowski/code2flow."
@@ -57,7 +56,9 @@ if __name__ == "__main__":
     if args.quiet:
         level = logging.WARNING
 
+    exclude_namespaces = list(filter(None, (args.exclude_namespaces or "").split(',')))
+    exclude_functions = list(filter(None, (args.exclude_functions or "").split(',')))
+
     code2flow(args.sources, args.output, args.language, args.hide_legend,
-              (args.exclude_namespaces or "").split(','),
-              (args.exclude_functions or "").split(','),
+              exclude_namespaces, exclude_functions,
               args.no_grouping, args.no_trimming, level)

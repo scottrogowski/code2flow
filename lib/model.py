@@ -1,5 +1,4 @@
 import collections
-import pprint
 import random
 import re
 
@@ -196,17 +195,17 @@ class Group():
     def get_namespace(self):
         return self.lang.get_group_namespace(self)
 
-    def _pprint(self, printHere=True):
-        '''
-        Print the file structure
-        Strictly for debugging right now
-        '''
-        tree = [(x.name, 'node') for x in self.nodes]
-        tree += [(x.name, x._pprint(printHere=False)) for x in self.subgroups]
-        if printHere:
-            pprint.pprint(dict(tree))
-        else:
-            return dict(tree)
+    # def _pprint(self, printHere=True):
+    #     '''
+    #     Print the file structure
+    #     Strictly for debugging right now
+    #     '''
+    #     tree = [(x.name, 'node') for x in self.nodes]
+    #     tree += [(x.name, x._pprint(printHere=False)) for x in self.subgroups]
+    #     if printHere:
+    #         pprint.pprint(dict(tree))
+    #     else:
+    #         return dict(tree)
 
     def get_UID(self):
         '''

@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 
 version = '0.3.0'
 
@@ -11,13 +11,14 @@ setup(
     description='Visualize your source code as DOT flowcharts',
     long_description=open('README.md').read(),
     long_description_content_type="text/markdown",
-    scripts=['scripts/code2flow'],
+    scripts=['code2flow'],
     license='MIT',
     author='Scott Rogowski',
     author_email='scottmrogowski@gmail.com',
     url=url_base,
     download_url=download_url,
-    packages=find_packages(),
+    packages=['code2flow', 'code2flow.languages', 'lib', 'lib.languages'],
+    package_dir={'code2flow': 'lib'},
     python_requires='>=3.8',  # for walrus operator
     classifiers=(
         'Natural Language :: English',
