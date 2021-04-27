@@ -1,25 +1,15 @@
 import logging
 import os
-import random
 import subprocess
 import time
 
-from .model import Edge, SourceCode, TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR
-
-from .languages.python import Python
-# from .languages.javascript import Javascript
+from .languages.python import Python, TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, Edge
 
 
-# for generating UIDs for groups and nodes
-random.seed(42)
-
-LANGUAGES = {
-    'py': Python
-    # 'js': Javascript,
-    # 'php': PHP,
-    # 'rb': Ruby,
-}
 VALID_EXTENSIONS = {'.png', '.svg', '.dot', '.gv', '.jgv'}
+
+DESCRIPTION = "Generate flow charts from your source code. " \
+              "See the README at https://github.com/scottrogowski/code2flow."
 
 
 LEGEND = """subgraph legend{
@@ -37,14 +27,58 @@ LEGEND = """subgraph legend{
 }""" % (TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR)
 
 
-def flatten(nested_list):
-    """
-    Given a list of lists, return a flattened list
+LANGUAGES = {
+    'py': Python
+    # 'js': Javascript,
+    # 'php': PHP,
+    # 'rb': Ruby,
+}
 
-    :param list[list] nested_list:
-    :rtype: list
+
+def write_dot_file(outfile, nodes, edges, groups, hide_legend=False,
+                   no_grouping=False):
+    '''
+    Write a dot file that can be read by graphviz
+
+    :param outfile File:
+    :param nodes list[Node]: functions
+    :param edges list[Edge]: function calls
+    :param groups list[Group]: classes and files
+    :param hide_legend bool:
+    :rtype: None
+    '''
+
+    content = "digraph G {\n"
+    content += "concentrate=true;\n"
+    content += 'splines="ortho";\n'
+    content += 'rankdir="LR";\n'
+    if not hide_legend:
+        content += LEGEND
+    for node in nodes:
+        content += node.to_dot(no_grouping) + ';\n'
+    for edge in edges:
+        content += edge.to_dot() + ';\n'
+    if not no_grouping:
+        for group in groups:
+            content += group.to_dot()
+    content += '}\n'
+
+    outfile.write(content)
+
+
+def _is_installed(executable_cmd):
     """
-    return [el for sublist in nested_list for el in sublist]
+    Determine whether a command can be run or not
+
+    :param list[str] individual_files:
+    :rtype: str
+    """
+    for path in os.environ["PATH"].split(os.pathsep):
+        path = path.strip('"')
+        exe_file = os.path.join(path, executable_cmd)
+        if os.path.isfile(exe_file) and os.access(exe_file, os.X_OK):
+            return True
+    return False
 
 
 def determine_language(individual_files):
@@ -112,217 +146,43 @@ def get_sources_and_language(raw_source_paths, language):
     return sources, language
 
 
-def _generate_edges(nodes):
-    '''
-    When a function calls another function, that is an edge
-    This is in the global scope because edges can exist between any node and not just between groups
-    TODO multiprocessing
-    '''
-    edges = []
-    dup_names = set()
-    for node0 in nodes:
-        for node1 in nodes:
-            does_link, dup_name = node0.links_to(node1, nodes)
-            dup_names.add(dup_name)
-            if does_link:
-                logging.debug("  %s->%s", node0.chained_name(), node1.chained_name())
-                edges.append(Edge(node0, node1))
-    dup_names = sorted(filter(None, list(dup_names)))
-    if dup_names:
-        logging.warning("WARNING: Could not link %d duplicate function identifiers "
-                        "%r. Code2flow works by matching function identifiers. For "
-                        "better results, make your function names unique.", len(dup_names), dup_names)
-    return edges
-
-
-def _get_groups_from_raw_files(raw_source_by_filename, lang):
-    """
-    Given a dictionary of raw source files, generate the SourceCode and
-    the groups (which includes the nodes) for each file
-
-    :param dict[str, str] raw_source_by_filename:
-    :param BaseLang lang:
-    :rtype: list[Group]
-    """
+def map_it(sources, language, no_trimming):
     file_groups = []
-    for filename, raw_source in raw_source_by_filename.items():
-        logging.info(f"Processing {filename}...")
+    all_nodes = []
+    for source in sources:
+        mod_ast = language.get_ast(source)
+        root_group = language.make_file_group(mod_ast, source)
+        all_nodes += root_group.all_nodes()
+        file_groups.append(root_group)
 
-        # generate sourcecode (remove comments and add line numbers)
-        source_code = SourceCode(raw_source, filename=filename, lang=lang)
-
-        # Create all of the subgroups (classes) and nodes (functions) for this file
-        file_group = lang.generate_file_group(filename=filename,
-                                              source_code=source_code)
-        sgs = file_group.subgroups
-        nodes = file_group.all_nodes()
-        logging.info("  Extracted %d namespaces and %d functions.",
-                     len(sgs), len(nodes))
-        if sgs:
-            logging.debug("  Subgroups:")
-            for sg in sgs:
-                logging.debug("    " + sg.long_name)
-
-        if nodes:
-            logging.debug("  Nodes:")
-            for node in nodes:
-                logging.debug("    " + node.long_name)
-        file_groups.append(file_group)
-    return file_groups
-
-
-def _exclude_namespaces(groups, exclude_namespaces):
-    """
-    Exclude namespaces (classes/modules) which match any of the exclude_namespaces
-
-    :param list[Group] groups:
-    :param list exclude_namespaces:
-    :rtype: list[Group]
-    """
-    for namespace in exclude_namespaces:
-        found = False
-        for group in list(groups):
-            if group.get_namespace() == namespace:
-                groups.remove(group)
-                found = True
-            for subgroup in list(group.subgroups):
-                if subgroup.get_namespace() == namespace:
-                    group.subgroups.remove(subgroup)
-                    found = True
-        if not found:
-            logging.warning(f"Could not exclude namespace '{namespace}' "
-                            "because it was not found")
-    return groups
-
-
-def _exclude_functions(groups, exclude_functions):
-    """
-    Exclude nodes (functions) which match any of the exclude_functions
-
-    :param list[Group] groups:
-    :param list exclude_functions:
-    :rtype: list[Group]
-    """
-    for function_name in exclude_functions:
-        found = False
-        for group in list(groups):
-            for node in list(group.nodes):
-                if node.name == function_name:
-                    group.nodes.remove(node)
-                    found = True
-            for subgroup in list(group.subgroups):
-                for node in list(subgroup.nodes):
-                    if node.name == function_name:
-                        subgroup.nodes.remove(node)
-                        found = True
-        if not found:
-            logging.warning(f"Could not exclude function '{function_name}' "
-                            "because it was not found")
-    return groups
-
-
-def map_it(lang, filenames, exclude_namespaces, exclude_functions,
-           no_trimming=False):
-    '''
-    Given a language implementation and a list of filenames, do these things:
-    1. Read their raw source
-    2. Find all groups (classes/modules/etc) and nodes (functions) in all sources
-    3. Trim out groups without function nodes
-    4. Determine what nodes connect to what other nodes
-    5. Trim again
-
-    :param BaseLang lang:
-    :param list[str] filenames:
-    :param bool no_trimming:
-    :param list exclude_namespaces:
-    :param list exclude_functions:
-
-    :rtype: (list[Group], list[Node], list[Edge])
-    '''
-
-    # 1. Read raw sources
-    raw_source_by_filename = {}
-    for filename in sorted(filenames):
-        with open(filename) as f:
-            raw_source_by_filename[filename] = f.read()
-
-    # 2. Find all groups and nodes in all sources
-    file_groups = _get_groups_from_raw_files(raw_source_by_filename, lang)
-    if exclude_namespaces:
-        file_groups = _exclude_namespaces(file_groups, exclude_namespaces)
-    if exclude_functions:
-        file_groups = _exclude_functions(file_groups, exclude_functions)
-
-    all_nodes = flatten(g.all_nodes() for g in file_groups)
-
-    # 3. Trim groups without nodes
-    if not no_trimming:
-        logging.info("Trimming namespaces without functions...")
-        file_groups = [g for g in file_groups if g.all_nodes()]
-
-    # 4. Figure out what functions map to what
-    logging.info("Generating edges. This may take a while...")
-    edges = _generate_edges(all_nodes)
+    edges = []
+    for node_a in list(all_nodes):
+        for node_b in list(all_nodes):
+            if language.links(node_a, node_b):
+                edges.append(Edge(node_a, node_b))
 
     if no_trimming:
         return file_groups, all_nodes, edges
 
     # 5. Trim nodes that didn't connect to anything
-    final_nodes = []
-    for node in all_nodes:
-        # final_nodes.append(node)
-        if not lang.is_extraneous(node, edges):
-            final_nodes.append(node)
-        else:
-            node.parent.nodes.remove(node)
-
-    return file_groups, final_nodes, edges
-
-
-def write_dot_file(outfile, nodes, edges, groups, hide_legend=False,
-                   no_grouping=False):
-    '''
-    Write a dot file that can be read by graphviz
-
-    :param outfile File:
-    :param nodes list[Node]: functions
-    :param edges list[Edge]: function calls
-    :param groups list[Group]: classes and files
-    :param hide_legend bool:
-    :rtype: None
-    '''
-
-    content = "digraph G {\n"
-    content += "concentrate=true;\n"
-    content += 'splines="ortho";\n'
-    content += 'rankdir="LR";\n'
-    if not hide_legend:
-        content += LEGEND
-    for node in nodes:
-        content += node.to_dot(no_grouping) + ';\n'
+    nodes_with_edges = set()
     for edge in edges:
-        content += edge.to_dot() + ';\n'
-    if not no_grouping:
-        for group in groups:
-            content += group.to_dot()
-    content += '}\n'
+        nodes_with_edges.add(edge.node0)
+        nodes_with_edges.add(edge.node1)
 
-    outfile.write(content)
+    for node in all_nodes:
+        if node not in nodes_with_edges:
+            node.remove_from_parent()
 
+    for file_group in file_groups:
+        for group in file_group.all_groups():
+            if not group.all_nodes():
+                group.remove_from_parent()
 
-def _is_installed(executable_cmd):
-    """
-    Determine whether a command can be run or not
+    file_groups = [g for g in file_groups if g.all_nodes()]
+    all_nodes = list(nodes_with_edges)
 
-    :param list[str] individual_files:
-    :rtype: str
-    """
-    for path in os.environ["PATH"].split(os.pathsep):
-        path = path.strip('"')
-        exe_file = os.path.join(path, executable_cmd)
-        if os.path.isfile(exe_file) and os.access(exe_file, os.X_OK):
-            return True
-    return False
+    return file_groups, all_nodes, edges
 
 
 def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
@@ -343,6 +203,7 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
     :param int level: logging level
     :rtype: None
     """
+
     start_time = time.time()
 
     if not isinstance(raw_source_paths, list):
@@ -371,27 +232,23 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
         output_file, extension = output_file.rsplit('.', 1)
         output_file += '.gv'
 
-    lang = LANGUAGES[language]
+    language = LANGUAGES[language]
 
-    # Do the mapping (where the magic happens)
-    groups, nodes, edges = map_it(lang, sources, no_trimming=no_trimming,
-                                  exclude_namespaces=exclude_namespaces,
-                                  exclude_functions=exclude_functions)
+    file_groups, all_nodes, edges = map_it(sources, language, no_trimming)
 
     logging.info("Generating dot file...")
     if isinstance(output_file, str):
         with open(output_file, 'w') as fh:
-            write_dot_file(fh, nodes=nodes, edges=edges,
-                           groups=groups, hide_legend=hide_legend,
+            write_dot_file(fh, nodes=all_nodes, edges=edges,
+                           groups=file_groups, hide_legend=hide_legend,
                            no_grouping=no_grouping)
     else:
-        write_dot_file(output_file, nodes=nodes, edges=edges,
-                       groups=groups, hide_legend=hide_legend,
+        write_dot_file(output_file, nodes=all_nodes, edges=edges,
+                       groups=file_groups, hide_legend=hide_legend,
                        no_grouping=no_grouping)
-
     # translate to an image if that was requested
     if final_img_filename:
-        logging.info("Translating dot file to image... %s", output_file)
+        logging.info("Translating dot file to image. This might take a while... %s", output_file)
         command = ["dot", "-T" + extension, output_file]
         with open(final_img_filename, 'w') as f:
             subprocess.run(command, stdout=f, check=True)
