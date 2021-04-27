@@ -185,6 +185,51 @@ def map_it(sources, language, no_trimming):
     return file_groups, all_nodes, edges
 
 
+def _exclude_namespaces(file_groups, exclude_namespaces):
+    """
+    Exclude namespaces (classes/modules) which match any of the exclude_namespaces
+
+    :param list[Group] file_groups:
+    :param list exclude_namespaces:
+    :rtype: list[Group]
+    """
+    for namespace in exclude_namespaces:
+        found = False
+        for group in list(file_groups):
+            if group.token == namespace:
+                file_groups.remove(group)
+                found = True
+            for subgroup in group.all_groups():
+                if subgroup.token == namespace:
+                    subgroup.remove_from_parent()
+                    found = True
+        if not found:
+            logging.warning(f"Could not exclude namespace '{namespace}' "
+                            "because it was not found")
+    return file_groups
+
+
+def _exclude_functions(file_groups, exclude_functions):
+    """
+    Exclude nodes (functions) which match any of the exclude_functions
+
+    :param list[Group] file_groups:
+    :param list exclude_functions:
+    :rtype: list[Group]
+    """
+    for function_name in exclude_functions:
+        found = False
+        for group in list(file_groups):
+            for node in group.all_nodes():
+                if node.token == function_name:
+                    node.remove_from_parent()
+                    found = True
+        if not found:
+            logging.warning(f"Could not exclude function '{function_name}' "
+                            "because it was not found")
+    return file_groups
+
+
 def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
               exclude_namespaces=None, exclude_functions=None,
               no_grouping=False, no_trimming=False, level=logging.INFO):
