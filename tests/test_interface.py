@@ -5,7 +5,7 @@ import pytest
 
 sys.path.append(os.getcwd().split('/tests')[0])
 
-from code2flow import code2flow
+from lib.engine import code2flow
 
 IMG_PATH = '/tmp/output.png'
 

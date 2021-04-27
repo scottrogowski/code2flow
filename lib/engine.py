@@ -258,7 +258,7 @@ def map_it(lang, filenames, exclude_namespaces, exclude_functions,
     # 3. Trim groups without nodes
     if not no_trimming:
         logging.info("Trimming namespaces without functions...")
-        lang.trim_groups(file_groups)
+        file_groups = [g for g in file_groups if g.all_nodes()]
 
     # 4. Figure out what functions map to what
     logging.info("Generating edges. This may take a while...")

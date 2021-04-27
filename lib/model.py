@@ -35,6 +35,9 @@ class Node():
         self.is_leaf = True  # it calls nothing else
         self.is_trunk = True  # nothing calls it
 
+        # Find all calls within this node
+        self.calls = lang.find_calls(self)
+
     def __repr__(self):
         return "<Node %s from %r:%d parent=%r>" % (
             self.name, self.source.filename, self.line_number, self.parent.name)
@@ -59,6 +62,12 @@ class Node():
             parent = parent.parent
         names.reverse()
         return names[0] + ':' + '.'.join(names[1:])
+
+    def iter_parents(self):
+        level = self
+        while level.parent:
+            yield level.parent
+            level = level.parent
 
     def links_to(self, other, all_nodes):
         return self.lang.links_to(self, other, all_nodes)
@@ -134,13 +143,14 @@ class Group():
     Groups represent namespaces
     '''
 
-    def __init__(self, name, long_name, source_code,
+    def __init__(self, name, long_name, source_code, group_type,
                  parent=None, line_number=0, lang=None):
         self.name = name
         self.long_name = long_name
         self.source = source_code
         self.parent = parent
         self.line_number = line_number
+        self.group_type = group_type
         self.lang = lang
 
         self.nodes = []
@@ -401,33 +411,6 @@ class SourceCode():
 
         return new_source_code_obj
 
-    def __add__(self, other):
-        '''
-        Add two pieces of sourcecode together shifting the character to line map appropriately
-        '''
-        assert False
-
-    #     # If one operand is nothing, just return the value of this operand
-    #     if not other:
-    #         return self.copy()
-
-    #     assert self.last_line_number() <= other.first_line_number()
-
-    #     string_data = self.string_data + other.string_data
-
-    #     shifted_char_to_line_map = {}
-    #     char_positions = list(other.char_to_line_map.keys())
-    #     for char_pos in char_positions:
-    #         shifted_char_to_line_map[char_pos + len(self.string_data)] = other.char_to_line_map[char_pos]
-
-    #     char_to_line_map = dict(list(self.char_to_line_map.items()) + list(shifted_char_to_line_map.items()))
-
-    #     ret = SourceCode(string_data=string_data,
-    #                      char_to_line_map=char_to_line_map,
-    #                      filename=self.filename,
-    #                      lang=self.lang)
-    #     return ret
-
     def __sub__(self, other):
         assert self.filename == other.filename
 
@@ -472,6 +455,43 @@ class SourceCode():
     def finditer(self, regex):
         return re.finditer(regex, self.source_string)
 
+    def get_line_number(self, pos):
+        '''
+        Decrement until we find the first character of the line and can get the line_number
+        '''
+        return self.string_data[pos][2]
+
+    def get_source_in_block(self, end_indentifier_pos, start_pos):
+        return self.lang.get_source_in_block(self, end_indentifier_pos, start_pos)
+
+
+    # def __add__(self, other):
+    #     '''
+    #     Add two pieces of sourcecode together shifting the character to line map appropriately
+    #     '''
+
+    #     # If one operand is nothing, just return the value of this operand
+    #     if not other:
+    #         return self.copy()
+
+    #     assert self.last_line_number() <= other.first_line_number()
+
+    #     string_data = self.string_data + other.string_data
+
+    #     shifted_char_to_line_map = {}
+    #     char_positions = list(other.char_to_line_map.keys())
+    #     for char_pos in char_positions:
+    #         shifted_char_to_line_map[char_pos + len(self.string_data)] = other.char_to_line_map[char_pos]
+
+    #     char_to_line_map = dict(list(self.char_to_line_map.items()) + list(shifted_char_to_line_map.items()))
+
+    #     ret = SourceCode(string_data=string_data,
+    #                      char_to_line_map=char_to_line_map,
+    #                      filename=self.filename,
+    #                      lang=self.lang)
+    #     return ret
+
+
     # def remove(self, string_to_remove):
     #     '''
     #     Remove a string. Does not alter object in place
@@ -501,12 +521,6 @@ class SourceCode():
     #             return pos
 
     #     raise Exception("Could not find line number in source")
-
-    def get_line_number(self, pos):
-        '''
-        Decrement until we find the first character of the line and can get the line_number
-        '''
-        return self.string_data[pos][2]
 
     # def extract_between_delimiters(self, start_at=0):
     #     '''
@@ -585,5 +599,3 @@ class SourceCode():
     #         return i + 1
     #     return 0
 
-    def get_source_in_block(self, end_indentifier_pos, start_pos):
-        return self.lang.get_source_in_block(self, end_indentifier_pos, start_pos)

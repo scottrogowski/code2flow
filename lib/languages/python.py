@@ -90,7 +90,8 @@ def _generate_subgroups(group):
         line_number = group.source.get_line_number(colon_pos)
         class_group = _generate_group(name=name, long_name=name + "()",
                                       indent=indent, source_code=source_code,
-                                      parent=group, line_number=line_number)
+                                      parent=group, line_number=line_number,
+                                      group_type='class')
         subgroups.append(class_group)
     return subgroups
 
@@ -101,7 +102,55 @@ def _generate_root_node(group):
                       source=source, parent=group, lang=Python)
 
 
-def _generate_group(name, long_name, source_code,
+BUILTINS = ['ArithmeticError', 'AssertionError', 'AttributeError', 'BaseException',
+            'BlockingIOError', 'BrokenPipeError', 'BufferError', 'BytesWarning',
+            'ChildProcessError', 'ConnectionAbortedError', 'ConnectionError',
+            'ConnectionRefusedError', 'ConnectionResetError', 'DeprecationWarning',
+            'EOFError', 'Ellipsis', 'EnvironmentError', 'Exception', 'False',
+            'FileExistsError', 'FileNotFoundError', 'FloatingPointError',
+            'FutureWarning', 'GeneratorExit', 'IOError', 'ImportError', 'ImportWarning',
+            'IndentationError', 'IndexError', 'InterruptedError', 'IsADirectoryError',
+            'KeyError', 'KeyboardInterrupt', 'LookupError', 'MemoryError',
+            'ModuleNotFoundError', 'NameError', 'None', 'NotADirectoryError',
+            'NotImplemented', 'NotImplementedError', 'OSError', 'OverflowError',
+            'PendingDeprecationWarning', 'PermissionError', 'ProcessLookupError',
+            'RecursionError', 'ReferenceError', 'ResourceWarning', 'RuntimeError',
+            'RuntimeWarning', 'StopAsyncIteration', 'StopIteration', 'SyntaxError',
+            'SyntaxWarning', 'SystemError', 'SystemExit', 'TabError', 'TimeoutError',
+            'True', 'TypeError', 'UnboundLocalError', 'UnicodeDecodeError',
+            'UnicodeEncodeError', 'UnicodeError', 'UnicodeTranslateError',
+            'UnicodeWarning', 'UserWarning', 'ValueError', 'Warning',
+            'ZeroDivisionError', '_', '__build_class__', '__debug__', '__doc__',
+            '__import__', '__loader__', '__name__', '__package__', '__spec__',
+            'abs', 'all', 'any', 'ascii', 'bin', 'bool', 'breakpoint', 'bytearray',
+            'bytes', 'callable', 'chr', 'classmethod', 'compile', 'complex',
+            'copyright', 'credits', 'delattr', 'dict', 'dir', 'divmod', 'enumerate',
+            'eval', 'exec', 'exit', 'filter', 'float', 'format', 'frozenset', 'getattr',
+            'globals', 'hasattr', 'hash', 'help', 'hex', 'id', 'input', 'int',
+            'isinstance', 'issubclass', 'iter', 'len', 'license', 'list', 'locals', 'map',
+            'max', 'memoryview', 'min', 'next', 'object', 'oct', 'open', 'ord', 'pow',
+            'print', 'property', 'quit', 'range', 'repr', 'reversed', 'round', 'set',
+            'setattr', 'slice', 'sorted', 'staticmethod', 'str', 'sum', 'super', 'tuple',
+            'type', 'vars', 'zip']
+
+
+"""
+    I'm kind of thinking that to start, I just want to try to resolve for "self"
+    and for top-level imports. Anything else might be too complicated.
+    So let's start with that.
+
+    When we generate a node, we want to find calls for that node.
+"""
+
+
+
+    # ASSIGNMENT = re.compile(rf'^{indent}(?P<var>(\w+\s*\.\s*)*\w+)\s*=\s*', re.MULTILINE)
+
+    # for match in ASSIGNMENT.finditer(node.source.source_string):
+    #     print("assignment", match)
+
+
+def _generate_group(name, long_name, source_code, group_type,
                     parent=None, line_number=0, indent=''):
     '''
     Generate a new group
@@ -116,15 +165,24 @@ def _generate_group(name, long_name, source_code,
         parent=parent,
         line_number=line_number,
         lang=Python,
+        group_type=group_type,
     )
     # with the indent set, we can now generate nodes
     group.nodes = _generate_nodes(group, indent)
 
     # If this is the root node, continue generating subgroups and nodes
-    if not group.parent:
+    if group.group_type == 'module':
         group.subgroups = _generate_subgroups(group)
         group.nodes.append(_generate_root_node(group))
+
+    print("modules")
+    print(_get_modules(source_code.source_string))
+
     return group
+
+
+TOKDOT = r'(\w+\.)*\w+'
+TOKCD = r'(\w+\s*\,\s*)*\w+\s*'
 
 
 def _get_modules(source_string):
@@ -139,29 +197,33 @@ def _get_modules(source_string):
     :rtype: list[dict]
     """
     ret = []
-    for match in re.finditer(r"^import\s+([\w.]+)\s*$",
+    for match in re.finditer(rf"^import\s+(?P<mod>{TOKDOT})\s*$",
                              source_string, re.MULTILINE):
         ret.append(
-            {'filename': match.group(1).split('.')[-1] + '.py',
-             'token': match.group(1)})
-    for match in re.finditer(r"^from\s+([\w.]+)\s+import\s+([\w., ]+)\s*$",
+            {'filename': match['mod'].split('.')[-1] + '.py',
+             'token': match['mod']})
+    for match in re.finditer(rf"^from\s+(?P<mod>{TOKDOT})\s+import\s+(?P<tokens>{TOKCD})\s*$",
                              source_string, re.MULTILINE):
-        filename = match.group(1).split('.')[-1] + '.py'
-        tokens = match.group(2)
+        filename = match['mod'].split('.')[-1] + '.py'
+        tokens = match['tokens']
         for token in tokens.split(','):
             token = token.strip()
             ret.append(
                 {'filename': filename,
                  'token': token})
-    for match in re.finditer(r"^from\s+([\w.]+)\s+import\s+\((.*?)\)\s*",
+    for match in re.finditer(r"^from\s+(?P<mod>{TOKDOT})\s+import\s+\(\s*(?P<tokens>{TOKCD})\s*\)\s*$",
                              source_string, re.MULTILINE):
-        filename = match.group(1).split('.')[-1] + '.py'
-        tokens = match.group(2)
+        filename = match['mod'].split('.')[-1] + '.py'
+        tokens = match['tokens']
         for token in tokens.split(','):
             token = token.strip()
             ret.append(
                 {'filename': filename,
                  'token': token})
+    for match in re.finditer(rf"^from\s+(?P<mod>{TOKDOT})\s+import\s+\*\s*$",
+                             source_string, re.MULTILINE):
+        filename = match['mod'].split('.')[-1] + '.py'
+        ret.append({'filename': filename})
     return ret
 
 
@@ -184,6 +246,10 @@ def _is_local_to(node, other):
     return True
 
 
+NAKED_RE = re.compile(r'(^|[^\.])\b(?P<token>\w+)\s*\(')
+OBJECT_RE = re.compile(r'(?P<owner>(\w+\s*\.\s*)+)(?P<token>\w+)\s*\(')
+
+
 class Python(base.BaseLang):
     comments = {
         '"""': re.compile(r'([^\\]?)(""""""|""".*?[^\\]""")', re.DOTALL),
@@ -192,6 +258,43 @@ class Python(base.BaseLang):
         '"': re.compile(r"([^\\]?)(''|'.*?[^\\]')", re.DOTALL),
         "'": re.compile(r'([^\\]?)(""|".*?[^\\]")', re.DOTALL),
     }
+
+    @staticmethod
+    def find_calls(node):
+        source = node.source
+        calls = []
+        for match in NAKED_RE.finditer(source.source_string):
+            calls.append({'type': 'naked', 'token': match['token'], 'residence': None})
+        for match in OBJECT_RE.finditer(source.source_string):
+            calls.append({'type': 'object', 'token': match['token'], 'owner': match['owner'], 'residence': None})
+
+        for call in calls:
+            if call['type'] == 'object':
+                if call['owner'] == 'self':
+                    call['residence'] = node.parent
+                    continue
+                for group in node.iter_parents():
+                    if group.name == call['owner']:
+                        call['residence'] = group
+                        break
+                continue
+
+            # naked calls
+            assert call['type'] == 'naked'
+            for group in node.iter_parents():
+                if group.group_type == 'module':
+                    for node in group.nodes:
+                        if node.name == call['token']:
+                            call['residence'] = group
+                            break
+
+        final_calls = []
+        for call in calls:
+            if call['type'] == 'naked' and not call['residence'] and call['token'] in BUILTINS:
+                continue
+            final_calls.append(call)
+
+        return final_calls
 
     @staticmethod
     def is_extraneous(node, edges):
@@ -216,28 +319,43 @@ class Python(base.BaseLang):
         :param all_nodes list[Node]:
         :rype: bool, str
         """
-        all_names = [n.name for n in all_nodes]
-        if all_names.count(other.name) > 1:
-            # We don't touch double nodes
-            # TODO we should actually try to resolve
-            return False, other.name
+        matching_calls = [call for call in node.calls
+                          if call['token'] == other.name
+                          and (not call['residence']
+                               or call['residence'] == other.parent)]
+        if not matching_calls:
+            return False, None
 
-        # if _is_local_to(node, other):
-        local_func_regex = re.compile(r'(|.*?\W+)%s\s*\(' % other.name,
-                                      re.MULTILINE)
-        if local_func_regex.search(node.source.source_string):
-            return True, None
+        for call in matching_calls:
+            all_possible_nodes = [n for n in all_nodes if n.name == call['token']]
+            assert all_possible_nodes
+            if len(all_possible_nodes) == 1:
+                return True, None
         return False, None
 
-        func_regex = re.compile(r'\s+([\w.]+)\.%s\s*\(' % other.name, re.MULTILINE)
-        for match in func_regex.finditer(node.source.source_string):
-            # TODO
-            # from_var = match.group(1)
-            # if from_var not in excluded_tokens:
-            #     return True, None
-            return True, None
 
-        return False, None
+        # all_other_nodes = [n]
+        # if all_names.count(other.name) > 1:
+        #     # We don't touch double nodes
+        #     # TODO we should actually try to resolve
+        #     return False, other.name
+
+        # # if _is_local_to(node, other):
+        # local_func_regex = re.compile(r'(|.*?\W+)%s\s*\(' % other.name,
+        #                               re.MULTILINE)
+        # if local_func_regex.search(node.source.source_string):
+        #     return True, None
+        # return False, None
+
+        # func_regex = re.compile(r'\s+([\w.]+)\.%s\s*\(' % other.name, re.MULTILINE)
+        # for match in func_regex.finditer(node.source.source_string):
+        #     # TODO
+        #     # from_var = match.group(1)
+        #     # if from_var not in excluded_tokens:
+        #     #     return True, None
+        #     return True, None
+
+        # return False, None
 
     """
     TODO I'm having a heck of a time solving this problem.
@@ -356,7 +474,8 @@ class Python(base.BaseLang):
         '''
         Generate a group for the file. Indent is implicitly none for this group
         '''
-        return _generate_group(name=os.path.split(filename)[1], long_name=filename, source_code=source_code, indent='')
+        return _generate_group(name=os.path.split(filename)[1], long_name=filename,
+                               source_code=source_code, indent='', group_type='module')
 
     @staticmethod
     def get_tokens_to_exclude(source_code):
