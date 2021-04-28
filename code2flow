@@ -3,7 +3,7 @@
 import argparse
 import logging
 
-from lib.engine import code2flow, VALID_EXTENSIONS
+from lib.engine import code2flow, VALID_EXTENSIONS, VERSION
 
 DESCRIPTION = "Generate flow charts from your source code. " \
               "See the README at https://github.com/scottrogowski/code2flow."
@@ -45,7 +45,7 @@ if __name__ == "__main__":
         '--verbose', '-v', action='store_true',
         help='add more logging')
     parser.add_argument(
-        '--version', action='version', version='%(prog)s 0.3')  # TODO2021 what is this
+        '--version', action='version', version='%(prog)s ' + VERSION)
 
     args = parser.parse_args()
     level = logging.INFO

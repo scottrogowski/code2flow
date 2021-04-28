@@ -8,6 +8,10 @@ from tests.test_graphs import get_edges_set_from_file
 
 from code2flow import code2flow
 
+DESCRIPTION = """
+This file is a tool to generate test cases given a directory
+"""
+
 if __name__ == '__main__':
     filename = sys.argv[1]
     output_file = io.StringIO()

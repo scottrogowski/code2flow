@@ -1,13 +1,13 @@
 from setuptools import setup
 
-version = '0.3.0'
+from lib.engine import VERSION
 
 url_base = 'https://github.com/scottrogowski/code2flow'
-download_url = '%s/archive/fastmap-%s.tar.gz' % (url_base, version)  # TODO (on mongita too)
+download_url = '%s/archive/fastmap-%s.tar.gz' % (url_base, VERSION)
 
 setup(
     name='code2flow',
-    version=version,
+    version=VERSION,
     description='Visualize your source code as DOT flowcharts',
     long_description=open('README.md').read(),
     long_description_content_type="text/markdown",

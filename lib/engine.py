@@ -5,8 +5,9 @@ import subprocess
 import time
 
 from .python import Python
-from .model import TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, Edge
+from .model import TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, Edge, Group
 
+VERSION = '0.3.0'
 
 VALID_EXTENSIONS = {'png', 'svg', 'dot', 'gv', 'json'}
 
@@ -38,10 +39,14 @@ LANGUAGES = {
 
 
 def generate_json(nodes, edges):
-    """
+    '''
+    Generate a json string from nodes and edges
+    See https://github.com/jsongraph/json-graph-specification
 
-    """
-
+    :param nodes list[Node]: functions
+    :param edges list[Edge]: function calls
+    :rtype: str
+    '''
     nodes = [n.to_dict() for n in nodes]
     nodes = {n['uid']: n for n in nodes}
     edges = [e.to_dict() for e in edges]
@@ -78,7 +83,7 @@ def write_file(outfile, nodes, edges, groups, hide_legend=False,
     if not hide_legend:
         content += LEGEND
     for node in nodes:
-        content += node.to_dot(no_grouping) + ';\n'
+        content += node.to_dot() + ';\n'
     for edge in edges:
         content += edge.to_dot() + ';\n'
     if not no_grouping:
@@ -168,31 +173,69 @@ def get_sources_and_language(raw_source_paths, language):
     return sources, language
 
 
+def _find_links(node_a, all_nodes, language):
+    """
+    Iterate through the calls on node_a to find everything the node links to.
+    This will return a list of tuples of nodes and calls that were ambiguous.
+
+    :param Node node_a:
+    :param list[Node] all_nodes:
+    :param BaseLanguage language:
+    """
+    links = []
+    for call in node_a.calls:
+        lfc = language.find_link_for_call(call, node_a, all_nodes)
+        assert not isinstance(lfc, Group)
+        links.append(lfc)
+    return list(filter(None, links))
+
+
 def map_it(sources, language, no_trimming, exclude_namespaces, exclude_functions):
+    '''
+    Given a language implementation and a list of filenames, do these things:
+    1. Read source ASTs & find all groups (classes/modules) and nodes (functions)
+       (a lot happens here)
+    2. Trim namespaces / functions that we don't want
+    3. Attempt to resolve the variables (point them to a node or group)
+    4. Find all calls between all nodes
+    5. Loudly complain about duplicate edges that were skipped
+    6. Trim nodes that didn't connect to anything
+
+    :param list[str] sources:
+    :param Language lang:
+    :param bool no_trimming:
+    :param list exclude_namespaces:
+    :param list exclude_functions:
+
+    :rtype: (list[Group], list[Node], list[Edge])
+    '''
+
+    # 1. Read sourcs ASTs & find all groups (classes/modules) and nodes (functions)
+    #    (a lot happens here)
     file_groups = []
     all_nodes = []
     for source in sources:
-        mod_ast = language.get_ast(source)
-        file_group = language.make_file_group(mod_ast, source)
+        mod_tree = language.get_tree(source)
+        file_group = language.make_file_group(mod_tree, source)
         file_groups.append(file_group)
 
+    # 2. Trim namespaces / functions that we don't want
     if exclude_namespaces:
         file_groups = _exclude_namespaces(file_groups, exclude_namespaces)
     if exclude_functions:
         file_groups = _exclude_functions(file_groups, exclude_functions)
 
+    # 3. Attempt to resolve the variables (point them to a node or group)
     for group in file_groups:
         all_nodes += group.all_nodes()
-
     for node in all_nodes:
-        node.polish_variables(file_groups)
-    # for node in all_nodes:
-    #     node.resolve_call_owners()
+        node.resolve_variables(file_groups)
 
+    # 4. Find all calls between all nodes
     bad_calls = []
     edges = []
     for node_a in list(all_nodes):
-        links = language.find_links(node_a, all_nodes)
+        links = _find_links(node_a, all_nodes, language)
         for node_b, bad_call in links:
             if bad_call:
                 bad_calls.append(bad_call)
@@ -200,22 +243,21 @@ def map_it(sources, language, no_trimming, exclude_namespaces, exclude_functions
                 continue
             edges.append(Edge(node_a, node_b))
 
+    # 5. Loudly complain about duplicate edges that were skipped
     bad_calls_strings = set()
     for bad_call in bad_calls:
-        if not bad_call.owner_token and bad_call.token in language.BUILTINS:
+        if not bad_call.owner_token and bad_call.token in language.RESERVED_KEYWORDS:
             continue
         bad_calls_strings.add(bad_call.to_string())
     bad_calls_strings = list(sorted(list(bad_calls_strings)))
     if bad_calls_strings:
         logging.info("Skipped processing these calls because the algorithm "
                      "linked them to multiple function definitions: %r" % bad_calls_strings)
-        # for bad_call_str in bad_calls_strings:
-        #     logging.info(bad_call_str)
 
     if no_trimming:
         return file_groups, all_nodes, edges
 
-    # 5. Trim nodes that didn't connect to anything
+    # 6. Trim nodes that didn't connect to anything
     nodes_with_edges = set()
     for edge in edges:
         nodes_with_edges.add(edge.node0)
@@ -362,8 +404,6 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
         with open(final_img_filename, 'w') as f:
             subprocess.run(command, stdout=f, check=True)
         logging.info("Graphviz finished in %.2f seconds" % (time.time() - start_time))
-    # if isinstance(output_file, str) and output_file.endswith('.json'):  # TODO
-
 
     logging.info("Completed your flowchart! To see it, open %r.",
                  final_img_filename or output_file)

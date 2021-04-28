@@ -139,7 +139,7 @@ testdata = {
         },
         {
             "test_name": "exclude_modules_two_files",
-            "comment": "Correct name resolution when third-party modules are involved with two files",
+            "comment": "TODO Correct name resolution when third-party modules are involved with two files",
             "directory": "exclude_modules_two_files",
             "kwargs": {},
             "expected_edges": [],
