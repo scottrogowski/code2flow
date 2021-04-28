@@ -146,20 +146,32 @@ def get_sources_and_language(raw_source_paths, language):
     return sources, language
 
 
-def map_it(sources, language, no_trimming):
+def map_it(sources, language, no_trimming, exclude_namespaces, exclude_functions):
     file_groups = []
     all_nodes = []
     for source in sources:
         mod_ast = language.get_ast(source)
-        root_group = language.make_file_group(mod_ast, source)
-        all_nodes += root_group.all_nodes()
-        file_groups.append(root_group)
+        file_group = language.make_file_group(mod_ast, source)
+        file_groups.append(file_group)
+
+    if exclude_namespaces:
+        file_groups = _exclude_namespaces(file_groups, exclude_namespaces)
+    if exclude_functions:
+        file_groups = _exclude_functions(file_groups, exclude_functions)
+
+    for group in file_groups:
+        all_nodes += group.all_nodes()
+
+    for node in all_nodes:
+        node.resolve_variables(file_groups)
+    for node in all_nodes:
+        node.resolve_call_owners()
 
     edges = []
     for node_a in list(all_nodes):
-        for node_b in list(all_nodes):
-            if language.links(node_a, node_b):
-                edges.append(Edge(node_a, node_b))
+        links = language.find_links(node_a, all_nodes)
+        for node_b in links:
+            edges.append(Edge(node_a, node_b))
 
     if no_trimming:
         return file_groups, all_nodes, edges
@@ -279,7 +291,8 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
 
     language = LANGUAGES[language]
 
-    file_groups, all_nodes, edges = map_it(sources, language, no_trimming)
+    file_groups, all_nodes, edges = map_it(sources, language, no_trimming,
+                                           exclude_namespaces, exclude_functions)
 
     logging.info("Generating dot file...")
     if isinstance(output_file, str):
