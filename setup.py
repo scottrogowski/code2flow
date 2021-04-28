@@ -17,13 +17,13 @@ setup(
     author_email='scottmrogowski@gmail.com',
     url=url_base,
     download_url=download_url,
-    packages=['code2flow', 'code2flow.languages', 'lib', 'lib.languages'],
+    packages=['lib'],
     package_dir={'code2flow': 'lib'},
     python_requires='>=3.8',  # for walrus operator
-    classifiers=(
+    classifiers=[
         'Natural Language :: English',
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
-    )
+    ]
 )

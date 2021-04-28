@@ -3,3 +3,6 @@ __pycache__
 out.*
 .coverage*
 htmlcov
+build/
+*.egg-info
+dist
