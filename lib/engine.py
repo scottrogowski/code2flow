@@ -7,7 +7,7 @@ import time
 from .python import Python
 from .model import TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, Edge, Group
 
-VERSION = '0.3.0'
+VERSION = '1.0.0'
 
 VALID_EXTENSIONS = {'png', 'svg', 'dot', 'gv', 'json'}
 

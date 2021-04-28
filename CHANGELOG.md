@@ -1,6 +1,6 @@
 # Code2flow CHANGELOG
 
-## [0.3.0] - 2021-04-23
+## [1.0.0] - 2021-04-28
 Major rewrite / refactor. Update to Python3
 
 ## [0.2] - 2013-06-08
