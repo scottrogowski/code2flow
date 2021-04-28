@@ -25,6 +25,11 @@ class Call():
     def __repr__(self):
         return f"<Call owner_token={self.owner_token} token={self.token}>"
 
+    def to_string(self):
+        if self.owner_token:
+            return f"{self.owner_token}.{self.token}"
+        return f"{self.token}"
+
     def is_attr(self):
         return bool(self.owner_token)
 
@@ -67,7 +72,7 @@ class Node():
         return self.token
 
     def label(self):
-        return f"{self.line_number}: {self.token}"
+        return f"{self.line_number}: {self.token}()"
 
     def remove_from_parent(self):
         self.parent.nodes = [n for n in self.parent.nodes if n != self]
@@ -102,7 +107,6 @@ class Node():
 
     def to_dot(self, no_grouping):
         attributes = {
-            # 'splines': "ortho",
             'label': self.label(),
             'name': self.name(),
             'shape': "rect",
@@ -119,6 +123,13 @@ class Node():
         ret += ']'
 
         return ret
+
+    def to_dict(self):
+        return {
+            'uid': self.uid,
+            'label': self.label(),
+            'name': self.name(),
+        }
 
 
 def _wrap_as_variables(sequence):
@@ -146,6 +157,13 @@ class Edge():
         ret = self.node0.uid + ' -> ' + self.node1.uid
         ret += f' [color="{EDGE_COLOR}" penwidth="2"]'
         return ret
+
+    def to_dict(self):
+        return {
+            'source': self.node0.uid,
+            'target': self.node1.uid,
+            'directed': True,
+        }
 
 
 class Group():
@@ -236,3 +254,4 @@ class Group():
                                        subgroup.to_dot().split('\n'))).strip() + '\n'
         ret += '};\n'
         return ret
+

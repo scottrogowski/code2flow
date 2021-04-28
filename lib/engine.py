@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import subprocess
@@ -7,7 +8,7 @@ from .python import Python
 from .model import TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, Edge
 
 
-VALID_EXTENSIONS = {'.png', '.svg', '.dot', '.gv', '.jgv'}
+VALID_EXTENSIONS = {'png', 'svg', 'dot', 'gv', 'json'}
 
 DESCRIPTION = "Generate flow charts from your source code. " \
               "See the README at https://github.com/scottrogowski/code2flow."
@@ -36,8 +37,24 @@ LANGUAGES = {
 }
 
 
-def write_dot_file(outfile, nodes, edges, groups, hide_legend=False,
-                   no_grouping=False):
+def generate_json(nodes, edges):
+    """
+
+    """
+
+    nodes = [n.to_dict() for n in nodes]
+    nodes = {n['uid']: n for n in nodes}
+    edges = [e.to_dict() for e in edges]
+
+    return json.dumps({"graph": {
+        "directed": True,
+        "nodes": nodes,
+        "edges": edges,
+    }})
+
+
+def write_file(outfile, nodes, edges, groups, hide_legend=False,
+               no_grouping=False, as_json=False):
     '''
     Write a dot file that can be read by graphviz
 
@@ -48,6 +65,11 @@ def write_dot_file(outfile, nodes, edges, groups, hide_legend=False,
     :param hide_legend bool:
     :rtype: None
     '''
+
+    if as_json:
+        content = generate_json(nodes, edges)
+        outfile.write(content)
+        return
 
     content = "digraph G {\n"
     content += "concentrate=true;\n"
@@ -63,7 +85,6 @@ def write_dot_file(outfile, nodes, edges, groups, hide_legend=False,
         for group in groups:
             content += group.to_dot()
     content += '}\n'
-
     outfile.write(content)
 
 
@@ -168,20 +189,28 @@ def map_it(sources, language, no_trimming, exclude_namespaces, exclude_functions
     # for node in all_nodes:
     #     node.resolve_call_owners()
 
-    bad_tokens = set()
+    bad_calls = []
     edges = []
     for node_a in list(all_nodes):
         links = language.find_links(node_a, all_nodes)
         for node_b, bad_call in links:
             if bad_call:
-                bad_tokens.add(bad_call.token)
+                bad_calls.append(bad_call)
             if not node_b:
                 continue
             edges.append(Edge(node_a, node_b))
-    bad_tokens = list(sorted(filter(None, bad_tokens)))
-    if bad_tokens:
-        logging.info("Skipped processing these calls because of ambiguity in "
-                     "linking them to functions: %r", bad_tokens)
+
+    bad_calls_strings = set()
+    for bad_call in bad_calls:
+        if not bad_call.owner_token and bad_call.token in language.BUILTINS:
+            continue
+        bad_calls_strings.add(bad_call.to_string())
+    bad_calls_strings = list(sorted(list(bad_calls_strings)))
+    if bad_calls_strings:
+        logging.info("Skipped processing these calls because the algorithm "
+                     "linked them to multiple function definitions: %r" % bad_calls_strings)
+        # for bad_call_str in bad_calls_strings:
+        #     logging.info(bad_call_str)
 
     if no_trimming:
         return file_groups, all_nodes, edges
@@ -284,11 +313,14 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
 
     sources, language = get_sources_and_language(raw_source_paths, language)
 
-    if isinstance(output_file, str) and (not any(output_file.endswith(ext) for ext in VALID_EXTENSIONS)):
-        raise AssertionError("Output filename must end in one of: %r" % VALID_EXTENSIONS)
+    output_ext = None
+    if isinstance(output_file, str):
+        output_ext = output_file.rsplit('.', 1)[1] or ''
+        if output_ext not in VALID_EXTENSIONS:
+            raise AssertionError("Output filename must end in one of: %r" % VALID_EXTENSIONS)
 
     final_img_filename = None
-    if isinstance(output_file, str) and (output_file.endswith('.png') or output_file.endswith('.svg')):
+    if output_ext and output_ext in ('png', 'svg'):
         if not _is_installed('dot') and not _is_installed('dot.exe'):
             raise AssertionError(
                 "Can't generate a flowchart image because neither `dot` nor "
@@ -305,22 +337,33 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
                                            exclude_namespaces, exclude_functions)
 
     logging.info("Generating dot file...")
+
     if isinstance(output_file, str):
         with open(output_file, 'w') as fh:
-            write_dot_file(fh, nodes=all_nodes, edges=edges,
-                           groups=file_groups, hide_legend=hide_legend,
-                           no_grouping=no_grouping)
-    else:
-        write_dot_file(output_file, nodes=all_nodes, edges=edges,
+            as_json = output_ext == 'json'
+            write_file(fh, nodes=all_nodes, edges=edges,
                        groups=file_groups, hide_legend=hide_legend,
-                       no_grouping=no_grouping)
-    # translate to an image if that was requested
-    if final_img_filename:
-        logging.info("Translating dot file to image. This might take a while... %s", output_file)
-        command = ["dot", "-T" + extension, output_file]
-        with open(final_img_filename, 'w') as f:
-            subprocess.run(command, stdout=f, check=True)
+                       no_grouping=no_grouping, as_json=as_json)
+    else:
+        write_file(output_file, nodes=all_nodes, edges=edges,
+                   groups=file_groups, hide_legend=hide_legend,
+                   no_grouping=no_grouping)
 
     logging.info("Finished processing in %.2f seconds" % (time.time() - start_time))
+
+    # translate to an image if that was requested
+    if final_img_filename:
+        start_time = time.time()
+        logging.info("Running graphviz to make the image. This might take a while...")
+        command = ["dot", "-T" + extension, output_file]
+        logging.info("If this takes too long, try running manually with the command below.")
+        safety_command = list(command) + ['-v', '-outfile', final_img_filename]
+        logging.info("`%s`", ' '.join(safety_command))
+        with open(final_img_filename, 'w') as f:
+            subprocess.run(command, stdout=f, check=True)
+        logging.info("Graphviz finished in %.2f seconds" % (time.time() - start_time))
+    # if isinstance(output_file, str) and output_file.endswith('.json'):  # TODO
+
+
     logging.info("Completed your flowchart! To see it, open %r.",
                  final_img_filename or output_file)
