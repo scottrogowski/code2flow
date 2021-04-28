@@ -7,7 +7,7 @@
 
 ![code2flow logo](assets/code2flowlogo.png)
 
-![Version 0.3.0](https://img.shields.io/badge/version-0.3.0-yellow) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage >90%](https://img.shields.io/badge/coverage->90%-yellow) ![License MIT](https://img.shields.io/badge/license-MIT-green])
+![Version 0.3.0](https://img.shields.io/badge/version-0.3.0-yellow) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage >90%](https://img.shields.io/badge/coverage-%3e90%25-yellow) ![License MIT](https://img.shields.io/badge/license-MIT-green])
 
 Code2flow generates [call graphs](https://en.wikipedia.org/wiki/Call_graph) for dynamic programming language. Currently, code2flow supports Python and Javascript.
 
@@ -19,23 +19,19 @@ The basic algorithm is simple:
 
 Code2flow is useful for:
 - Untangling spaghetti code.
-- Identifying orphaned functions
+- Identifying orphaned functions.
 - Getting new developers up to speed.
 
-Code2flow will provide a **pretty good estimate** of your project's structure. No algorithm can generate a perfect call graph for a [dynamic language](https://en.wikipedia.org/wiki/Dynamic_programming_language) - even less so if that language is [duck-typed](https://en.wikipedia.org/wiki/Duck_typing).
+Code2flow will provide a *pretty good estimate* of your project's structure. No algorithm can generate a perfect call graph for a [dynamic language](https://en.wikipedia.org/wiki/Dynamic_programming_language) - even less so if that language is [duck-typed](https://en.wikipedia.org/wiki/Duck_typing). See the known limitations in the section below.
 
-See the known limitations in the section below.
+**Code2flow running against itself**
 
-*code2flow running against itself*
-
-TODO abspath https://raw.githubusercontent.com/scottrogowski/code2flow/master/assets/code2flow_output.png
-
-![code2flow running against itself](assets/code2flow_output.png)
+![code2flow running against itself TODO abspath https://raw.githubusercontent.com/scottrogowski/code2flow/master/assets/code2flow_output.png](assets/code2flow_output.png)
 
 Installation
 ------------
 
-For now, do _not_ pip install (The code2flow name is held by a different project). Instead, run:
+For now, do _not_ pip install. The *code2flow* name is held by a different project. Instead, run:
 
 ```bash
 python setup.py install
@@ -52,13 +48,13 @@ To generate a DOT file run something like:
 code2flow mypythonfile.py
 ```
 
-Or, for javascript
+Or, for javascript:
 
 ```bash
 code2flow myjavascriptfile.js
 ```
 
-You can also specify multiple files or import directories
+You can also specify multiple files or import directories:
 
 ```bash
 code2flow project/directory/source_a.js project/directory/source_b.js
@@ -72,7 +68,7 @@ code2flow project/directory/*.js
 code2flow project/directory --language js
 ```
 
-There are a ton of command line options, to see them all, run
+There are a ton of command line options, to see them all, run:
 
 ```bash
 code2flow --help
@@ -81,7 +77,7 @@ code2flow --help
 How code2flow works
 ------------
 
-Code2flow approximates the structure of projects in dynamic languages. It is not possible to generate a perfect callgraph for a dynamic language. 
+Code2flow approximates the structure of projects in dynamic languages. It is *not possible* to generate a perfect callgraph for a dynamic language. 
 
 Detailed algorithm:
 
@@ -94,6 +90,15 @@ Detailed algorithm:
 7. Trim orphaned nodes and groups.
 8. Output results.
 
+Why is it impossible to generate a perfect call graph?
+----------------
+
+Consider this toy example in Python
+```
+import random
+func = random.choice((func_a, func_b))
+func()
+```
 
 Known limitations
 -----------------
