@@ -15,16 +15,32 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 py_tests = testdata['py']
 
 
+def _edge(tup):
+    return f"{tup[0]}->{tup[1]}"
+
+
 def assert_eq(seq_a, seq_b):
     try:
         assert seq_a == seq_b
     except AssertionError:
-        print("extra edges generated", file=sys.stderr)
-        for el in (seq_a - seq_b):
-            print(el, file=sys.stderr)
-        print("missing edges", file=sys.stderr)
-        for el in (seq_b - seq_a):
-            print(el, file=sys.stderr)
+        print("generated", file=sys.stderr)
+        for el in seq_a:
+            print(_edge(el), file=sys.stderr)
+        print("expected", file=sys.stderr)
+        for el in seq_b:
+            print(_edge(el), file=sys.stderr)
+
+        extra = seq_a - seq_b
+        missing = seq_b - seq_a
+        if extra:
+            print("extra", file=sys.stderr)
+            for el in extra:
+                print(_edge(el), file=sys.stderr)
+        if missing:
+            print("missing", file=sys.stderr)
+            for el in missing:
+                print(_edge(el), file=sys.stderr)
+
         sys.stderr.flush()
         raise AssertionError()
 

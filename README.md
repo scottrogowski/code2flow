@@ -7,11 +7,11 @@
 
 ![code2flow logo](assets/code2flowlogo.png)
 
-![Version 0.3.0](https://img.shields.io/badge/version-0.3.0-yellow) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage 89%](https://img.shields.io/badge/coverage-89%25-yellow) ![License MIT](https://img.shields.io/badge/license-MIT-green])
+![Version 0.3.0](https://img.shields.io/badge/version-0.3.0-yellow) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage >90%](https://img.shields.io/badge/coverage->90%-yellow) ![License MIT](https://img.shields.io/badge/license-MIT-green])
 
-Code2flow generates [call graphs](https://en.wikipedia.org/wiki/Call_graph) for your Python and Javascript projects. 
+Code2flow generates [call graphs](https://en.wikipedia.org/wiki/Call_graph) for dynamic programming language. Currently, code2flow supports Python and Javascript.
 
-The algorithm is simple:
+The basic algorithm is simple:
 
 1. Find function definitions in your project's source code.
 2. Determine where those functions are called.
@@ -81,23 +81,24 @@ code2flow --help
 How code2flow works
 ------------
 
-Code2flow approximates the structure of projects in dynamic languages. It is not possible to generate a perfect callgraph for a dynamic language. Code2flow works by using regular expressions - not abstract syntax trees. This is a concious design choice. Regular expressions allow code2flow to utilize heuristics that are unavailable in strict ASTs. The end result is more connections and more accurate connections. 
+Code2flow approximates the structure of projects in dynamic languages. It is not possible to generate a perfect callgraph for a dynamic language. 
 
 Detailed algorithm:
 
-1. Remove all comments and strings from the source.
-2. Identify and isolate all groups. Groups are files, modules, or classes. More precisely, groups are namespaces where functions live.
-3. From the groups, identify and isolate all function definitions. These are called "nodes" internally.
-4. For each node, generate a series of regular expressions that represent all the ways it can be called in different namespaces.
-5. Search each node for each other node's regular expressions. This is a O(n^2) operation. If a match is found, connect the two nodes. If there is an ambiguity (two matches of nodes with the same token), loudly identify that ambiguity and skip.
-6. Trim orphaned nodes and groups.
-7. Output results.
+1. Generate an AST of the source code
+2. Recursively separate groups and nodes. Groups are files, modules, or classes. More precisely, groups are namespaces where functions live. Nodes are the functions themselves.
+3. For all nodes, identify function calls in those nodes.
+4. For all nodes, identify in-scope variables. Attempt to connect those variables to specific nodes and groups. This is where there is some ambiguity in the algorithm because it is possible to know the types of variables in dynamic languages. So, instead, heuristics must be used.
+5. For all calls in all nodes, attempt to find a match from the in-scope variables. This will be an edge.
+6. If a definitive match from in-scope variables cannot be found, attempt to find a single match from all other groups and nodes.
+7. Trim orphaned nodes and groups.
+8. Output results.
 
 
 Known limitations
 -----------------
 
-Code2flow is internally powered by regular expressions. Most limitations stem from tokens not being named what the engine expects them to be named.
+Code2flow is internally powered by ASTs. Most limitations stem from tokens not being named what the engine expects them to be named.
 
 * All functions without definitions are skipped. This most often happens when a file is not included.
 * Functions with identical names in different namespaces are (loudly) skipped. E.g. If you have two classes with identically named methods, code2flow cannot distinguish between these and skips them.
@@ -124,12 +125,11 @@ scottmrogowski@gmail.com
 How to contribute
 -----------------------
 
-1. You can contribute code! Code2flow has limitations. Attempts to address these limitation would probably be helpful and accepted. Separately, new languages will be especially appreciated!
-
+1. You can contribute code! Code2flow has limitations. There is room for improvement in adding heuristics to resolve these limitation. Pull requests which address these improvements will be helpful and accepted. Separately, new languages will be especially appreciated!
 2. You can spread the word! A simple way to help is to share this project with others. If you have a blog, mention code2flow! Linking from relevant questions on StackOverflow or other forums also helps quite a bit.
 
 
 Feature / Language Requests
 ----------------
 
-Email me. I am an independent contractor and can be convinced to work on this for an appropriate amount of money.
+Email me. I am currently self-employed and can be convinced to work on this for an appropriate amount of money.

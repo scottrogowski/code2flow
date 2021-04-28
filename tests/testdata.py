@@ -137,14 +137,14 @@ testdata = {
             "expected_nodes": ["exclude_modules.py:(global)", "exclude_modules.py:alpha",
                                "exclude_modules.py:beta", "exclude_modules.py:search"]
         },
-        # {
-        #     "test_name": "exclude_modules_two_files",
-        #     "comment": "Correct name resolution when third-party modules are involved with two files",
-        #     "directory": "exclude_modules_two_files",
-        #     "kwargs": {},
-        #     "expected_edges": [],
-        #     "expected_nodes": []
-        # }
+        {
+            "test_name": "exclude_modules_two_files",
+            "comment": "Correct name resolution when third-party modules are involved with two files",
+            "directory": "exclude_modules_two_files",
+            "kwargs": {},
+            "expected_edges": [],
+            "expected_nodes": []
+        },
         {
             "test_name": "resolve_correct_class",
             "comment": "Correct name resolution with multiple classes",

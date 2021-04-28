@@ -3,7 +3,8 @@ import os
 import subprocess
 import time
 
-from .languages.python import Python, TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, Edge
+from .python import Python
+from .model import TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, Edge
 
 
 VALID_EXTENSIONS = {'.png', '.svg', '.dot', '.gv', '.jgv'}
@@ -163,15 +164,24 @@ def map_it(sources, language, no_trimming, exclude_namespaces, exclude_functions
         all_nodes += group.all_nodes()
 
     for node in all_nodes:
-        node.resolve_variables(file_groups)
-    for node in all_nodes:
-        node.resolve_call_owners()
+        node.polish_variables(file_groups)
+    # for node in all_nodes:
+    #     node.resolve_call_owners()
 
+    bad_tokens = set()
     edges = []
     for node_a in list(all_nodes):
         links = language.find_links(node_a, all_nodes)
-        for node_b in links:
+        for node_b, bad_call in links:
+            if bad_call:
+                bad_tokens.add(bad_call.token)
+            if not node_b:
+                continue
             edges.append(Edge(node_a, node_b))
+    bad_tokens = list(sorted(filter(None, bad_tokens)))
+    if bad_tokens:
+        logging.info("Skipped processing these calls because of ambiguity in "
+                     "linking them to functions: %r", bad_tokens)
 
     if no_trimming:
         return file_groups, all_nodes, edges
