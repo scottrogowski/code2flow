@@ -41,6 +41,22 @@ def walk(tree):
     return ret
 
 
+def _resolve_owner(callee):
+    try:
+        if callee['object']['type'] == 'ThisExpression':
+            return 'this'
+        if callee['object']['type'] == 'Identifier':
+            return callee['object']['name']
+        if callee['object']['type'] == 'MemberExpression':
+            if 'object' in callee['object']:
+                return _resolve_owner(callee['object'])
+            return callee['object']['name']
+        print('\a'); import ipdb; ipdb.set_trace()
+        return None
+    except:
+        print('\a'); import ipdb; ipdb.set_trace()
+
+
 def _get_call_from_func_element(func):
     """
     Given a python ast that represents a function call, clear and create our
@@ -52,18 +68,14 @@ def _get_call_from_func_element(func):
     """
     callee = func['callee']
     if callee['type'] == 'MemberExpression':
-        if callee['object']['type'] == 'ThisExpression':
-            owner_token = 'this'
-        else:
-            owner_token = callee['object']['name']
+        owner_token = _resolve_owner(callee)
         return Call(token=callee['property']['name'],
                     line_number=lineno(callee),
                     owner_token=owner_token)
-    if callee['type'] == 'Identifier': # TODO
+    if callee['type'] == 'Identifier':
         return Call(token=callee['name'], line_number=lineno(callee))
     # if type(func) in (ast.Subscript, ast.Call):
     #     return None
-    print('\a'); import ipdb; ipdb.set_trace()
     logging.warning("Unknown function type %r" % callee['type'])
     return None
 
@@ -113,6 +125,9 @@ def _process_assign(element):
     target = element['declarations'][0]
     if target['type'] != 'VariableDeclarator':
         return
+    if target['init'] is None:
+        return
+
     token = target['id']['name']
 
     if target['init']['type'] != 'NewExpression':
@@ -143,6 +158,7 @@ def _make_variables(tree, parent):
         variables.append(Variable('this', parent, lineno(tree)))  # TODO
 
     variables = list(filter(None, variables))
+    print("variables", variables)
     return variables
 
 
@@ -170,7 +186,9 @@ def _make_node(tree, parent):
     line_number = lineno(tree)
     calls = _make_calls(body)
     variables = _make_variables(body, parent)
-    return Node(token, line_number, calls, variables, parent=parent)
+    node = Node(token, line_number, calls, variables, parent=parent)
+    print("NODE", node)
+    return node
 
 
 def _make_root_node(lines, parent):
@@ -186,7 +204,9 @@ def _make_root_node(lines, parent):
     line_number = 0
     calls = _make_calls(lines)
     variables = _make_variables(lines, parent)
-    return Node(token, line_number, calls, variables, parent=parent)
+    root_node = Node(token, line_number, calls, variables, parent=parent)
+    print("ROOTNODE", root_node)
+    return root_node
 
 
 def _make_class_group(tree, parent):
@@ -215,6 +235,49 @@ def _make_class_group(tree, parent):
         logging.warning("Code2flow does not support nested classes. Skipping %r in %r.",
                         subgroup_tree.name, parent.token)
     return class_group
+
+# def _dive(tree):
+#     if type(tree) == list:
+#         ret = []
+#         for el in tree:
+#             if el.get('type'):
+#                 ret.append(el)
+#         return ret
+#     elif type(tree) == dict:
+#         ret = []
+#         for k, v in tree.items():
+#             if type(v) == list:
+#                 ret += _dive(v)
+#         return ret
+#     return []
+
+def _dive(tree):
+    if type(tree) == list:
+        ret = []
+        for el in tree:
+            if el.get('type'):
+                ret.append(el)
+        return ret
+    elif type(tree) == dict:
+        ret = []
+        for k, v in tree.items():
+            if type(v) == dict and v.get('type'):
+                ret.append(v)
+            if type(v) == list:
+                ret.append(v)
+        return ret
+    return []
+
+
+    # if isinstance(tree, list):
+    #     return tree
+    # ret = []
+    # for k, v in tree.items():
+    #     if isinstance(v, list):
+    #         ret += v
+    #     elif isinstance(v, dict) and v.get('type'):
+    #         ret.append(v)
+    # return ret
 
 
 class Javascript(BaseLanguage):
@@ -246,6 +309,12 @@ class Javascript(BaseLanguage):
                                  "but was not found on the path. Install it from "
                                  "npm and try again.")
 
+        acorn_version = subprocess.check_output(['npm', '-v', 'acorn'])
+        if not acorn_version.startswith(b'7.7.'):
+            logging.warning("Acorn is required to parse javascript files. "
+                            "Version %r was found but code2flow has only been "
+                            "tested on 7.7.", acorn_version)
+
     @staticmethod
     def get_tree(filename):
         """
@@ -255,7 +324,9 @@ class Javascript(BaseLanguage):
         :rtype: ast
         """
         # output = subprocess.check_output(["acorn", filename])#, '--location'])
-        output = subprocess.check_output(["node", "lib/get_ast.js", filename])#, '--location'])
+        script_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                  "get_ast.js")
+        output = subprocess.check_output(["node", script_loc, filename])
         tree = json.loads(output)
         assert isinstance(tree, dict)
         assert tree['type'] == 'Program'
@@ -274,18 +345,23 @@ class Javascript(BaseLanguage):
                   downstream into real Groups and Nodes.
         :rtype: (list[ast], list[ast], list[ast])
         """
-        while isinstance(tree, dict):
-            tree = tree['body']
+        # while isinstance(tree, dict):
+        #     tree = tree['body']
+
+
+        # TODO body elements really need to just be all the leftover.
+        # We really need to capture ALL method definitions and functiondeclarations
+        # in a walk
 
         groups = []
         nodes = []
         body = []
-        for el in tree:
-            if el['type'] in ('MethodDefinition', 'FunctionDeclaration'):
+        for el in _dive(tree):
+            if type(el) == dict and el['type'] in ('MethodDefinition', 'FunctionDeclaration'):
                 nodes.append(el)
-            elif el['type'] == 'ClassDeclaration':
+            elif type(el) == dict and el['type'] == 'ClassDeclaration':
                 groups.append(el)
-            elif el.get('body'):
+            elif type(el) == list or _dive(el):
                 tup = Javascript.separate_namespaces(el)
                 groups += tup[0]
                 nodes += tup[1]
@@ -309,7 +385,8 @@ class Javascript(BaseLanguage):
         """
 
         # TODO js is callback hell so we really need to nest deep
-
+        # if call.token == 'd':
+        #     print('\a'); import ipdb; ipdb.set_trace()
         all_vars = node_a.get_variables(call.line_number)
 
         for var in all_vars:

@@ -1,28 +1,35 @@
+function print_hi() {
+    console.log("HI")
+}
+
 class Rectangle {
   constructor(height, width) {
     this.height = height;
     this.width = width;
-  }
-  get area() {
-    return this.calcArea();
+    this.i = 0;
+    print_hi();
+    this.calcArea()
   }
   calcArea() {
+    this.incr();
     return this.height * this.width
+  }
+  incr() {
+    this.i++;
   }
 }
 
 function do_calc() {
-    console.log("calcing... ")
-    the_area = square.calcArea()
+    const the_area = square.calcArea()
     calcit()
     const square = new Rectangle(10, 10);
 }
 
-const doc = function() {
-    do_calc()
+const do_calc_wrapper = function() {
+    console.log("BANANAS")
+    do_calc();
 }
 
 const square = new Rectangle(10, 10);
 square.calcArea()
-
-doc()
+do_calc_wrapper()

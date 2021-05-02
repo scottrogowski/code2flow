@@ -162,6 +162,29 @@ testdata = {
 
     ],
     "js": [
-
+        {
+            "test_name": "simple_a_js",
+            "directory": "simple_a_js",
+            "expected_edges": [["simple_a::func_a", "simple_a::func_b"]],
+            "expected_nodes": ["simple_a::func_a", "simple_a::func_b"]
+        },
+        {
+            "test_name": "simple_b_js",
+            "directory": "simple_b_js",
+            "expected_edges": [
+                ["simple_b::C.d", "simple_b::a"],
+                ["simple_b::a", "simple_b::b"],
+                ["simple_b::(global)", "simple_b::C.d"],
+                ["simple_b::b", "simple_b::a"]],
+            "expected_nodes": ["simple_b::C.d", "simple_b::a", "simple_b::b",
+                               "simple_b::(global)"]
+        },
+        {
+            "test_name": "two_file_simple",
+            "directory": "two_file_simple",
+            "expected_edges": [["file_a::(global)", "file_a::a"],
+                               ["file_a::a", "file_b::b"]],
+            "expected_nodes": ["file_a::(global)", "file_a::a", "file_b::b"]
+        },
     ]
 }

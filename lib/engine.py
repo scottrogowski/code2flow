@@ -8,7 +8,7 @@ from .python import Python
 from .javascript import Javascript
 from .model import TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, Edge, Group, is_installed
 
-VERSION = '1.0.0'
+VERSION = '2.0.0'
 
 VALID_EXTENSIONS = {'png', 'svg', 'dot', 'gv', 'json'}
 
@@ -202,7 +202,6 @@ def map_it(sources, language, no_trimming, exclude_namespaces, exclude_functions
     # 1. Read sourcs ASTs & find all groups (classes/modules) and nodes (functions)
     #    (a lot happens here)
     file_groups = []
-    all_nodes = []
     for source in sources:
         mod_tree = language.get_tree(source)
         file_group = language.make_file_group(mod_tree, source)
@@ -215,10 +214,12 @@ def map_it(sources, language, no_trimming, exclude_namespaces, exclude_functions
         file_groups = _exclude_functions(file_groups, exclude_functions)
 
     # 3. Attempt to resolve the variables (point them to a node or group)
+    all_nodes = []
     for group in file_groups:
         all_nodes += group.all_nodes()
     for node in all_nodes:
         node.resolve_variables(file_groups)
+    logging.info("Found nodes %r" % [n.token_with_ownership() for n in all_nodes])
 
     # 4. Find all calls between all nodes
     bad_calls = []

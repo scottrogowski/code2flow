@@ -12,7 +12,15 @@ from tests.testdata import testdata
 
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
-py_tests = testdata['py']
+LANGUAGES = {
+    'py': testdata['py'],
+    'js': testdata['js'],
+}
+
+flattened_tests = []
+for lang, tests in testdata.items():
+    for test in tests:
+        flattened_tests.append((lang, test))
 
 
 def _edge(tup):
@@ -45,9 +53,9 @@ def assert_eq(seq_a, seq_b):
         raise AssertionError()
 
 
-@pytest.mark.parametrize("test_dict", py_tests)
-def test_all(test_dict):
-    language = 'py'
+@pytest.mark.parametrize("test_tup", flattened_tests)
+def test_all(test_tup):
+    language, test_dict = test_tup
     print("Running test %r..." % test_dict['test_name'])
     directory_path = os.path.join('test_code', language, test_dict['directory'])
     kwargs = test_dict.get('kwargs', {})
