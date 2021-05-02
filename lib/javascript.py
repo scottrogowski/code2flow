@@ -7,18 +7,37 @@ from .model import is_installed, Group, Node, Call, Variable, BaseLanguage
 
 
 def lineno(el):
-    return el['loc']['start']['line']
+    ret = el['loc']['start']['line']
+    assert type(ret) == int
+    return ret
+
+
+# def walk(tree):
+#     while isinstance(tree, dict):
+#         tree = tree['body']
+
+#     ret = []
+#     for el in tree:
+#         ret.append(el)
+#         if 'body' in el:
+#             ret += walk(el['body'])
+#     return ret
 
 
 def walk(tree):
-    while isinstance(tree, dict):
-        tree = tree['body']
-
     ret = []
-    for el in tree:
-        ret.append(el)
-        if 'body' in el:
-            ret += walk(el['body'])
+    if type(tree) == list:
+        for el in tree:
+            if el.get('type'):
+                ret.append(el)
+                ret += walk(el)
+    elif type(tree) == dict:
+        for k, v in tree.items():
+            if type(v) == dict and v.get('type'):
+                ret.append(v)
+                ret += walk(v)
+            if type(v) == list:
+                ret += walk(v)
     return ret
 
 
@@ -33,9 +52,13 @@ def _get_call_from_func_element(func):
     """
     callee = func['callee']
     if callee['type'] == 'MemberExpression':
+        if callee['object']['type'] == 'ThisExpression':
+            owner_token = 'this'
+        else:
+            owner_token = callee['object']['name']
         return Call(token=callee['property']['name'],
                     line_number=lineno(callee),
-                    owner_token=callee['object']['name'])
+                    owner_token=owner_token)
     if callee['type'] == 'Identifier': # TODO
         return Call(token=callee['name'], line_number=lineno(callee))
     # if type(func) in (ast.Subscript, ast.Call):
@@ -52,21 +75,26 @@ def _make_calls(body):
     :param list|dict body:
     :rtype: list[Call]
     """
-
     calls = []
     for element in walk(body):
-        if element['type'] != 'ExpressionStatement':
+        if element['type'] != 'CallExpression':
             continue
-        if element['expression']['type'] == 'CallExpression':
-            call = _get_call_from_func_element(element['expression'])
-            if call:
-                calls.append(call)
-            continue
-        if element['expression']['type'] == 'AssignmentExpression' \
-           and element['expression']['right']['type'] == 'CallExpression':
-            call = _get_call_from_func_element(element['expression']['right'])
-            if call:
-                calls.append(call)
+        call = _get_call_from_func_element(element)
+        if call:
+            calls.append(call)
+
+        # if element['type'] != 'ExpressionStatement':
+        #     continue
+        # if element['expression']['type'] == 'CallExpression':
+        #     call = _get_call_from_func_element(element['expression'])
+        #     if call:
+        #         calls.append(call)
+        #     continue
+        # if element['expression']['type'] == 'AssignmentExpression' \
+        #    and element['expression']['right']['type'] == 'CallExpression':
+        #     call = _get_call_from_func_element(element['expression']['right'])
+        #     if call:
+        #         calls.append(call)
     return calls
 
 
@@ -112,7 +140,7 @@ def _make_variables(tree, parent):
         #     variables.append(_process_import(element))
 
     if parent.group_type == 'CLASS':
-        variables.append(Variable('this', parent, tree))  # TODO
+        variables.append(Variable('this', parent, lineno(tree)))  # TODO
 
     variables = list(filter(None, variables))
     return variables
