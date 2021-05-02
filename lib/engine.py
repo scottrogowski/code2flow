@@ -5,7 +5,8 @@ import subprocess
 import time
 
 from .python import Python
-from .model import TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, Edge, Group
+from .javascript import Javascript
+from .model import TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, Edge, Group, is_installed
 
 VERSION = '1.0.0'
 
@@ -31,8 +32,8 @@ LEGEND = """subgraph legend{
 
 
 LANGUAGES = {
-    'py': Python
-    # 'js': Javascript,
+    'py': Python,
+    'js': Javascript,
     # 'php': PHP,
     # 'rb': Ruby,
 }
@@ -91,21 +92,6 @@ def write_file(outfile, nodes, edges, groups, hide_legend=False,
             content += group.to_dot()
     content += '}\n'
     outfile.write(content)
-
-
-def _is_installed(executable_cmd):
-    """
-    Determine whether a command can be run or not
-
-    :param list[str] individual_files:
-    :rtype: str
-    """
-    for path in os.environ["PATH"].split(os.pathsep):
-        path = path.strip('"')
-        exe_file = os.path.join(path, executable_cmd)
-        if os.path.isfile(exe_file) and os.access(exe_file, os.X_OK):
-            return True
-    return False
 
 
 def determine_language(individual_files):
@@ -209,6 +195,9 @@ def map_it(sources, language, no_trimming, exclude_namespaces, exclude_functions
 
     :rtype: (list[Group], list[Node], list[Edge])
     '''
+
+    # 0. Assert dependencies
+    language.assert_dependencies()
 
     # 1. Read sourcs ASTs & find all groups (classes/modules) and nodes (functions)
     #    (a lot happens here)
@@ -363,7 +352,7 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
 
     final_img_filename = None
     if output_ext and output_ext in ('png', 'svg'):
-        if not _is_installed('dot') and not _is_installed('dot.exe'):
+        if not is_installed('dot') and not is_installed('dot.exe'):
             raise AssertionError(
                 "Can't generate a flowchart image because neither `dot` nor "
                 "`dot.exe` was found. Either install graphviz (see the README) "
@@ -391,7 +380,7 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
                    groups=file_groups, hide_legend=hide_legend,
                    no_grouping=no_grouping)
 
-    logging.info("Finished processing in %.2f seconds" % (time.time() - start_time))
+    logging.info("Code2flow finished processing in %.2f seconds" % (time.time() - start_time))
 
     # translate to an image if that was requested
     if final_img_filename:

@@ -1,8 +1,25 @@
-import ast as ast
 import logging
 import os
+import json
+import subprocess
 
-from .model import Group, Node, Call, Variable, BaseLanguage
+from .model import is_installed, Group, Node, Call, Variable, BaseLanguage
+
+
+def lineno(el):
+    return el['loc']['start']['line']
+
+
+def walk(tree):
+    while isinstance(tree, dict):
+        tree = tree['body']
+
+    ret = []
+    for el in tree:
+        ret.append(el)
+        if 'body' in el:
+            ret += walk(el['body'])
+    return ret
 
 
 def _get_call_from_func_element(func):
@@ -14,41 +31,40 @@ def _get_call_from_func_element(func):
     :param func ast:
     :rtype: Call|None
     """
-    if type(func) == ast.Attribute:
-        owner_token = []
-        val = func.value
-        while True:
-            try:
-                owner_token.append(getattr(val, 'attr', val.id))
-            except AttributeError:
-                pass
-            val = getattr(val, 'value', None)
-            if not val:
-                break
-        owner_token = '.'.join(reversed(owner_token))
-        return Call(token=func.attr, line_number=func.lineno, owner_token=owner_token)
-    if type(func) == ast.Name:
-        return Call(token=func.id, line_number=func.lineno)
-    if type(func) in (ast.Subscript, ast.Call):
-        return None
-    logging.warning("Unknown function type %r" % type(func))
+    callee = func['callee']
+    if callee['type'] == 'MemberExpression':
+        return Call(token=callee['property']['name'],
+                    line_number=lineno(callee),
+                    owner_token=callee['object']['name'])
+    if callee['type'] == 'Identifier': # TODO
+        return Call(token=callee['name'], line_number=lineno(callee))
+    # if type(func) in (ast.Subscript, ast.Call):
+    #     return None
+    print('\a'); import ipdb; ipdb.set_trace()
+    logging.warning("Unknown function type %r" % callee['type'])
     return None
 
 
-def _make_calls(lines):
+def _make_calls(body):
     """
     Given a list of lines, find all calls in this list.
 
-    :param lines list[ast]:
+    :param list|dict body:
     :rtype: list[Call]
     """
 
     calls = []
-    for tree in lines:
-        for element in ast.walk(tree):
-            if type(element) != ast.Call:
-                continue
-            call = _get_call_from_func_element(element.func)
+    for element in walk(body):
+        if element['type'] != 'ExpressionStatement':
+            continue
+        if element['expression']['type'] == 'CallExpression':
+            call = _get_call_from_func_element(element['expression'])
+            if call:
+                calls.append(call)
+            continue
+        if element['expression']['type'] == 'AssignmentExpression' \
+           and element['expression']['right']['type'] == 'CallExpression':
+            call = _get_call_from_func_element(element['expression']['right'])
             if call:
                 calls.append(call)
     return calls
@@ -64,65 +80,39 @@ def _process_assign(element):
     :rtype: Variable
     """
 
-    if len(element.targets) > 1:
+    if len(element['declarations']) > 1:
         return
-    target = element.targets[0]
-    if type(target) != ast.Name:
+    target = element['declarations'][0]
+    if target['type'] != 'VariableDeclarator':
         return
-    token = target.id
+    token = target['id']['name']
 
-    if type(element.value) != ast.Call:
+    if target['init']['type'] != 'NewExpression':
         return
-    call = _get_call_from_func_element(element.value.func)
-    return Variable(token, call, element.lineno)
+    call = _get_call_from_func_element(target['init'])
+    return Variable(token, call, lineno(element))
 
 
-def _process_import(element):
-    """
-    Given an element from the ast which is an import statement, return a
-    Variable that points_to the module being imported. For now, the
-    points_to is a string but that is resolved later.
-
-    :param element ast:
-    :rtype: Variable
-    """
-
-    if len(element.names) > 1:
-        return None
-
-    if not isinstance(element.names[0], ast.alias):
-        return None
-
-    alias = element.names[0]
-    token = alias.asname or alias.name
-    rhs = alias.name
-
-    if hasattr(element, 'module'):
-        rhs = element.module
-
-    return Variable(token, rhs, element.lineno)
-
-
-def _make_variables(lines, parent):
+def _make_variables(tree, parent):
     """
     Given an ast of all the lines in a function, generate a list of
     variables in that function. Variables are tokens and what they link to.
     In this case, what it links to is just a string. However, that is resolved
     later.
 
-    :param lines list[ast]:
+    :param tree list|dict:
     :param parent Group:
     :rtype: list[Variable]
     """
     variables = []
-    for tree in lines:
-        for element in ast.walk(tree):
-            if type(element) == ast.Assign:
-                variables.append(_process_assign(element))
-            if type(element) in (ast.Import, ast.ImportFrom):
-                variables.append(_process_import(element))
+    for element in walk(tree):
+        if element['type'] == 'VariableDeclaration':
+            variables.append(_process_assign(element))
+        # if type(element) in (ast.Import, ast.ImportFrom):  # TODO
+        #     variables.append(_process_import(element))
+
     if parent.group_type == 'CLASS':
-        variables.append(Variable('self', parent, lines[0].lineno))
+        variables.append(Variable('this', parent, tree))  # TODO
 
     variables = list(filter(None, variables))
     return variables
@@ -137,10 +127,21 @@ def _make_node(tree, parent):
     :param parent Group:
     :rtype: Node
     """
-    token = tree.name
-    line_number = tree.lineno
-    calls = _make_calls(tree.body)
-    variables = _make_variables(tree.body, parent)
+    if tree.get('kind') == 'constructor':
+        token = '(constructor)'  # TODO this should go for Python init too
+    elif tree['type'] == 'FunctionDeclaration':
+        token = tree['id']['name']
+    elif tree['type'] == 'MethodDefinition':
+        token = tree['key']['name']
+
+    if tree['type'] == 'FunctionDeclaration':
+        body = tree['body']
+    else:
+        body = tree['value']
+
+    line_number = lineno(tree)
+    calls = _make_calls(body)
+    variables = _make_variables(body, parent)
     return Node(token, line_number, calls, variables, parent=parent)
 
 
@@ -170,12 +171,12 @@ def _make_class_group(tree, parent):
     :param parent Group:
     :rtype: Group
     """
-    assert type(tree) == ast.ClassDef
-    subgroup_trees, node_trees, body_trees = Python.separate_namespaces(tree)
+    assert tree['type'] == 'ClassDeclaration'
+    subgroup_trees, node_trees, body_trees = Javascript.separate_namespaces(tree)
 
     group_type = 'CLASS'
-    token = tree.name
-    line_number = tree.lineno
+    token = tree['id']['name']
+    line_number = lineno(tree)
 
     class_group = Group(token, line_number, group_type, parent=parent)
 
@@ -188,42 +189,34 @@ def _make_class_group(tree, parent):
     return class_group
 
 
-class Python(BaseLanguage):
+class Javascript(BaseLanguage):
+    # from https://www.w3schools.com/js/js_reserved.asp
     RESERVED_KEYWORDS = [
-        'ArithmeticError', 'AssertionError', 'AttributeError', 'BaseException',
-        'BlockingIOError', 'BrokenPipeError', 'BufferError', 'BytesWarning',
-        'ChildProcessError', 'ConnectionAbortedError', 'ConnectionError',
-        'ConnectionRefusedError', 'ConnectionResetError', 'DeprecationWarning',
-        'EOFError', 'Ellipsis', 'EnvironmentError', 'Exception', 'False',
-        'FileExistsError', 'FileNotFoundError', 'FloatingPointError',
-        'FutureWarning', 'GeneratorExit', 'IOError', 'ImportError', 'ImportWarning',
-        'IndentationError', 'IndexError', 'InterruptedError', 'IsADirectoryError',
-        'KeyError', 'KeyboardInterrupt', 'LookupError', 'MemoryError',
-        'ModuleNotFoundError', 'NameError', 'None', 'NotADirectoryError',
-        'NotImplemented', 'NotImplementedError', 'OSError', 'OverflowError',
-        'PendingDeprecationWarning', 'PermissionError', 'ProcessLookupError',
-        'RecursionError', 'ReferenceError', 'ResourceWarning', 'RuntimeError',
-        'RuntimeWarning', 'StopAsyncIteration', 'StopIteration', 'SyntaxError',
-        'SyntaxWarning', 'SystemError', 'SystemExit', 'TabError', 'TimeoutError',
-        'True', 'TypeError', 'UnboundLocalError', 'UnicodeDecodeError',
-        'UnicodeEncodeError', 'UnicodeError', 'UnicodeTranslateError',
-        'UnicodeWarning', 'UserWarning', 'ValueError', 'Warning',
-        'ZeroDivisionError', '_', '__build_class__', '__debug__', '__doc__',
-        '__import__', '__loader__', '__name__', '__package__', '__spec__',
-        'abs', 'all', 'any', 'ascii', 'bin', 'bool', 'breakpoint', 'bytearray',
-        'bytes', 'callable', 'chr', 'classmethod', 'compile', 'complex',
-        'copyright', 'credits', 'delattr', 'dict', 'dir', 'divmod', 'enumerate',
-        'eval', 'exec', 'exit', 'filter', 'float', 'format', 'frozenset', 'getattr',
-        'globals', 'hasattr', 'hash', 'help', 'hex', 'id', 'input', 'int',
-        'isinstance', 'issubclass', 'iter', 'len', 'license', 'list', 'locals', 'map',
-        'max', 'memoryview', 'min', 'next', 'object', 'oct', 'open', 'ord', 'pow',
-        'print', 'property', 'quit', 'range', 'repr', 'reversed', 'round', 'set',
-        'setattr', 'slice', 'sorted', 'staticmethod', 'str', 'sum', 'super', 'tuple',
-        'type', 'vars', 'zip']
+        'Array', 'Date', 'eval', 'function', 'hasOwnProperty', 'Infinity',
+        'isFinite', 'isNaN', 'isPrototypeOf', 'length', 'Math', 'NaN', 'name',
+        'Number', 'Object', 'prototype', 'String', 'toString', 'undefined',
+        'valueOf', 'alert', 'all', 'anchor', 'anchors', 'area', 'assign',
+        'blur', 'button', 'checkbox', 'clearInterval', 'clearTimeout',
+        'clientInformation', 'close', 'closed', 'confirm', 'constructor',
+        'crypto', 'decodeURI', 'decodeURIComponent', 'defaultStatus', 'document',
+        'element', 'elements', 'embed', 'embeds', 'encodeURI',
+        'encodeURIComponent', 'escape', 'event', 'fileUpload', 'focus', 'form',
+        'forms', 'frame', 'innerHeight', 'innerWidth', 'layer', 'layers',
+        'link', 'location', 'mimeTypes', 'navigate', 'navigator', 'frames',
+        'frameRate', 'hidden', 'history', 'image', 'images', 'offscreenBuffering',
+        'open', 'opener', 'option', 'outerHeight', 'outerWidth', 'packages',
+        'pageXOffset', 'pageYOffset', 'parent', 'parseFloat', 'parseInt',
+        'password', 'pkcs11', 'plugin', 'prompt', 'propertyIsEnum', 'radio',
+        'reset', 'screenX', 'screenY', 'scroll', 'secure', 'select', 'self',
+        'setInterval', 'setTimeout', 'status', 'submit', 'taint', 'text',
+        'textarea', 'top', 'unescape', 'untaint', 'window']
 
     @staticmethod
     def assert_dependencies():
-        pass
+        if not is_installed('acorn'):
+            raise AssertionError("Acorn is required to parse javascript files "
+                                 "but was not found on the path. Install it from "
+                                 "npm and try again.")
 
     @staticmethod
     def get_tree(filename):
@@ -233,8 +226,12 @@ class Python(BaseLanguage):
         :param filename str:
         :rtype: ast
         """
-        with open(filename) as f:
-            tree = ast.parse(f.read())
+        # output = subprocess.check_output(["acorn", filename])#, '--location'])
+        output = subprocess.check_output(["node", "lib/get_ast.js", filename])#, '--location'])
+        tree = json.loads(output)
+        assert isinstance(tree, dict)
+        assert tree['type'] == 'Program'
+        assert tree['sourceType'] == 'script'
         return tree
 
     @staticmethod
@@ -249,16 +246,19 @@ class Python(BaseLanguage):
                   downstream into real Groups and Nodes.
         :rtype: (list[ast], list[ast], list[ast])
         """
+        while isinstance(tree, dict):
+            tree = tree['body']
+
         groups = []
         nodes = []
         body = []
-        for el in tree.body:
-            if type(el) == ast.FunctionDef:
+        for el in tree:
+            if el['type'] in ('MethodDefinition', 'FunctionDeclaration'):
                 nodes.append(el)
-            elif type(el) == ast.ClassDef:
+            elif el['type'] == 'ClassDeclaration':
                 groups.append(el)
-            elif getattr(el, 'body', None):
-                tup = Python.separate_namespaces(el)
+            elif el.get('body'):
+                tup = Javascript.separate_namespaces(el)
                 groups += tup[0]
                 nodes += tup[1]
                 body += tup[2]
@@ -279,6 +279,9 @@ class Python(BaseLanguage):
         :returns: The node it links to and the call if >1 node matched.
         :rtype: (Node|None, Call|None)
         """
+
+        # TODO js is callback hell so we really need to nest deep
+
         all_vars = node_a.get_variables(call.line_number)
 
         for var in all_vars:
@@ -317,15 +320,17 @@ class Python(BaseLanguage):
 
         :rtype: Group
         """
-        subgroup_trees, node_trees, body_trees = Python.separate_namespaces(tree)
+
+        subgroup_trees, node_trees, body_trees = Javascript.separate_namespaces(tree)
         group_type = 'MODULE'
-        token = os.path.split(filename)[-1].rsplit('.py', 1)[0]
+        token = os.path.split(filename)[-1].rsplit('.js', 1)[0]
         line_number = 0
 
         file_group = Group(token, line_number, group_type, parent=None)
 
         for node_tree in node_trees:
             file_group.add_node(_make_node(node_tree, parent=file_group))
+
         file_group.add_node(_make_root_node(body_trees, parent=file_group), is_root=True)
 
         for subgroup_tree in subgroup_trees:
