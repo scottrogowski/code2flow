@@ -1,10 +1,26 @@
 import abc
+import os
 import random
 
 
 TRUNK_COLOR = '#966F33'
 LEAF_COLOR = '#6db33f'
 EDGE_COLOR = "#cf142b"
+
+
+def is_installed(executable_cmd):
+    """
+    Determine whether a command can be run or not
+
+    :param list[str] individual_files:
+    :rtype: str
+    """
+    for path in os.environ["PATH"].split(os.pathsep):
+        path = path.strip('"')
+        exe_file = os.path.join(path, executable_cmd)
+        if os.path.isfile(exe_file) and os.access(exe_file, os.X_OK):
+            return True
+    return False
 
 
 class BaseLanguage(abc.ABC):

@@ -222,6 +222,10 @@ class Python(BaseLanguage):
         'type', 'vars', 'zip']
 
     @staticmethod
+    def assert_dependencies():
+        pass
+
+    @staticmethod
     def get_tree(filename):
         """
         Get the entire AST for this file
@@ -230,7 +234,8 @@ class Python(BaseLanguage):
         :rtype: ast
         """
         with open(filename) as f:
-            return ast.parse(f.read())
+            tree = ast.parse(f.read())
+        return tree
 
     @staticmethod
     def separate_namespaces(tree):
@@ -312,7 +317,6 @@ class Python(BaseLanguage):
 
         :rtype: Group
         """
-        assert type(tree) == ast.Module
         subgroup_trees, node_trees, body_trees = Python.separate_namespaces(tree)
         group_type = 'MODULE'
         token = os.path.split(filename)[-1].rsplit('.py', 1)[0]
