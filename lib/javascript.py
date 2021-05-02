@@ -328,7 +328,7 @@ class Javascript(BaseLanguage):
                 possible_nodes.append(node)
         else:
             for node in all_nodes:
-                if call.token == node.token and node.parent.group_type == 'MODULE':
+                if call.token == node.token and node.parent.group_type == 'SCRIPT':
                     possible_nodes.append(node)
 
         if len(possible_nodes) == 1:
@@ -350,7 +350,7 @@ class Javascript(BaseLanguage):
         """
 
         subgroup_trees, node_trees, body_trees = Javascript.separate_namespaces(tree)
-        group_type = 'MODULE'
+        group_type = 'SCRIPT'
         token = os.path.split(filename)[-1].rsplit('.js', 1)[0]
         line_number = 0
 

@@ -18,6 +18,11 @@ function do_calc() {
     const square = new Rectangle(10, 10);
 }
 
+const doc = function() {
+    do_calc()
+}
+
 const square = new Rectangle(10, 10);
 square.calcArea()
 
+doc()
