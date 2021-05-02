@@ -178,7 +178,7 @@ class Node():
         """
         Names exist largely for unit tests
         """
-        return f"{self.parent.filename()}:{self.token_with_ownership()}"
+        return f"{self.parent.filename()}::{self.token_with_ownership()}"
 
     def token_with_ownership(self):
         """
@@ -340,8 +340,8 @@ class Group():
         """
         The ultimate filename of this group.
         """
-        if self.group_type == 'MODULE':
-            return self.token + '.py'
+        if self.group_type in ('MODULE', 'SCRIPT'):
+            return self.token
         return self.parent.filename()
 
     def add_subgroup(self, sg):
