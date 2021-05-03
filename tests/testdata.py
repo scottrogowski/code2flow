@@ -186,5 +186,18 @@ testdata = {
                                ["file_a::a", "file_b::b"]],
             "expected_nodes": ["file_a::(global)", "file_a::a", "file_b::b"]
         },
+        {
+            "test_name": "exclude modules",
+            "directory": "exclude_modules",
+            "expected_edges": [["exclude_modules::(global)", "exclude_modules::alpha"],
+                               ["exclude_modules::beta", "exclude_modules::beta"],
+                               ["exclude_modules::alpha", "exclude_modules::beta"],
+                               ["exclude_modules::beta", "exclude_modules::readFileSync"]],
+            "expected_nodes": ["exclude_modules::alpha",
+                               "exclude_modules::beta",
+                               "exclude_modules::(global)",
+                               "exclude_modules::readFileSync"]
+        }
+
     ]
 }

@@ -128,12 +128,21 @@ def _process_assign(element):
     if target['init'] is None:
         return
 
-    token = target['id']['name']
+    if target['init']['type'] == 'NewExpression':
+        token = target['id']['name']
+        call = _get_call_from_func_element(target['init'])
+        return [Variable(token, call, lineno(element))]
 
-    if target['init']['type'] != 'NewExpression':
-        return
-    call = _get_call_from_func_element(target['init'])
-    return Variable(token, call, lineno(element))
+    if target['init']['type'] == 'CallExpression' \
+       and target['init']['callee']['name'] == 'require':
+        call = 'fs'
+        if 'name' in target['id']:
+            return [Variable(target['id']['name'], call, lineno(element))]
+        ret = []
+        for prop in target['id'].get('properties', []):
+            ret.append(Variable(prop['key']['name'], call, lineno(element)))
+        return ret
+    print('\a'); import ipdb; ipdb.set_trace()
 
 
 def _make_variables(tree, parent):
@@ -150,10 +159,7 @@ def _make_variables(tree, parent):
     variables = []
     for element in walk(tree):
         if element['type'] == 'VariableDeclaration':
-            variables.append(_process_assign(element))
-        # if type(element) in (ast.Import, ast.ImportFrom):  # TODO
-        #     variables.append(_process_import(element))
-
+            variables += _process_assign(element)
     if parent.group_type == 'CLASS':
         variables.append(Variable('this', parent, lineno(tree)))  # TODO
 
@@ -251,6 +257,7 @@ def _make_class_group(tree, parent):
 #         return ret
 #     return []
 
+
 def _dive(tree):
     if type(tree) == list:
         ret = []
@@ -264,7 +271,7 @@ def _dive(tree):
             if type(v) == dict and v.get('type'):
                 ret.append(v)
             if type(v) == list:
-                ret.append(v)
+                ret += v
         return ret
     return []
 
@@ -361,13 +368,12 @@ class Javascript(BaseLanguage):
                 nodes.append(el)
             elif type(el) == dict and el['type'] == 'ClassDeclaration':
                 groups.append(el)
-            elif type(el) == list or _dive(el):
+            else:
+                body.append(el)
                 tup = Javascript.separate_namespaces(el)
                 groups += tup[0]
                 nodes += tup[1]
-                body += tup[2]
-            else:
-                body.append(el)
+
         return groups, nodes, body
 
     @staticmethod
