@@ -135,13 +135,16 @@ def _process_assign(element):
 
     if target['init']['type'] == 'CallExpression' \
        and target['init']['callee']['name'] == 'require':
-        call = 'fs'
+        call = target['init']['arguments'][0]['value']
         if 'name' in target['id']:
             return [Variable(target['id']['name'], call, lineno(element))]
         ret = []
         for prop in target['id'].get('properties', []):
             ret.append(Variable(prop['key']['name'], call, lineno(element)))
         return ret
+    if target['init']['type'] == 'ImportExpression':
+        return [Variable(target['id']['name'], target['init']['source']['raw'], lineno(element))]
+
     print('\a'); import ipdb; ipdb.set_trace()
 
 
@@ -323,7 +326,7 @@ class Javascript(BaseLanguage):
                             "tested on 7.7.", acorn_version)
 
     @staticmethod
-    def get_tree(filename):
+    def get_tree(filename, source_type):
         """
         Get the entire AST for this file
 
@@ -333,11 +336,17 @@ class Javascript(BaseLanguage):
         # output = subprocess.check_output(["acorn", filename])#, '--location'])
         script_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                   "get_ast.js")
-        output = subprocess.check_output(["node", script_loc, filename])
+        cmd = ["node", script_loc, source_type, filename]
+        logging.info(cmd)
+        try:
+            output = subprocess.check_output(cmd)
+        except subprocess.CalledProcessError as ex:
+            logging.warning("You may need to run code2flow with --source-type=module")
+            raise(ex)
         tree = json.loads(output)
         assert isinstance(tree, dict)
         assert tree['type'] == 'Program'
-        assert tree['sourceType'] == 'script'
+        # assert tree['sourceType'] == 'script'
         return tree
 
     @staticmethod

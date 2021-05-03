@@ -176,7 +176,8 @@ def _find_links(node_a, all_nodes, language):
     return list(filter(None, links))
 
 
-def map_it(sources, language, no_trimming, exclude_namespaces, exclude_functions):
+def map_it(sources, language, no_trimming, exclude_namespaces, exclude_functions,
+           source_type):
     '''
     Given a language implementation and a list of filenames, do these things:
     1. Read source ASTs & find all groups (classes/modules) and nodes (functions)
@@ -203,7 +204,7 @@ def map_it(sources, language, no_trimming, exclude_namespaces, exclude_functions
     #    (a lot happens here)
     file_groups = []
     for source in sources:
-        mod_tree = language.get_tree(source)
+        mod_tree = language.get_tree(source, source_type)
         file_group = language.make_file_group(mod_tree, source)
         file_groups.append(file_group)
 
@@ -315,7 +316,8 @@ def _exclude_functions(file_groups, exclude_functions):
 
 def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
               exclude_namespaces=None, exclude_functions=None,
-              no_grouping=False, no_trimming=False, level=logging.INFO):
+              no_grouping=False, no_trimming=False, source_type='script',
+              level=logging.INFO):
     """
     Top-level function. Generate a diagram based on source code.
     Can generate either a dotfile or an image.
@@ -366,7 +368,8 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
     language = LANGUAGES[language]
 
     file_groups, all_nodes, edges = map_it(sources, language, no_trimming,
-                                           exclude_namespaces, exclude_functions)
+                                           exclude_namespaces, exclude_functions,
+                                           source_type)
 
     logging.info("Generating dot file...")
 

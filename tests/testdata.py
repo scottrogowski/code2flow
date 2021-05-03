@@ -197,7 +197,19 @@ testdata = {
                                "exclude_modules::beta",
                                "exclude_modules::(global)",
                                "exclude_modules::readFileSync"]
+        },
+        {
+            "test_name": "exclude modules es6",
+            "directory": "exclude_modules_es6",
+            "kwargs": {'source_type': 'module'},
+            "expected_edges": [["exclude_modules_es6::(global)", "exclude_modules_es6::alpha"],
+                               ["exclude_modules_es6::beta", "exclude_modules_es6::beta"],
+                               ["exclude_modules_es6::alpha", "exclude_modules_es6::beta"],
+                               ["exclude_modules_es6::beta", "exclude_modules_es6::readFileSync"]],
+            "expected_nodes": ["exclude_modules_es6::alpha",
+                               "exclude_modules_es6::beta",
+                               "exclude_modules_es6::(global)",
+                               "exclude_modules_es6::readFileSync"]
         }
-
     ]
 }

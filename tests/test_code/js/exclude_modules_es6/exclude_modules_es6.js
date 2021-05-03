@@ -1,6 +1,6 @@
 //Node/CommonJS
-const fs = require('fs')
-const {readFile, chmod} = require('fs')
+const fs = import('fs');
+import {readFile, chmod} from 'fs';
 
 
 function readFileSync() {
