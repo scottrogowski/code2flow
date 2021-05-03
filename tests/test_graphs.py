@@ -11,8 +11,15 @@ from lib.engine import code2flow
 from tests.testdata import testdata
 
 
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
-py_tests = testdata['py']
+LANGUAGES = {
+    'py': testdata['py'],
+    'js': testdata['js'],
+}
+
+flattened_tests = {}
+for lang, tests in testdata.items():
+    for test_dict in tests:
+        flattened_tests[lang + ': ' + test_dict['test_name']] = (lang, test_dict)
 
 
 def _edge(tup):
@@ -45,9 +52,10 @@ def assert_eq(seq_a, seq_b):
         raise AssertionError()
 
 
-@pytest.mark.parametrize("test_dict", py_tests)
-def test_all(test_dict):
-    language = 'py'
+@pytest.mark.parametrize("test_tup", flattened_tests)
+def test_all(test_tup):
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
+    (language, test_dict) = flattened_tests[test_tup]
     print("Running test %r..." % test_dict['test_name'])
     directory_path = os.path.join('test_code', language, test_dict['directory'])
     kwargs = test_dict.get('kwargs', {})
