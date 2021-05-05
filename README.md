@@ -7,7 +7,7 @@
 
 ![code2flow logo](assets/code2flowlogo.png)
 
-![Version 1.0.0](https://img.shields.io/badge/version-1.0.0-brightgreen) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage >90%](https://img.shields.io/badge/coverage-%3e90%25-yellow) ![License MIT](https://img.shields.io/badge/license-MIT-green])
+![Version 1.0.0](https://img.shields.io/badge/version-1.0.0-brightgreen) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage 100%](https://img.shields.io/badge/coverage-100%25-brightgreen) ![License MIT](https://img.shields.io/badge/license-MIT-green])
 
 Code2flow generates [call graphs](https://en.wikipedia.org/wiki/Call_graph) for dynamic programming language. Currently, code2flow supports Python and Javascript.
 

@@ -39,7 +39,6 @@ class BaseLanguage(abc.ABC):
         """
         :rtype: list[str]
         """
-        pass
 
     @staticmethod
     @abc.abstractmethod
@@ -48,7 +47,6 @@ class BaseLanguage(abc.ABC):
         :param filename str:
         :rtype: Tree
         """
-        pass
 
     @staticmethod
     @abc.abstractmethod
@@ -59,7 +57,6 @@ class BaseLanguage(abc.ABC):
                   downstream into real Groups and Nodes.
         :rtype: (list[Tree], list[Tree], list[Tree])
         """
-        pass
 
     @staticmethod
     @abc.abstractmethod
@@ -72,7 +69,6 @@ class BaseLanguage(abc.ABC):
         :returns: The node it links to and the call if >1 node matched.
         :rtype: (Node|None, Call|None)
         """
-        pass
 
     @staticmethod
     @abc.abstractmethod
@@ -83,7 +79,6 @@ class BaseLanguage(abc.ABC):
 
         :rtype: (Group)
         """
-        pass
 
 
 class Variable():
@@ -124,8 +119,8 @@ class Call():
         in logging.
         """
         if self.owner_token:
-            return f"{self.owner_token}.{self.token}"
-        return f"{self.token}"
+            return f"{self.owner_token}.{self.token}()"
+        return f"{self.token}()"
 
     def is_attr(self):
         """
@@ -140,17 +135,20 @@ class Call():
             obj = Obj()
         as a variable and a call of
             obj.do_something()
-        Those would match and we would return Node, do_something.
+        Those would match and we would return the "do_something" node from obj.
 
         :param variable Variable:
         :rtype: Node
         """
         if self.is_attr():
             if self.owner_token == variable.token:
+                # print('\a'); from icecream import ic; ic(self, variable)
+                # print('\a'); import ipdb; ipdb.set_trace()
                 for node in getattr(variable.points_to, 'nodes', []):
                     if self.token == node.token:
                         return node
-                return 'UNKNOWN_MODULE'
+                if variable.points_to == 'UNKNOWN_MODULE':
+                    return 'UNKNOWN_MODULE' # TODO
             return None
         if self.token == variable.token and isinstance(variable.points_to, Node):
             return variable.points_to
@@ -180,11 +178,20 @@ class Node():
         """
         return f"{self.parent.filename()}::{self.token_with_ownership()}"
 
+    def root_parent(self):
+        parent = self.parent
+        while parent.parent:
+            parent = parent.parent
+        return parent
+
+    def is_method(self):
+        return self.parent and self.parent.group_type == 'CLASS'
+
     def token_with_ownership(self):
         """
         Token which includes what group this is a part of
         """
-        if self.parent and self.parent.group_type == 'CLASS':
+        if self.is_method():
             return self.parent.token + '.' + self.token
         return self.token
 
@@ -324,6 +331,7 @@ class Group():
         self.subgroups = []
         self.parent = parent
         self.group_type = group_type
+        assert group_type in ('MODULE', 'SCRIPT', 'CLASS')
 
         self.uid = "cluster_" + random.randbytes(4).hex()  # group doesn't work by syntax rules
 
