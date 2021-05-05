@@ -39,6 +39,10 @@ LANGUAGES = {
 }
 
 
+def flatten(list_of_lists):
+    return [el for sublist in list_of_lists for el in sublist]
+
+
 def generate_json(nodes, edges):
     '''
     Generate a json string from nodes and edges
@@ -220,7 +224,9 @@ def map_it(sources, language, no_trimming, exclude_namespaces, exclude_functions
         all_nodes += group.all_nodes()
     for node in all_nodes:
         node.resolve_variables(file_groups)
-    logging.info("Found nodes %r" % [n.token_with_ownership() for n in all_nodes])
+    logging.info("Found nodes %r" % sorted([n.token_with_ownership() for n in all_nodes]))
+    logging.info("Found calls %r" % sorted(list(set(c.to_string() for c in flatten(n.calls for n in all_nodes)))))
+    logging.info("Found variables %r" % sorted(list(set(v.token for v in flatten(n.variables for n in all_nodes)))))
 
     # 4. Find all calls between all nodes
     bad_calls = []
@@ -237,8 +243,8 @@ def map_it(sources, language, no_trimming, exclude_namespaces, exclude_functions
     # 5. Loudly complain about duplicate edges that were skipped
     bad_calls_strings = set()
     for bad_call in bad_calls:
-        if not bad_call.owner_token and bad_call.token in language.RESERVED_KEYWORDS:
-            continue
+        # if not bad_call.is_attr() and bad_call.token in language.RESERVED_KEYWORDS: # TODO not clear this is needed...
+        #     continue
         bad_calls_strings.add(bad_call.to_string())
     bad_calls_strings = list(sorted(list(bad_calls_strings)))
     if bad_calls_strings:

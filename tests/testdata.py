@@ -159,7 +159,50 @@ testdata = {
                                "rcc::func_1", "rcc::Beta.func_2",
                                "rcc::Beta.func_1"]
         },
-
+        {
+            "test_name": "ambibuous resolution",
+            "comment": "If we can't resolve, do not inlude node.",
+            "directory": "ambiguous_resolution",
+            "expected_edges": [["ambiguous_resolution::(global)",
+                                "ambiguous_resolution::main"],
+                               ["ambiguous_resolution::main",
+                                "ambiguous_resolution::Cadabra.cadabra_it"],
+                               ["ambiguous_resolution::Cadabra.cadabra_it",
+                                "ambiguous_resolution::Abra.abra_it"]],
+            "expected_nodes": ["ambiguous_resolution::(global)",
+                               "ambiguous_resolution::main",
+                               "ambiguous_resolution::Cadabra.cadabra_it",
+                               "ambiguous_resolution::Abra.abra_it"]
+        },
+        {
+            "test_name": "weird_imports",
+            "directory": "weird_imports",
+            "expected_edges": [["weird_imports::(global)", "weird_imports::main"]],
+            "expected_nodes": ["weird_imports::main", "weird_imports::(global)"]
+        },
+        {
+            "test_name": "nested classes",
+            "directory": "nested_class",
+            "expected_edges": [["nested_class::(global)",
+                                "nested_class::Outer.outer_func"]],
+            "expected_nodes": ["nested_class::Outer.outer_func", "nested_class::(global)"]
+        },
+        {
+            "test_name": "weird_calls",
+            "directory": "weird_calls",
+            "comment": "Subscript calls",
+            "expected_edges": [["weird_calls::func_c", "weird_calls::print_it"],
+                               ["weird_calls::func_b", "weird_calls::print_it"],
+                               ["weird_calls::(global)", "weird_calls::func_b"],
+                               ["weird_calls::func_a", "weird_calls::print_it"],
+                               ["weird_calls::(global)", "weird_calls::factory"]],
+            "expected_nodes": ["weird_calls::func_b",
+                               "weird_calls::print_it",
+                               "weird_calls::(global)",
+                               "weird_calls::func_c",
+                               "weird_calls::func_a",
+                               "weird_calls::factory"]
+        }
     ],
     "js": [
         {

@@ -14,6 +14,7 @@ def _get_call_from_func_element(func):
     :param func ast:
     :rtype: Call|None
     """
+    assert type(func) in (ast.Attribute, ast.Name, ast.Subscript, ast.Call)
     if type(func) == ast.Attribute:
         owner_token = []
         val = func.value
@@ -31,8 +32,6 @@ def _get_call_from_func_element(func):
         return Call(token=func.id, line_number=func.lineno)
     if type(func) in (ast.Subscript, ast.Call):
         return None
-    logging.warning("Unknown function type %r" % type(func))
-    return None
 
 
 def _make_calls(lines):
@@ -64,17 +63,17 @@ def _process_assign(element):
     :rtype: Variable
     """
 
-    if len(element.targets) > 1:
-        return
-    target = element.targets[0]
-    if type(target) != ast.Name:
-        return
-    token = target.id
-
     if type(element.value) != ast.Call:
-        return
+        return []
     call = _get_call_from_func_element(element.value.func)
-    return Variable(token, call, element.lineno)
+
+    ret = []
+    for target in element.targets:
+        if type(target) != ast.Name:
+            continue
+        token = target.id
+        ret.append(Variable(token, call, element.lineno))
+    return ret
 
 
 def _process_import(element):
@@ -90,9 +89,7 @@ def _process_import(element):
     if len(element.names) > 1:
         return None
 
-    if not isinstance(element.names[0], ast.alias):
-        return None
-
+    assert isinstance(element.names[0], ast.alias)
     alias = element.names[0]
     token = alias.asname or alias.name
     rhs = alias.name
@@ -118,7 +115,7 @@ def _make_variables(lines, parent):
     for tree in lines:
         for element in ast.walk(tree):
             if type(element) == ast.Assign:
-                variables.append(_process_assign(element))
+                variables += _process_assign(element)
             if type(element) in (ast.Import, ast.ImportFrom):
                 variables.append(_process_import(element))
     if parent.group_type == 'CLASS':
@@ -292,9 +289,8 @@ class Python(BaseLanguage):
         possible_nodes = []
         if call.is_attr():
             for node in all_nodes:
-                if call.token != node.token:
-                    continue
-                possible_nodes.append(node)
+                if call.token == node.token and node.parent != node_a.root_parent():
+                    possible_nodes.append(node)
         else:
             for node in all_nodes:
                 if call.token == node.token and node.parent.group_type == 'MODULE':
