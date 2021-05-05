@@ -95,15 +95,22 @@ Why is it impossible to generate a perfect call graph?
 
 Consider this toy example in Python
 ```
-import random
-func = random.choice((func_a, func_b))
+def func_factory(inp_float):
+    if inp_float < .5:
+        return func_a
+    else:
+        return func_b
+
+func = func_factory(important_variable)
 func()
 ```
+
+We have no way of knowing whether `func` will point to `func_a` or `func_b` until runtime. In practice, ambiguity like this is common and is present in most non-trivial applications.
 
 Known limitations
 -----------------
 
-Code2flow is internally powered by ASTs. Most limitations stem from tokens not being named what the engine expects them to be named.
+Code2flow is internally powered by ASTs. Most limitations stem from a token not being named what code2flow expects it to be named.
 
 * All functions without definitions are skipped. This most often happens when a file is not included.
 * Functions with identical names in different namespaces are (loudly) skipped. E.g. If you have two classes with identically named methods, code2flow cannot distinguish between these and skips them.
@@ -134,7 +141,7 @@ How to contribute
 2. You can spread the word! A simple way to help is to share this project with others. If you have a blog, mention code2flow! Linking from relevant questions on StackOverflow or other forums also helps quite a bit.
 
 
-Feature / Language Requests
+Feature Requests
 ----------------
 
-Email me. I am currently self-employed and can be convinced to work on this for an appropriate amount of money.
+Email me. At any time, I'm spread thin across a lot of projects so I will, unfortunately, turn down most requests. However, I am open to contracting for compelling features.
