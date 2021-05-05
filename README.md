@@ -1,13 +1,13 @@
+![code2flow logo](assets/code2flowlogo.png)
+
+![Version 1.0.0](https://img.shields.io/badge/version-1.0.0-brightgreen) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage 100%](https://img.shields.io/badge/coverage-100%25-brightgreen) ![License MIT](https://img.shields.io/badge/license-MIT-green])
+
 > #### Updates from April 2021
 > - I've entered into a contract with a generous sponsor to update code2flow. Expect a new version sometime in May of 2021.
 > - The new version will support Python3, ECMAScript 2018, PHP8, & Ruby3
 > - Most of the project will be rewritten and licensed under the MIT license. As always, existing code never changes license.
 > - The domain, code2flow.com is unrelated to this project and as far as I can tell through the internet archive, they launched their service after this repository was created. I've never heard anything from them and it doesn't appear like they use anything from here.
 > - The pip install, code2flow, has been claimed by a different unrelated project. For now, *don't install* code2flow from pip. Instead, scroll to the installation section for instructions.
-
-![code2flow logo](assets/code2flowlogo.png)
-
-![Version 1.0.0](https://img.shields.io/badge/version-1.0.0-brightgreen) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage 100%](https://img.shields.io/badge/coverage-100%25-brightgreen) ![License MIT](https://img.shields.io/badge/license-MIT-green])
 
 Code2flow generates [call graphs](https://en.wikipedia.org/wiki/Call_graph) for dynamic programming language. Currently, code2flow supports Python and Javascript.
 
