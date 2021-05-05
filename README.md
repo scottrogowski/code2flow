@@ -24,7 +24,7 @@ Code2flow is useful for:
 
 Code2flow will provide a *pretty good estimate* of your project's structure. No algorithm can generate a perfect call graph for a [dynamic language](https://en.wikipedia.org/wiki/Dynamic_programming_language) - even less so if that language is [duck-typed](https://en.wikipedia.org/wiki/Duck_typing). See the known limitations in the section below.
 
-*(Below: Code2flow running on itself)*
+*(Below: Code2flow running on itself (excl javascript, PHP, & Ruby for clarity))*
 
 ![code2flow running against itself TODO abspath https://raw.githubusercontent.com/scottrogowski/code2flow/master/assets/code2flow_output.png](assets/code2flow_output.png)
 
