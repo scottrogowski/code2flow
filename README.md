@@ -1,13 +1,13 @@
+![code2flow logo](assets/code2flowlogo.png)
+
+![Version 1.0.0](https://img.shields.io/badge/version-1.0.0-brightgreen) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage 100%](https://img.shields.io/badge/coverage-100%25-brightgreen) ![License MIT](https://img.shields.io/badge/license-MIT-green])
+
 > #### Updates from April 2021
 > - I've entered into a contract with a generous sponsor to update code2flow. Expect a new version sometime in May of 2021.
 > - The new version will support Python3, ECMAScript 2018, PHP8, & Ruby3
 > - Most of the project will be rewritten and licensed under the MIT license. As always, existing code never changes license.
 > - The domain, code2flow.com is unrelated to this project and as far as I can tell through the internet archive, they launched their service after this repository was created. I've never heard anything from them and it doesn't appear like they use anything from here.
 > - The pip install, code2flow, has been claimed by a different unrelated project. For now, *don't install* code2flow from pip. Instead, scroll to the installation section for instructions.
-
-![code2flow logo](assets/code2flowlogo.png)
-
-![Version 1.0.0](https://img.shields.io/badge/version-1.0.0-brightgreen) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage 100%](https://img.shields.io/badge/coverage-100%25-brightgreen) ![License MIT](https://img.shields.io/badge/license-MIT-green])
 
 Code2flow generates [call graphs](https://en.wikipedia.org/wiki/Call_graph) for dynamic programming language. Currently, code2flow supports Python and Javascript.
 
@@ -24,7 +24,7 @@ Code2flow is useful for:
 
 Code2flow will provide a *pretty good estimate* of your project's structure. No algorithm can generate a perfect call graph for a [dynamic language](https://en.wikipedia.org/wiki/Dynamic_programming_language) - even less so if that language is [duck-typed](https://en.wikipedia.org/wiki/Duck_typing). See the known limitations in the section below.
 
-*(Below: Code2flow running on itself)*
+*(Below: Code2flow running on itself (excl javascript, PHP, & Ruby for clarity))*
 
 ![code2flow running against itself TODO abspath https://raw.githubusercontent.com/scottrogowski/code2flow/master/assets/code2flow_output.png](assets/code2flow_output.png)
 
@@ -95,15 +95,22 @@ Why is it impossible to generate a perfect call graph?
 
 Consider this toy example in Python
 ```
-import random
-func = random.choice((func_a, func_b))
+def func_factory(inp_float):
+    if inp_float < .5:
+        return func_a
+    else:
+        return func_b
+
+func = func_factory(important_variable)
 func()
 ```
+
+We have no way of knowing whether `func` will point to `func_a` or `func_b` until runtime. In practice, ambiguity like this is common and is present in most non-trivial applications.
 
 Known limitations
 -----------------
 
-Code2flow is internally powered by ASTs. Most limitations stem from tokens not being named what the engine expects them to be named.
+Code2flow is internally powered by ASTs. Most limitations stem from a token not being named what code2flow expects it to be named.
 
 * All functions without definitions are skipped. This most often happens when a file is not included.
 * Functions with identical names in different namespaces are (loudly) skipped. E.g. If you have two classes with identically named methods, code2flow cannot distinguish between these and skips them.
@@ -134,7 +141,7 @@ How to contribute
 2. You can spread the word! A simple way to help is to share this project with others. If you have a blog, mention code2flow! Linking from relevant questions on StackOverflow or other forums also helps quite a bit.
 
 
-Feature / Language Requests
+Feature Requests
 ----------------
 
-Email me. I am currently self-employed and can be convinced to work on this for an appropriate amount of money.
+Email me. At any time, I'm spread thin across a lot of projects so I will, unfortunately, turn down most requests. However, I am open to contracting for compelling features.
