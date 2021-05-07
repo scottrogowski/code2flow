@@ -153,7 +153,7 @@ def get_sources_and_language(raw_source_paths, language):
 
     if not sources:
         raise AssertionError("Could not find any source files given {raw_source_paths} "
-                             "and language {language}")
+                             "and language {language}.")
 
     sources = sorted(list(sources))
     logging.info("Processing %d source file(s)." % (len(sources)))
@@ -224,9 +224,9 @@ def map_it(sources, language, no_trimming, exclude_namespaces, exclude_functions
         all_nodes += group.all_nodes()
     for node in all_nodes:
         node.resolve_variables(file_groups)
-    logging.info("Found nodes %r" % sorted([n.token_with_ownership() for n in all_nodes]))
-    logging.info("Found calls %r" % sorted(list(set(c.to_string() for c in flatten(n.calls for n in all_nodes)))))
-    logging.info("Found variables %r" % sorted(list(set(v.token for v in flatten(n.variables for n in all_nodes)))))
+    logging.info("Found nodes %r." % sorted([n.token_with_ownership() for n in all_nodes]))
+    logging.info("Found calls %r." % sorted(list(set(c.to_string() for c in flatten(n.calls for n in all_nodes)))))
+    logging.info("Found variables %r." % sorted(list(set(v.token for v in flatten(n.variables for n in all_nodes)))))
 
     # 4. Find all calls between all nodes
     bad_calls = []
@@ -249,7 +249,7 @@ def map_it(sources, language, no_trimming, exclude_namespaces, exclude_functions
     bad_calls_strings = list(sorted(list(bad_calls_strings)))
     if bad_calls_strings:
         logging.info("Skipped processing these calls because the algorithm "
-                     "linked them to multiple function definitions: %r" % bad_calls_strings)
+                     "linked them to multiple function definitions: %r." % bad_calls_strings)
 
     if no_trimming:
         return file_groups, all_nodes, edges
@@ -295,7 +295,7 @@ def _exclude_namespaces(file_groups, exclude_namespaces):
                     found = True
         if not found:
             logging.warning(f"Could not exclude namespace '{namespace}' "
-                            "because it was not found")
+                            "because it was not found.")
     return file_groups
 
 
@@ -316,8 +316,23 @@ def _exclude_functions(file_groups, exclude_functions):
                     found = True
         if not found:
             logging.warning(f"Could not exclude function '{function_name}' "
-                            "because it was not found")
+                            "because it was not found.")
     return file_groups
+
+
+def _generate_graphviz(output_file, extension, final_img_filename):
+    """
+    Write the graphviz file
+    :param str output_file:
+    :param str extension:
+    :param str final_img_filename:
+    """
+    start_time = time.time()
+    logging.info("Running graphviz to make the image...")
+    command = ["dot", "-T" + extension, output_file]
+    with open(final_img_filename, 'w') as f:
+        subprocess.run(command, stdout=f, check=True)
+    logging.info("Graphviz finished in %.2f seconds." % (time.time() - start_time))
 
 
 def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
@@ -357,7 +372,7 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
     if isinstance(output_file, str):
         output_ext = output_file.rsplit('.', 1)[1] or ''
         if output_ext not in VALID_EXTENSIONS:
-            raise AssertionError("Output filename must end in one of: %r" % VALID_EXTENSIONS)
+            raise AssertionError("Output filename must end in one of: %r." % VALID_EXTENSIONS)
 
     final_img_filename = None
     if output_ext and output_ext in ('png', 'svg'):
@@ -377,7 +392,7 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
                                            exclude_namespaces, exclude_functions,
                                            source_type)
 
-    logging.info("Generating dot file...")
+    logging.info("Generating output file...")
 
     if isinstance(output_file, str):
         with open(output_file, 'w') as fh:
@@ -390,19 +405,21 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
                    groups=file_groups, hide_legend=hide_legend,
                    no_grouping=no_grouping)
 
-    logging.info("Code2flow finished processing in %.2f seconds" % (time.time() - start_time))
+    logging.info("Wrote output file %r with %d nodes and %d edges.",
+                 output_file, len(all_nodes), len(edges))
+    logging.info("Code2flow finished processing in %.2f seconds." % (time.time() - start_time))
 
     # translate to an image if that was requested
     if final_img_filename:
-        start_time = time.time()
-        logging.info("Running graphviz to make the image. This might take a while...")
-        command = ["dot", "-T" + extension, output_file]
-        logging.info("If this takes too long, try running the command below manually.")
-        safety_command = list(command) + ['-v', '-outfile', final_img_filename]
-        logging.info("`%s`", ' '.join(safety_command))
-        with open(final_img_filename, 'w') as f:
-            subprocess.run(command, stdout=f, check=True)
-        logging.info("Graphviz finished in %.2f seconds" % (time.time() - start_time))
-
+        if len(edges) >= 500:
+            logging.info("Skipping image generation because of the large number of edges (%s)...",
+                         len(edges))
+            command = ["dot", "-T" + extension, output_file,
+                              '-v', '-outfile', final_img_filename]
+            logging.info("You can try to generate your image manually with `%s`.",
+                         ' '.join(command))
+            final_img_filename = ''
+        else:
+            _generate_graphviz(output_file, extension, final_img_filename)
     logging.info("Completed your flowchart! To see it, open %r.",
                  final_img_filename or output_file)
