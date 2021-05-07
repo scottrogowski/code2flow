@@ -1,6 +1,8 @@
 import json
+import logging
 import os
 import shutil
+import subprocess
 import sys
 
 import pytest
@@ -104,3 +106,18 @@ def test_repr():
     print(node_a)
     print(node_b)
     print(edge)
+
+
+def test_bad_acorn(mocker, caplog):
+    caplog.set_level(logging.DEBUG)
+    mocker.patch('lib.javascript._get_acorn_version', return_value=b'7.6.9')
+    code2flow("test_code/js/simple_a_js", "/tmp/code2flow/out.json")
+    assert "Acorn" in caplog.text and "7.7" in caplog.text
+
+
+def test_no_source_type():
+    with pytest.raises(AssertionError):
+        code2flow('test_code/js/exclude_modules_es6',
+                  output_file='/tmp/code2flow/out.json',
+                  hide_legend=False)
+

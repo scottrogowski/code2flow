@@ -41,33 +41,46 @@ def walk(tree):
     return ret
 
 
+# TODO test chained().calls().on().python()
+
 def _resolve_owner(callee):
-    try:
-        if callee['object']['type'] == 'ThisExpression':
-            return 'this'
-        if callee['object']['type'] == 'Identifier':
-            return callee['object']['name']
-        if callee['object']['type'] == 'MemberExpression':
-            if 'object' in callee['object']:
-                return _resolve_owner(callee['object'])
-            return callee['object']['name']
-        print('\a'); import ipdb; ipdb.set_trace()
-        return None
-    except:
-        print('\a'); import ipdb; ipdb.set_trace()
+    if callee['object']['type'] == 'ThisExpression':
+        return 'this'
+    if callee['object']['type'] == 'Identifier':
+        return callee['object']['name']
+    if callee['object']['type'] == 'MemberExpression':
+        if 'object' in callee['object'] and 'name' in callee['object']['property']:
+            return (_resolve_owner(callee['object']) or '') + '.' + callee['object']['property']['name']
+        # else, probablys a []
+        return 'UNKNOWN_MODULE'
+    if callee['object']['type'] == 'CallExpression':
+        return 'UNKNOWN_MODULE' # TODO we don't know so no point?
+        # TODO not sure on this... Might need to return two things when this happens... it's like a().b()
+        # return _resolve_owner(callee['object']['callee'])
+
+    if callee['object']['type'] == 'NewExpression':
+        return callee['object']['callee']['name']
+
+    # TODO Keep below for a while
+    # if callee['object']['type'] in ('ConditionalExpression', 'ArrayExpression',
+    # 'Literal', 'BinaryExpression', 'TemplateLiteral', 'LogicalExpression',
+    # 'FunctionExpression'):
+    #     return None
+
+    return 'UNKNOWN_MODULE'
 
 
 def _get_call_from_func_element(func):
     """
-    Given a python ast that represents a function call, clear and create our
+    Given a javascript ast that represents a function call, clear and create our
     generic Call object. Some calls have no chance at resolution (e.g. array[2](param))
     so we return nothing instead.
 
-    :param func ast:
+    :param func dict:
     :rtype: Call|None
     """
     callee = func['callee']
-    if callee['type'] == 'MemberExpression':
+    if callee['type'] == 'MemberExpression' and 'name' in callee['property']:
         owner_token = _resolve_owner(callee)
         return Call(token=callee['property']['name'],
                     line_number=lineno(callee),
@@ -76,7 +89,7 @@ def _get_call_from_func_element(func):
         return Call(token=callee['name'], line_number=lineno(callee))
     # if type(func) in (ast.Subscript, ast.Call):
     #     return None
-    logging.warning("Unknown function type %r" % callee['type'])
+    # logging.warning("Unknown function type %r" % callee['type'])
     return None
 
 
@@ -89,24 +102,14 @@ def _make_calls(body):
     """
     calls = []
     for element in walk(body):
-        if element['type'] != 'CallExpression':
-            continue
-        call = _get_call_from_func_element(element)
-        if call:
-            calls.append(call)
-
-        # if element['type'] != 'ExpressionStatement':
-        #     continue
-        # if element['expression']['type'] == 'CallExpression':
-        #     call = _get_call_from_func_element(element['expression'])
-        #     if call:
-        #         calls.append(call)
-        #     continue
-        # if element['expression']['type'] == 'AssignmentExpression' \
-        #    and element['expression']['right']['type'] == 'CallExpression':
-        #     call = _get_call_from_func_element(element['expression']['right'])
-        #     if call:
-        #         calls.append(call)
+        if element['type'] == 'CallExpression':
+            call = _get_call_from_func_element(element)
+            if call:
+                calls.append(call)
+        elif element['type'] == 'NewExpression':
+            calls.append(Call(token='(constructor)',
+                              owner_token=element['callee']['name'],
+                              line_number=lineno(element)))
     return calls
 
 
@@ -121,12 +124,11 @@ def _process_assign(element):
     """
 
     if len(element['declarations']) > 1:
-        return
+        return []
     target = element['declarations'][0]
-    if target['type'] != 'VariableDeclarator':
-        return
+    assert target['type'] == 'VariableDeclarator'
     if target['init'] is None:
-        return
+        return []
 
     if target['init']['type'] == 'NewExpression':
         token = target['id']['name']
@@ -134,7 +136,7 @@ def _process_assign(element):
         return [Variable(token, call, lineno(element))]
 
     if target['init']['type'] == 'CallExpression' \
-       and target['init']['callee']['name'] == 'require':
+       and target['init']['callee'].get('name') == 'require':
         call = target['init']['arguments'][0]['value']
         if 'name' in target['id']:
             return [Variable(target['id']['name'], call, lineno(element))]
@@ -145,7 +147,25 @@ def _process_assign(element):
     if target['init']['type'] == 'ImportExpression':
         return [Variable(target['id']['name'], target['init']['source']['raw'], lineno(element))]
 
-    print('\a'); import ipdb; ipdb.set_trace()
+    if target['init']['type'] == 'CallExpression':
+        if 'name' not in target['id']:
+            return []
+        return [Variable(target['id']['name'], _get_call_from_func_element(target['init']),
+                         lineno(element))]
+
+    if target['init']['type'] == 'ThisExpression':
+        assert set(target['init'].keys()) == {'start', 'end', 'loc', 'type'}
+        return []
+        # return [Variable(target['id']['name'], _get_call_from_func_element(target['init']),
+        #                  lineno(element))]
+    return []
+    # TODO keep those for a while maybe...
+    # if target['init']['type'] in ('Literal', 'BinaryExpression', 'MemberExpression',
+    #                               'Identifier', 'LogicalExpression', 'TemplateLiteral',
+    #                               'ArrayExpression', 'ConditionalExpression',
+    #                               'ObjectExpression', 'FunctionExpression'):
+    #     # TODO on binary expression (= a + b) and memberexpression ( = a.b)
+    #     return []
 
 
 def _make_variables(tree, parent):
@@ -167,7 +187,6 @@ def _make_variables(tree, parent):
         variables.append(Variable('this', parent, lineno(tree)))  # TODO
 
     variables = list(filter(None, variables))
-    print("variables", variables)
     return variables
 
 
@@ -196,7 +215,6 @@ def _make_node(tree, parent):
     calls = _make_calls(body)
     variables = _make_variables(body, parent)
     node = Node(token, line_number, calls, variables, parent=parent)
-    print("NODE", node)
     return node
 
 
@@ -214,7 +232,6 @@ def _make_root_node(lines, parent):
     calls = _make_calls(lines)
     variables = _make_variables(lines, parent)
     root_node = Node(token, line_number, calls, variables, parent=parent)
-    print("ROOTNODE", root_node)
     return root_node
 
 
@@ -240,54 +257,23 @@ def _make_class_group(tree, parent):
     for node_tree in node_trees:
         class_group.add_node(_make_node(node_tree, parent=class_group))
 
-    for subgroup_tree in subgroup_trees:
-        logging.warning("Code2flow does not support nested classes. Skipping %r in %r.",
-                        subgroup_tree.name, parent.token)
+    assert not subgroup_trees
     return class_group
-
-# def _dive(tree):
-#     if type(tree) == list:
-#         ret = []
-#         for el in tree:
-#             if el.get('type'):
-#                 ret.append(el)
-#         return ret
-#     elif type(tree) == dict:
-#         ret = []
-#         for k, v in tree.items():
-#             if type(v) == list:
-#                 ret += _dive(v)
-#         return ret
-#     return []
 
 
 def _dive(tree):
-    if type(tree) == list:
-        ret = []
-        for el in tree:
-            if el.get('type'):
-                ret.append(el)
-        return ret
-    elif type(tree) == dict:
-        ret = []
-        for k, v in tree.items():
-            if type(v) == dict and v.get('type'):
-                ret.append(v)
-            if type(v) == list:
-                ret += v
-        return ret
-    return []
+    assert type(tree) == dict
+    ret = []
+    for k, v in tree.items():
+        if type(v) == dict and v.get('type'):
+            ret.append(v)
+        if type(v) == list:
+            ret += v
+    return ret
 
 
-    # if isinstance(tree, list):
-    #     return tree
-    # ret = []
-    # for k, v in tree.items():
-    #     if isinstance(v, list):
-    #         ret += v
-    #     elif isinstance(v, dict) and v.get('type'):
-    #         ret.append(v)
-    # return ret
+def _get_acorn_version():
+    return subprocess.check_output(['npm', '-v', 'acorn'])
 
 
 class Javascript(BaseLanguage):
@@ -314,16 +300,14 @@ class Javascript(BaseLanguage):
 
     @staticmethod
     def assert_dependencies():
-        if not is_installed('acorn'):
-            raise AssertionError("Acorn is required to parse javascript files "
-                                 "but was not found on the path. Install it from "
-                                 "npm and try again.")
+        assert is_installed('acorn'), "Acorn is required to parse javascript files " \
+                                      "but was not found on the path. Install it " \
+                                      "from npm and try again."
 
-        acorn_version = subprocess.check_output(['npm', '-v', 'acorn'])
-        if not acorn_version.startswith(b'7.7.'):
+        if not _get_acorn_version().startswith(b'7.7.'):
             logging.warning("Acorn is required to parse javascript files. "
                             "Version %r was found but code2flow has only been "
-                            "tested on 7.7.", acorn_version)
+                            "tested on 7.7.", _get_acorn_version())
 
     @staticmethod
     def get_tree(filename, source_type):
@@ -337,12 +321,15 @@ class Javascript(BaseLanguage):
         script_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                   "get_ast.js")
         cmd = ["node", script_loc, source_type, filename]
-        logging.info(cmd)
         try:
-            output = subprocess.check_output(cmd)
+            output = subprocess.check_output(cmd, stderr=subprocess.PIPE)
         except subprocess.CalledProcessError as ex:
-            logging.warning("You may need to run code2flow with --source-type=module")
-            raise(ex)
+            raise AssertionError(
+                "Acorn could not parse file %r. You may have a JS syntax error or "
+                "you may need to run code2flow with --source-type. "
+                "For more detail, try running the command `acorn %s`. "
+                "Warning: Acorn CANNOT parse all javascript files. See their docs. " % \
+                (filename, filename)) from None
         tree = json.loads(output)
         assert isinstance(tree, dict)
         assert tree['type'] == 'Program'
@@ -399,9 +386,7 @@ class Javascript(BaseLanguage):
         :rtype: (Node|None, Call|None)
         """
 
-        # TODO js is callback hell so we really need to nest deep
-        # if call.token == 'd':
-        #     print('\a'); import ipdb; ipdb.set_trace()
+        # TODO js is callback hell so we really need to check nesting deep
         all_vars = node_a.get_variables(call.line_number)
 
         for var in all_vars:
@@ -417,10 +402,12 @@ class Javascript(BaseLanguage):
             for node in all_nodes:
                 if call.token != node.token:
                     continue
+                if call.token == '(constructor)' and call.owner_token != node.parent.token:
+                    continue
                 possible_nodes.append(node)
         else:
             for node in all_nodes:
-                if call.token == node.token and node.parent.group_type == 'SCRIPT':
+                if call.token == node.token and node.parent.group_type in ('SCRIPT', 'MODULE'):
                     possible_nodes.append(node)
 
         if len(possible_nodes) == 1:

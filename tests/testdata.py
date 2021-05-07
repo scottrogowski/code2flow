@@ -253,6 +253,55 @@ testdata = {
                                "exclude_modules_es6::beta",
                                "exclude_modules_es6::(global)",
                                "exclude_modules_es6::readFileSync"]
+        },
+        {
+            "test_name": "ambiguous_names",
+            "directory": "ambiguous_names",
+            "expected_edges": [["ambiguous_names::Cadabra.cadabra_it",
+                                "ambiguous_names::Abra.abra_it"],
+                               ["ambiguous_names::main",
+                                "ambiguous_names::Cadabra.cadabra_it"],
+                               ["ambiguous_names::(global)",
+                                "ambiguous_names::main"],
+                               ["ambiguous_names::Abra.(constructor)",
+                                "ambiguous_names::Abra.abra_it"]],
+            "expected_nodes": ["ambiguous_names::Cadabra.cadabra_it",
+                               "ambiguous_names::main",
+                               "ambiguous_names::(global)",
+                               "ambiguous_names::Abra.abra_it",
+                               "ambiguous_names::Abra.(constructor)"]
+        },
+        {
+            "test_name": "weird_assignments",
+            "directory": "weird_assignments",
+            "expected_edges": [["weird_assignments::(global)",
+                                "weird_assignments::get_ab"]],
+            "expected_nodes": ["weird_assignments::(global)", "weird_assignments::get_ab"]
+        },
+        {
+            "test_name": "complex_ownership",
+            "directory": "complex_ownership",
+            "expected_edges": [["complex_ownership::(global)",
+                                "complex_ownership::DEF.toABC"],
+                               ["complex_ownership::DEF.toABC",
+                                "complex_ownership::ABC.(constructor)"],
+                               ["complex_ownership::(global)",
+                                "complex_ownership::ABC.apply"],
+                               ["complex_ownership::GHI.doit2",
+                                "complex_ownership::ABC.apply"],
+                               ["complex_ownership::(global)",
+                                "complex_ownership::GHI.doit2"],
+                               ["complex_ownership::(global)",
+                                "complex_ownership::ABC.doit"],
+                               ["complex_ownership::(global)",
+                                "complex_ownership::GHI.doit3"]],
+            "expected_nodes": ["complex_ownership::(global)",
+                               "complex_ownership::ABC.apply",
+                               "complex_ownership::ABC.doit",
+                               "complex_ownership::ABC.(constructor)",
+                               "complex_ownership::DEF.toABC",
+                               "complex_ownership::GHI.doit2",
+                               "complex_ownership::GHI.doit3"]
         }
     ]
 }

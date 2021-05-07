@@ -397,7 +397,7 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
         start_time = time.time()
         logging.info("Running graphviz to make the image. This might take a while...")
         command = ["dot", "-T" + extension, output_file]
-        logging.info("If this takes too long, try running manually with the command below.")
+        logging.info("If this takes too long, try running the command below manually.")
         safety_command = list(command) + ['-v', '-outfile', final_img_filename]
         logging.info("`%s`", ' '.join(safety_command))
         with open(final_img_filename, 'w') as f:
