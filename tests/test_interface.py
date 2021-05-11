@@ -9,7 +9,7 @@ import pytest
 
 sys.path.append(os.getcwd().split('/tests')[0])
 
-from lib.engine import code2flow
+from lib.engine import code2flow, _generate_final_img
 from lib import model
 
 IMG_PATH = '/tmp/code2flow/output.png'
@@ -121,3 +121,8 @@ def test_no_source_type():
                   output_file='/tmp/code2flow/out.json',
                   hide_legend=False)
 
+
+def test_too_many_edges(caplog):
+    caplog.set_level(logging.INFO)
+    _generate_final_img("out.gz", "py", "out.png", 501)
+    assert "Skipping image generation" in caplog.text

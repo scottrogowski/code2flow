@@ -40,6 +40,11 @@ LANGUAGES = {
 
 
 def flatten(list_of_lists):
+    """
+    Return a list from a list of lists
+    :param list[list[Value]] list_of_lists:
+    :rtype: list[Value]
+    """
     return [el for sublist in list_of_lists for el in sublist]
 
 
@@ -243,8 +248,6 @@ def map_it(sources, language, no_trimming, exclude_namespaces, exclude_functions
     # 5. Loudly complain about duplicate edges that were skipped
     bad_calls_strings = set()
     for bad_call in bad_calls:
-        # if not bad_call.is_attr() and bad_call.token in language.RESERVED_KEYWORDS: # TODO not clear this is needed...
-        #     continue
         bad_calls_strings.add(bad_call.to_string())
     bad_calls_strings = list(sorted(list(bad_calls_strings)))
     if bad_calls_strings:
@@ -335,6 +338,27 @@ def _generate_graphviz(output_file, extension, final_img_filename):
     logging.info("Graphviz finished in %.2f seconds." % (time.time() - start_time))
 
 
+def _generate_final_img(output_file, extension, final_img_filename, num_edges):
+    """
+    Write the graphviz file
+    :param str output_file:
+    :param str extension:
+    :param str final_img_filename:
+    :param int num_edges:
+    """
+    if num_edges >= 500:
+        logging.info("Skipping image generation because of the large number of edges (%s)...",
+                     num_edges)
+        command = ["dot", "-T" + extension, output_file,
+                          '-v', '-outfile', final_img_filename]
+        logging.info("You can try to generate your image manually with `%s`.",
+                     ' '.join(command))
+    else:
+        _generate_graphviz(output_file, extension, final_img_filename)
+        logging.info("Completed your flowchart! To see it, open %r.",
+                     final_img_filename)
+
+
 def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
               exclude_namespaces=None, exclude_functions=None,
               no_grouping=False, no_trimming=False, source_type='script',
@@ -411,15 +435,4 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
 
     # translate to an image if that was requested
     if final_img_filename:
-        if len(edges) >= 500:
-            logging.info("Skipping image generation because of the large number of edges (%s)...",
-                         len(edges))
-            command = ["dot", "-T" + extension, output_file,
-                              '-v', '-outfile', final_img_filename]
-            logging.info("You can try to generate your image manually with `%s`.",
-                         ' '.join(command))
-            final_img_filename = ''
-        else:
-            _generate_graphviz(output_file, extension, final_img_filename)
-    logging.info("Completed your flowchart! To see it, open %r.",
-                 final_img_filename or output_file)
+        _generate_final_img(output_file, extension, final_img_filename, len(edges))
