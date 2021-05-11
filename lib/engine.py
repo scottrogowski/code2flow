@@ -248,8 +248,6 @@ def map_it(sources, language, no_trimming, exclude_namespaces, exclude_functions
     # 5. Loudly complain about duplicate edges that were skipped
     bad_calls_strings = set()
     for bad_call in bad_calls:
-        # if not bad_call.is_attr() and bad_call.token in language.RESERVED_KEYWORDS: # TODO not clear this is needed...
-        #     continue
         bad_calls_strings.add(bad_call.to_string())
     bad_calls_strings = list(sorted(list(bad_calls_strings)))
     if bad_calls_strings:
