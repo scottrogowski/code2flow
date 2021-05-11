@@ -223,7 +223,7 @@ class Python(BaseLanguage):
         pass
 
     @staticmethod
-    def get_tree(filename):
+    def get_tree(filename, _):
         """
         Get the entire AST for this file
 

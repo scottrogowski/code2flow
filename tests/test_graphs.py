@@ -78,7 +78,7 @@ def get_nodes_set_from_file(dot_file):
     for node in ag.nodes():
         generated_nodes.append(node.attr['name'])
     ret = set(generated_nodes)
-    assert_eq(sorted(list(ret)), sorted(generated_nodes))  # assert no dupes
+    assert_eq(set(list(ret)), set(generated_nodes))  # assert no dupes
     return ret
 
 
@@ -91,5 +91,5 @@ def get_edges_set_from_file(dot_file):
                   edge[1].attr['name'])
         generated_edges.append(to_add)
     ret = set(generated_edges)
-    assert_eq(sorted(list(ret)), sorted(generated_edges))  # assert no dupes
+    assert_eq(set(list(ret)), set(generated_edges))  # assert no dupes
     return ret
