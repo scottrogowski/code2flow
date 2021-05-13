@@ -1,6 +1,5 @@
 import abc
 import os
-import random
 
 
 TRUNK_COLOR = '#966F33'
@@ -163,7 +162,7 @@ class Node():
         self.variables = variables
         self.parent = parent
 
-        self.uid = "node_" + random.randbytes(4).hex()
+        self.uid = "node_" + os.urandom(4).hex()
 
         # Assume it is a leaf and a trunk. These are modified later
         self.is_leaf = True  # it calls nothing else
@@ -333,7 +332,7 @@ class Group():
         self.group_type = group_type
         assert group_type in ('MODULE', 'SCRIPT', 'CLASS')
 
-        self.uid = "cluster_" + random.randbytes(4).hex()  # group doesn't work by syntax rules
+        self.uid = "cluster_" + os.urandom(4).hex()  # group doesn't work by syntax rules
 
     def __repr__(self):
         return f"<Group token={self.token} type={self.group_type}>"
