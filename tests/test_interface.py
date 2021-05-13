@@ -105,9 +105,3 @@ def test_repr():
     print(node_a)
     print(node_b)
     print(edge)
-
-
-def test_too_many_edges(caplog):
-    caplog.set_level(logging.INFO)
-    _generate_final_img("out.gz", "py", "out.png", 501)
-    assert "Skipping image generation" in caplog.text

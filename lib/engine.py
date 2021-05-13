@@ -86,9 +86,11 @@ def write_file(outfile, nodes, edges, groups, hide_legend=False,
         outfile.write(content)
         return
 
+    splines = "polyline" if len(edges) >= 500 else "ortho"
+
     content = "digraph G {\n"
     content += "concentrate=true;\n"
-    content += 'splines="ortho";\n'
+    content += f'splines="{splines}";\n'
     content += 'rankdir="LR";\n'
     if not hide_legend:
         content += LEGEND
@@ -346,17 +348,9 @@ def _generate_final_img(output_file, extension, final_img_filename, num_edges):
     :param str final_img_filename:
     :param int num_edges:
     """
-    if num_edges >= 500:
-        logging.info("Skipping image generation because of the large number of edges (%s)...",
-                     num_edges)
-        command = ["dot", "-T" + extension, output_file,
-                          '-v', '-outfile', final_img_filename]
-        logging.info("You can try to generate your image manually with `%s`.",
-                     ' '.join(command))
-    else:
-        _generate_graphviz(output_file, extension, final_img_filename)
-        logging.info("Completed your flowchart! To see it, open %r.",
-                     final_img_filename)
+    _generate_graphviz(output_file, extension, final_img_filename)
+    logging.info("Completed your flowchart! To see it, open %r.",
+                 final_img_filename)
 
 
 def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
