@@ -5,6 +5,7 @@ import os
 TRUNK_COLOR = '#966F33'
 LEAF_COLOR = '#6db33f'
 EDGE_COLOR = "#cf142b"
+NODE_COLOR = "#cccccc"
 
 
 def is_installed(executable_cmd):
@@ -256,6 +257,7 @@ class Node():
             'name': self.name(),
             'shape': "rect",
             'style': 'rounded,filled',
+            'fillcolor': NODE_COLOR,
         }
         if self.is_trunk:
             attributes['fillcolor'] = TRUNK_COLOR

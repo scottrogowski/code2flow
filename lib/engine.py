@@ -6,7 +6,7 @@ import time
 
 from .python import Python
 # from .javascript import Javascript
-from .model import TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, Edge, Group, is_installed
+from .model import TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, NODE_COLOR, Edge, Group, is_installed
 
 VERSION = '2.0.0'
 
@@ -22,13 +22,13 @@ LEGEND = """subgraph legend{
     Legend [shape=none, margin=0, label = <
         <table cellspacing="0" cellpadding="0" border="1"><tr><td>Code2flow Legend</td></tr><tr><td>
         <table cellspacing="0">
-        <tr><td>Regular function</td><td width="50px"></td></tr>
+        <tr><td>Regular function</td><td width="50px" bgcolor='%s'></td></tr>
         <tr><td>Trunk function (nothing calls this)</td><td bgcolor='%s'></td></tr>
         <tr><td>Leaf function (this calls nothing else)</td><td bgcolor='%s'></td></tr>
         <tr><td>Function call</td><td><font color='%s'>&#8594;</font></td></tr>
         </table></td></tr></table>
         >];
-}""" % (TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR)
+}""" % (NODE_COLOR, TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR)
 
 
 LANGUAGES = {
