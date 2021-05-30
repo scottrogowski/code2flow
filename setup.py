@@ -19,7 +19,7 @@ setup(
     download_url=download_url,
     packages=['lib'],
     package_dir={'code2flow': 'lib'},
-    python_requires='>=3.8',  # for walrus operator
+    python_requires='>=3.6',
     classifiers=[
         'Natural Language :: English',
         "Programming Language :: Python :: 3",

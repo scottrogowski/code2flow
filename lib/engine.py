@@ -6,7 +6,7 @@ import time
 
 from .python import Python
 from .javascript import Javascript
-from .model import TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, Edge, Group, is_installed
+from .model import TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, NODE_COLOR, Edge, Group, is_installed
 
 VERSION = '2.0.0'
 
@@ -22,13 +22,13 @@ LEGEND = """subgraph legend{
     Legend [shape=none, margin=0, label = <
         <table cellspacing="0" cellpadding="0" border="1"><tr><td>Code2flow Legend</td></tr><tr><td>
         <table cellspacing="0">
-        <tr><td>Regular function</td><td width="50px"></td></tr>
+        <tr><td>Regular function</td><td width="50px" bgcolor='%s'></td></tr>
         <tr><td>Trunk function (nothing calls this)</td><td bgcolor='%s'></td></tr>
         <tr><td>Leaf function (this calls nothing else)</td><td bgcolor='%s'></td></tr>
         <tr><td>Function call</td><td><font color='%s'>&#8594;</font></td></tr>
         </table></td></tr></table>
         >];
-}""" % (TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR)
+}""" % (NODE_COLOR, TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR)
 
 
 LANGUAGES = {
@@ -86,9 +86,11 @@ def write_file(outfile, nodes, edges, groups, hide_legend=False,
         outfile.write(content)
         return
 
+    splines = "polyline" if len(edges) >= 500 else "ortho"
+
     content = "digraph G {\n"
     content += "concentrate=true;\n"
-    content += 'splines="ortho";\n'
+    content += f'splines="{splines}";\n'
     content += 'rankdir="LR";\n'
     if not hide_legend:
         content += LEGEND
@@ -346,17 +348,9 @@ def _generate_final_img(output_file, extension, final_img_filename, num_edges):
     :param str final_img_filename:
     :param int num_edges:
     """
-    if num_edges >= 500:
-        logging.info("Skipping image generation because of the large number of edges (%s)...",
-                     num_edges)
-        command = ["dot", "-T" + extension, output_file,
-                          '-v', '-outfile', final_img_filename]
-        logging.info("You can try to generate your image manually with `%s`.",
-                     ' '.join(command))
-    else:
-        _generate_graphviz(output_file, extension, final_img_filename)
-        logging.info("Completed your flowchart! To see it, open %r.",
-                     final_img_filename)
+    _generate_graphviz(output_file, extension, final_img_filename)
+    logging.info("Completed your flowchart! To see it, open %r.",
+                 final_img_filename)
 
 
 def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
