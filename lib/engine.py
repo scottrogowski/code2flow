@@ -8,7 +8,7 @@ from .python import Python
 from .javascript import Javascript
 from .model import TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, NODE_COLOR, Edge, Group, is_installed
 
-VERSION = '2.0.0'
+VERSION = '2.1.0'
 
 VALID_EXTENSIONS = {'png', 'svg', 'dot', 'gv', 'json'}
 

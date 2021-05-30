@@ -1,6 +1,6 @@
 ![code2flow logo](assets/code2flowlogo.png)
 
-![Version 1.0.0](https://img.shields.io/badge/version-1.0.0-brightgreen) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage 100%](https://img.shields.io/badge/coverage-100%25-brightgreen) ![License MIT](https://img.shields.io/badge/license-MIT-green])
+![Version 2.1.0](https://img.shields.io/badge/version-2.1.0-brightgreen) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage 100%](https://img.shields.io/badge/coverage-100%25-brightgreen) ![License MIT](https://img.shields.io/badge/license-MIT-green])
 
 > #### Updates from May 2021
 > - I've entered into a contract with a generous sponsor, the [Sider Corporation](https://siderlabs.com), to update code2flow.
