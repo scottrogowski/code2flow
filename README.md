@@ -31,7 +31,7 @@ Code2flow will provide a *pretty good estimate* of your project's structure. No 
 Installation
 ------------
 
-For now, do _not_ pip install. The *code2flow* name is held by a different project. Instead, run:
+For now, _do not pip install_. The *code2flow* name is held by a different project. Instead, run:
 
 ```bash
 python setup.py install
