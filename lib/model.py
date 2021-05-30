@@ -23,6 +23,28 @@ def is_installed(executable_cmd):
     return False
 
 
+def _resolve_str_variable(variable, file_groups):
+    """
+    String variables are when variable.points_to is a string
+    This indicates imports that we delayed processing for
+    This function looks through all processed files to see if we can find a match
+
+    :param Variable variable:
+    :param list[Group] file_groups:
+    :rtype: Node|str
+    """
+
+    for file_group in file_groups:
+        for node in file_group.nodes:
+            if file_group.token + '.' + node.token == variable.points_to:
+                return node
+        for group in file_group.subgroups:
+            if file_group.token + '.' + group.token == variable.points_to \
+               and group.get_constructor():
+                return group.get_constructor()
+    return "UNKNOWN_MODULE"  # Default indicates we must skip
+
+
 class BaseLanguage(abc.ABC):
     """
     Languages are individual implementations for different dynamic languages.
@@ -93,7 +115,7 @@ class Variable():
         self.line_number = line_number
 
     def __repr__(self):
-        return f"<Variable token={self.token} points_to={self.points_to}"
+        return f"<Variable token={self.token} points_to={repr(self.points_to)}"
 
 
 class Call():
@@ -142,26 +164,31 @@ class Call():
         """
         if self.is_attr():
             if self.owner_token == variable.token:
-                # print('\a'); from icecream import ic; ic(self, variable)
-                # print('\a'); import ipdb; ipdb.set_trace()
                 for node in getattr(variable.points_to, 'nodes', []):
                     if self.token == node.token:
                         return node
                 if variable.points_to == 'UNKNOWN_MODULE':
-                    return 'UNKNOWN_MODULE' # TODO
+                    return 'UNKNOWN_MODULE'  # TODO
             return None
-        if self.token == variable.token and isinstance(variable.points_to, Node):
-            return variable.points_to
+        if self.token == variable.token:
+            if isinstance(variable.points_to, Node):
+                return variable.points_to
+            if isinstance(variable.points_to, Group) \
+               and variable.points_to.group_type == 'CLASS' \
+               and variable.points_to.get_constructor():
+                return variable.points_to.get_constructor()
+
         return None
 
 
 class Node():
-    def __init__(self, token, line_number, calls, variables, parent):
+    def __init__(self, token, line_number, calls, variables, parent, is_constructor=False):
         self.token = token
         self.line_number = line_number
         self.calls = calls
         self.variables = variables
         self.parent = parent
+        self.is_constructor = is_constructor
 
         self.uid = "node_" + os.urandom(4).hex()
 
@@ -226,19 +253,13 @@ class Node():
         """
         For all variables, attempt to resolve the Node/Group type.
         There is a good chance this will be unsuccessful.
-        points to.
 
         :param list[Group] file_groups:
         :rtype: None
         """
         for variable in self.variables:
             if isinstance(variable.points_to, str):
-                for file_group in file_groups:
-                    if file_group.token == variable.points_to:
-                        variable.points_to = file_group
-                        break
-                else:
-                    variable.points_to = "UNKNOWN_MODULE"  # Indicates we must skip
+                variable.points_to = _resolve_str_variable(variable, file_groups)
             elif isinstance(variable.points_to, Call):
                 if variable.points_to.is_attr():
                     # Only process Class(); Not a.Class()
@@ -379,6 +400,17 @@ class Group():
         for subgroup in self.subgroups:
             ret += subgroup.all_nodes()
         return ret
+
+    def get_constructor(self):
+        """
+        Return the first constructor for this group - if any
+        TODO, this excludes the possibility of multiple constructors
+        :rtype: Node|None
+        """
+        assert self.group_type == 'CLASS'
+        constructors = [n for n in self.nodes if n.is_constructor]
+        if constructors:
+            return constructors[0]
 
     def all_groups(self):
         """

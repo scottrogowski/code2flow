@@ -85,19 +85,18 @@ def _process_import(element):
     :param element ast:
     :rtype: Variable
     """
+    ret = []
 
-    if len(element.names) > 1:
-        return None
+    for single_import in element.names:
+        assert isinstance(single_import, ast.alias)
+        token = single_import.asname or single_import.name
+        rhs = single_import.name
 
-    assert isinstance(element.names[0], ast.alias)
-    alias = element.names[0]
-    token = alias.asname or alias.name
-    rhs = alias.name
+        if hasattr(element, 'module'):
+            rhs = element.module + '.' + rhs
 
-    if hasattr(element, 'module'):
-        rhs = element.module
-
-    return Variable(token, rhs, element.lineno)
+        ret.append(Variable(token, points_to=rhs, line_number=element.lineno))
+    return ret
 
 
 def _make_variables(lines, parent):
@@ -117,7 +116,7 @@ def _make_variables(lines, parent):
             if type(element) == ast.Assign:
                 variables += _process_assign(element)
             if type(element) in (ast.Import, ast.ImportFrom):
-                variables.append(_process_import(element))
+                variables += _process_import(element)
     if parent.group_type == 'CLASS':
         variables.append(Variable('self', parent, lines[0].lineno))
 
@@ -138,7 +137,10 @@ def _make_node(tree, parent):
     line_number = tree.lineno
     calls = _make_calls(tree.body)
     variables = _make_variables(tree.body, parent)
-    return Node(token, line_number, calls, variables, parent=parent)
+    is_constructor = False
+    if parent.group_type == "CLASS" and token in ['__init__', '__new__']:
+        is_constructor = True
+    return Node(token, line_number, calls, variables, parent=parent, is_constructor=is_constructor)
 
 
 def _make_root_node(lines, parent):
@@ -261,7 +263,9 @@ class Python(BaseLanguage):
                     possible_nodes.append(node)
         else:
             for node in all_nodes:
-                if call.token == node.token and node.parent.group_type == 'MODULE':
+                if node.parent.group_type == 'MODULE' and call.token == node.token:
+                    possible_nodes.append(node)
+                if node.is_constructor and call.token == node.parent.token:
                     possible_nodes.append(node)
 
         if len(possible_nodes) == 1:
