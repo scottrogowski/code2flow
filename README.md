@@ -3,7 +3,7 @@
 ![Version 1.0.0](https://img.shields.io/badge/version-1.0.0-brightgreen) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage 100%](https://img.shields.io/badge/coverage-100%25-brightgreen) ![License MIT](https://img.shields.io/badge/license-MIT-green])
 
 > #### Updates from May 2021
-> - I've entered into a contract with a generous sponsor to update code2flow.
+> - I've entered into a contract with a generous sponsor, the [Sider Corporation](https://siderlabs.com), to update code2flow.
 > - This version runs Python3. Javascript support has been dropped temporarily. If you want javascript support for pre-ES6 projects, check out commit 258952d7123f946d320a83de3af75e7b96ea1a45.
 > - Going forward, in addition to JS, expect support for PHP8, & Ruby3
 > - The domain, code2flow.com is unrelated to this project and as far as I can tell through the internet archive, they launched their service after this repository was created. I've never heard anything from them and it doesn't appear like they use anything from here.
@@ -125,6 +125,12 @@ License
 Code2flow is licensed under the MIT license.
 Prior to the rewrite in April 2021, code2flow was licensed under LGPL. The last commit under that license was 24b2cb854c6a872ba6e17409fbddb6659bf64d4c. 
 The April 2021 rewrite was substantial so it's probably reasonable to treat code2flow as completely MIT-licensed.
+
+
+Acknowledgements
+-----------------------------
+
+Code2flow development is partially supported by the [Sider Corporation](https://siderlabs.com/)
 
 
 Feedback / Bugs / Contact
