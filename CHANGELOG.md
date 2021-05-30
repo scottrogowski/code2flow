@@ -1,5 +1,8 @@
 # Code2flow CHANGELOG
 
+## [2.0.1] - 2021-05-30
+Add support for constructors to Python
+
 ## [2.0.0] - 2021-04-28
 Almost complete rewrite / refactor. Update to Python3. Use ASTs
 
