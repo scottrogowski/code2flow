@@ -399,7 +399,7 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
                 "Can't generate a flowchart image because neither `dot` nor "
                 "`dot.exe` was found. Either install graphviz (see the README) "
                 "or set your --output argument to a 'dot' filename like out.dot "
-                "or out.gz.")
+                "or out.gv.")
         final_img_filename = output_file
         output_file, extension = output_file.rsplit('.', 1)
         output_file += '.gv'
