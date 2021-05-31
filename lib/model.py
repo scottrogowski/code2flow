@@ -19,9 +19,7 @@ class Namespace(dict):
         super().__init__(d)
 
     def __getattr__(self, item):
-        if item in self:
-            return self[item]
-        raise AttributeError
+        return self[item]
 
 
 OWNER_CONST = Namespace("UNKNOWN_VAR", "UNKNOWN_MODULE", "KNOWN_MODULE")
