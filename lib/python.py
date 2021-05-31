@@ -5,7 +5,7 @@ import os
 from .model import OWNER_CONST, Group, Node, Call, Variable, BaseLanguage, djoin
 
 
-def _get_call_from_func_element(func):
+def get_call_from_func_element(func):
     """
     Given a python ast that represents a function call, clear and create our
     generic Call object. Some calls have no chance at resolution (e.g. array[2](param))
@@ -37,7 +37,7 @@ def _get_call_from_func_element(func):
         return None
 
 
-def _make_calls(lines):
+def make_calls(lines):
     """
     Given a list of lines, find all calls in this list.
 
@@ -50,13 +50,13 @@ def _make_calls(lines):
         for element in ast.walk(tree):
             if type(element) != ast.Call:
                 continue
-            call = _get_call_from_func_element(element.func)
+            call = get_call_from_func_element(element.func)
             if call:
                 calls.append(call)
     return calls
 
 
-def _process_assign(element):
+def process_assign(element):
     """
     Given an element from the ast which is an assignment statement, return a
     Variable that points_to the type of object being assigned. For now, the
@@ -68,7 +68,7 @@ def _process_assign(element):
 
     if type(element.value) != ast.Call:
         return []
-    call = _get_call_from_func_element(element.value.func)
+    call = get_call_from_func_element(element.value.func)
 
     ret = []
     for target in element.targets:
@@ -79,7 +79,7 @@ def _process_assign(element):
     return ret
 
 
-def _process_import(element):
+def process_import(element):
     """
     Given an element from the ast which is an import statement, return a
     Variable that points_to the module being imported. For now, the
@@ -102,7 +102,7 @@ def _process_import(element):
     return ret
 
 
-def _make_local_variables(lines, parent):
+def make_local_variables(lines, parent):
     """
     Given an ast of all the lines in a function, generate a list of
     variables in that function. Variables are tokens and what they link to.
@@ -117,9 +117,9 @@ def _make_local_variables(lines, parent):
     for tree in lines:
         for element in ast.walk(tree):
             if type(element) == ast.Assign:
-                variables += _process_assign(element)
+                variables += process_assign(element)
             if type(element) in (ast.Import, ast.ImportFrom):
-                variables += _process_import(element)
+                variables += process_import(element)
     if parent.group_type == 'CLASS':
         variables.append(Variable('self', parent, lines[0].lineno))
 
@@ -127,7 +127,7 @@ def _make_local_variables(lines, parent):
     return variables
 
 
-def _make_node(tree, parent):
+def make_node(tree, parent):
     """
     Given an ast of all the lines in a function, create the node along with the
     calls and variables internal to it.
@@ -138,15 +138,15 @@ def _make_node(tree, parent):
     """
     token = tree.name
     line_number = tree.lineno
-    calls = _make_calls(tree.body)
-    variables = _make_local_variables(tree.body, parent)
+    calls = make_calls(tree.body)
+    variables = make_local_variables(tree.body, parent)
     is_constructor = False
     if parent.group_type == "CLASS" and token in ['__init__', '__new__']:
         is_constructor = True
     return Node(token, line_number, calls, variables, parent=parent, is_constructor=is_constructor)
 
 
-def _make_root_node(lines, parent):
+def make_root_node(lines, parent):
     """
     The "root_node" are is an implict node of lines which are executed in the global
     scope on the file itself and not otherwise part of any function.
@@ -157,12 +157,12 @@ def _make_root_node(lines, parent):
     """
     token = "(global)"
     line_number = 0
-    calls = _make_calls(lines)
-    variables = _make_local_variables(lines, parent)
+    calls = make_calls(lines)
+    variables = make_local_variables(lines, parent)
     return Node(token, line_number, calls, variables, parent=parent)
 
 
-def _make_class_group(tree, parent):
+def make_class_group(tree, parent):
     """
     Given an AST for the subgroup (a class), generate that subgroup.
     In this function, we will also need to generate all of the nodes internal
@@ -173,7 +173,7 @@ def _make_class_group(tree, parent):
     :rtype: Group
     """
     assert type(tree) == ast.ClassDef
-    subgroup_trees, node_trees, body_trees = _separate_namespaces(tree)
+    subgroup_trees, node_trees, body_trees = separate_namespaces(tree)
 
     group_type = 'CLASS'
     token = tree.name
@@ -182,7 +182,7 @@ def _make_class_group(tree, parent):
     class_group = Group(token, line_number, group_type, parent=parent)
 
     for node_tree in node_trees:
-        class_group.add_node(_make_node(node_tree, parent=class_group))
+        class_group.add_node(make_node(node_tree, parent=class_group))
 
     for subgroup_tree in subgroup_trees:
         logging.warning("Code2flow does not support nested classes. Skipping %r in %r.",
@@ -190,7 +190,7 @@ def _make_class_group(tree, parent):
     return class_group
 
 
-def _separate_namespaces(tree):
+def separate_namespaces(tree):
     """
     Given an AST, recursively separate that AST into lists of ASTs for the
     subgroups, nodes, and body. This is an intermediate step to allow for
@@ -210,7 +210,7 @@ def _separate_namespaces(tree):
         elif type(el) == ast.ClassDef:
             groups.append(el)
         elif getattr(el, 'body', None):
-            tup = _separate_namespaces(el)
+            tup = separate_namespaces(el)
             groups += tup[0]
             nodes += tup[1]
             body += tup[2]
@@ -247,7 +247,7 @@ class Python(BaseLanguage):
 
         :rtype: Group
         """
-        subgroup_trees, node_trees, body_trees = _separate_namespaces(tree)
+        subgroup_trees, node_trees, body_trees = separate_namespaces(tree)
         group_type = 'MODULE'
         token = os.path.split(filename)[-1].rsplit('.py', 1)[0]
         line_number = 0
@@ -255,10 +255,10 @@ class Python(BaseLanguage):
         file_group = Group(token, line_number, group_type, parent=None)
 
         for node_tree in node_trees:
-            file_group.add_node(_make_node(node_tree, parent=file_group))
-        file_group.add_node(_make_root_node(body_trees, parent=file_group), is_root=True)
+            file_group.add_node(make_node(node_tree, parent=file_group))
+        file_group.add_node(make_root_node(body_trees, parent=file_group), is_root=True)
 
         for subgroup_tree in subgroup_trees:
-            file_group.add_subgroup(_make_class_group(subgroup_tree, parent=file_group))
+            file_group.add_subgroup(make_class_group(subgroup_tree, parent=file_group))
 
         return file_group

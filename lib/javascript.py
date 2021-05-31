@@ -43,7 +43,7 @@ def walk(tree):
     return ret
 
 
-def _resolve_owner(callee):
+def resolve_owner(callee):
     """
     Resolve who owns the call object.
     So if the expression is i_ate.pie(). And i_ate is a Person, the callee is Person.
@@ -59,7 +59,7 @@ def _resolve_owner(callee):
         return callee['object']['name']
     if callee['object']['type'] == 'MemberExpression':
         if 'object' in callee['object'] and 'name' in callee['object']['property']:
-            return djoin((_resolve_owner(callee['object']) or ''),
+            return djoin((resolve_owner(callee['object']) or ''),
                          callee['object']['property']['name'])
         return OWNER_CONST.UNKNOWN_VAR
     if callee['object']['type'] == 'CallExpression':
@@ -71,7 +71,7 @@ def _resolve_owner(callee):
     return OWNER_CONST.UNKNOWN_VAR
 
 
-def _get_call_from_func_element(func):
+def get_call_from_func_element(func):
     """
     Given a javascript ast that represents a function call, clear and create our
     generic Call object. Some calls have no chance at resolution (e.g. array[2](param))
@@ -82,7 +82,7 @@ def _get_call_from_func_element(func):
     """
     callee = func['callee']
     if callee['type'] == 'MemberExpression' and 'name' in callee['property']:
-        owner_token = _resolve_owner(callee)
+        owner_token = resolve_owner(callee)
         return Call(token=callee['property']['name'],
                     line_number=lineno(callee),
                     owner_token=owner_token)
@@ -91,7 +91,7 @@ def _get_call_from_func_element(func):
     return None
 
 
-def _make_calls(body):
+def make_calls(body):
     """
     Given a list of lines, find all calls in this list.
 
@@ -101,7 +101,7 @@ def _make_calls(body):
     calls = []
     for element in walk(body):
         if element['type'] == 'CallExpression':
-            call = _get_call_from_func_element(element)
+            call = get_call_from_func_element(element)
             if call:
                 calls.append(call)
         elif element['type'] == 'NewExpression':
@@ -110,7 +110,7 @@ def _make_calls(body):
     return calls
 
 
-def _process_assign(element):
+def process_assign(element):
     """
     Given an element from the ast which is an assignment statement, return a
     Variable that points_to the type of object being assigned. The
@@ -129,7 +129,7 @@ def _process_assign(element):
 
     if target['init']['type'] == 'NewExpression':
         token = target['id']['name']
-        call = _get_call_from_func_element(target['init'])
+        call = get_call_from_func_element(target['init'])
         return [Variable(token, call, lineno(element))]
 
     # this block is for require (as in: import) expressions
@@ -157,7 +157,7 @@ def _process_assign(element):
     if target['init']['type'] == 'CallExpression':
         if 'name' not in target['id']:
             return []
-        call = _get_call_from_func_element(target['init'])
+        call = get_call_from_func_element(target['init'])
         return [Variable(target['id']['name'], call, lineno(element))]
 
     if target['init']['type'] == 'ThisExpression':
@@ -166,7 +166,7 @@ def _process_assign(element):
     return []
 
 
-def _make_local_variables(tree, parent):
+def make_local_variables(tree, parent):
     """
     Given an ast of all the lines in a function, generate a list of
     variables in that function. Variables are tokens and what they link to.
@@ -185,7 +185,7 @@ def _make_local_variables(tree, parent):
     variables = []
     for element in walk(tree):
         if element['type'] == 'VariableDeclaration':
-            variables += _process_assign(element)
+            variables += process_assign(element)
 
     # Make a 'this' variable for use anywhere we need it that points to the class
     if isinstance(parent, Group) and parent.group_type == 'CLASS':
@@ -195,7 +195,7 @@ def _make_local_variables(tree, parent):
     return variables
 
 
-def _make_nodes(tree, parent):
+def make_nodes(tree, parent):
     """
     Given an ast of all the lines in a function, create the node along with the
     calls and variables internal to it.
@@ -219,21 +219,21 @@ def _make_nodes(tree, parent):
     else:
         full_node_body = tree['value']
 
-    subgroup_trees, subnode_trees, this_scope_body = _separate_namespaces(full_node_body)
+    subgroup_trees, subnode_trees, this_scope_body = separate_namespaces(full_node_body)
     assert not subgroup_trees
 
     line_number = lineno(tree)
-    calls = _make_calls(this_scope_body)
-    variables = _make_local_variables(this_scope_body, parent)
+    calls = make_calls(this_scope_body)
+    variables = make_local_variables(this_scope_body, parent)
     node = Node(token, line_number, calls, variables, parent=parent,
                 is_constructor=is_constructor)
 
-    subnodes = flatten([_make_nodes(t, node) for t in subnode_trees])
+    subnodes = flatten([make_nodes(t, node) for t in subnode_trees])
 
     return [node] + subnodes
 
 
-def _make_root_node(lines, parent):
+def make_root_node(lines, parent):
     """
     The "root_node" are is an implict node of lines which are executed in the global
     scope on the file itself and not otherwise part of any function.
@@ -244,13 +244,13 @@ def _make_root_node(lines, parent):
     """
     token = "(global)"
     line_number = 0
-    calls = _make_calls(lines)
-    variables = _make_local_variables(lines, parent)
+    calls = make_calls(lines)
+    variables = make_local_variables(lines, parent)
     root_node = Node(token, line_number, calls, variables, parent=parent)
     return root_node
 
 
-def _make_class_group(tree, parent):
+def make_class_group(tree, parent):
     """
     Given an AST for the subgroup (a class), generate that subgroup.
     In this function, we will also need to generate all of the nodes internal
@@ -261,7 +261,7 @@ def _make_class_group(tree, parent):
     :rtype: Group
     """
     assert tree['type'] == 'ClassDeclaration'
-    subgroup_trees, node_trees, body_trees = _separate_namespaces(tree)
+    subgroup_trees, node_trees, body_trees = separate_namespaces(tree)
     assert not subgroup_trees
 
     group_type = 'CLASS'
@@ -271,13 +271,13 @@ def _make_class_group(tree, parent):
     class_group = Group(token, line_number, group_type, parent=parent)
 
     for node_tree in node_trees:
-        for new_node in _make_nodes(node_tree, parent=class_group):
+        for new_node in make_nodes(node_tree, parent=class_group):
             class_group.add_node(new_node)
 
     return class_group
 
 
-def _children(tree):
+def children(tree):
     """
     The acorn AST is tricky. This returns all the children of an element
     :param ast tree:
@@ -293,7 +293,7 @@ def _children(tree):
     return ret
 
 
-def _get_acorn_version():
+def get_acorn_version():
     """
     Get the version of installed acorn
     :rtype: str
@@ -301,7 +301,7 @@ def _get_acorn_version():
     return subprocess.check_output(['npm', '-v', 'acorn'])
 
 
-def _separate_namespaces(tree):
+def separate_namespaces(tree):
     """
     Given an AST, recursively separate that AST into lists of ASTs for the
     subgroups, nodes, and body. This is an intermediate step to allow for
@@ -316,13 +316,13 @@ def _separate_namespaces(tree):
     groups = []
     nodes = []
     body = []
-    for el in _children(tree):
+    for el in children(tree):
         if el['type'] in ('MethodDefinition', 'FunctionDeclaration'):
             nodes.append(el)
         elif el['type'] == 'ClassDeclaration':
             groups.append(el)
         else:
-            tup = _separate_namespaces(el)
+            tup = separate_namespaces(el)
             if tup[0] or tup[1]:
                 groups += tup[0]
                 nodes += tup[1]
@@ -340,10 +340,10 @@ class Javascript(BaseLanguage):
                                       "but was not found on the path. Install it " \
                                       "from npm and try again."
 
-        if not _get_acorn_version().startswith(b'7.7.'):
+        if not get_acorn_version().startswith(b'7.7.'):
             logging.warning("Acorn is required to parse javascript files. "
                             "Version %r was found but code2flow has only been "
-                            "tested on 7.7.", _get_acorn_version())
+                            "tested on 7.7.", get_acorn_version())
 
     @staticmethod
     def get_tree(filename, source_type):
@@ -383,19 +383,19 @@ class Javascript(BaseLanguage):
         :rtype: Group
         """
 
-        subgroup_trees, node_trees, body_trees = _separate_namespaces(tree)
-        group_type = 'SCRIPT'
+        subgroup_trees, node_trees, body_trees = separate_namespaces(tree)
+        group_type = 'MODULE'
         token = os.path.split(filename)[-1].rsplit('.js', 1)[0]
         line_number = 0
 
         file_group = Group(token, line_number, group_type, parent=None)
 
         for node_tree in node_trees:
-            for new_node in _make_nodes(node_tree, parent=file_group):
+            for new_node in make_nodes(node_tree, parent=file_group):
                 file_group.add_node(new_node)
 
-        file_group.add_node(_make_root_node(body_trees, parent=file_group), is_root=True)
+        file_group.add_node(make_root_node(body_trees, parent=file_group), is_root=True)
 
         for subgroup_tree in subgroup_trees:
-            file_group.add_subgroup(_make_class_group(subgroup_tree, parent=file_group))
+            file_group.add_subgroup(make_class_group(subgroup_tree, parent=file_group))
         return file_group
