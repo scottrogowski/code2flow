@@ -1,6 +1,5 @@
 import ast as ast
 import logging
-import os
 
 from .model import OWNER_CONST, Group, Node, Call, Variable, BaseLanguage, djoin
 
@@ -127,98 +126,6 @@ def make_local_variables(lines, parent):
     return variables
 
 
-def make_node(tree, parent):
-    """
-    Given an ast of all the lines in a function, create the node along with the
-    calls and variables internal to it.
-
-    :param tree ast:
-    :param parent Group:
-    :rtype: Node
-    """
-    token = tree.name
-    line_number = tree.lineno
-    calls = make_calls(tree.body)
-    variables = make_local_variables(tree.body, parent)
-    is_constructor = False
-    if parent.group_type == "CLASS" and token in ['__init__', '__new__']:
-        is_constructor = True
-    return Node(token, line_number, calls, variables, parent=parent, is_constructor=is_constructor)
-
-
-def make_root_node(lines, parent):
-    """
-    The "root_node" are is an implict node of lines which are executed in the global
-    scope on the file itself and not otherwise part of any function.
-
-    :param lines list[ast]:
-    :param parent Group:
-    :rtype: Node
-    """
-    token = "(global)"
-    line_number = 0
-    calls = make_calls(lines)
-    variables = make_local_variables(lines, parent)
-    return Node(token, line_number, calls, variables, parent=parent)
-
-
-def make_class_group(tree, parent):
-    """
-    Given an AST for the subgroup (a class), generate that subgroup.
-    In this function, we will also need to generate all of the nodes internal
-    to the group.
-
-    :param tree ast:
-    :param parent Group:
-    :rtype: Group
-    """
-    assert type(tree) == ast.ClassDef
-    subgroup_trees, node_trees, body_trees = separate_namespaces(tree)
-
-    group_type = 'CLASS'
-    token = tree.name
-    line_number = tree.lineno
-
-    class_group = Group(token, line_number, group_type, parent=parent)
-
-    for node_tree in node_trees:
-        class_group.add_node(make_node(node_tree, parent=class_group))
-
-    for subgroup_tree in subgroup_trees:
-        logging.warning("Code2flow does not support nested classes. Skipping %r in %r.",
-                        subgroup_tree.name, parent.token)
-    return class_group
-
-
-def separate_namespaces(tree):
-    """
-    Given an AST, recursively separate that AST into lists of ASTs for the
-    subgroups, nodes, and body. This is an intermediate step to allow for
-    clearner processing downstream
-
-    :param tree ast:
-    :returns: tuple of group, node, and body trees. These are processed
-              downstream into real Groups and Nodes.
-    :rtype: (list[ast], list[ast], list[ast])
-    """
-    groups = []
-    nodes = []
-    body = []
-    for el in tree.body:
-        if type(el) == ast.FunctionDef:
-            nodes.append(el)
-        elif type(el) == ast.ClassDef:
-            groups.append(el)
-        elif getattr(el, 'body', None):
-            tup = separate_namespaces(el)
-            groups += tup[0]
-            nodes += tup[1]
-            body += tup[2]
-        else:
-            body.append(el)
-    return groups, nodes, body
-
-
 class Python(BaseLanguage):
     @staticmethod
     def assert_dependencies():
@@ -237,28 +144,120 @@ class Python(BaseLanguage):
         return tree
 
     @staticmethod
-    def make_file_group(tree, filename):
+    def separate_namespaces(tree):
         """
-        Given an AST for the entire file, generate a file group complete with
-        subgroups, nodes, etc.
+        Given an AST, recursively separate that AST into lists of ASTs for the
+        subgroups, nodes, and body. This is an intermediate step to allow for
+        clearner processing downstream
 
         :param tree ast:
-        :param filename Str:
+        :returns: tuple of group, node, and body trees. These are processed
+                  downstream into real Groups and Nodes.
+        :rtype: (list[ast], list[ast], list[ast])
+        """
+        groups = []
+        nodes = []
+        body = []
+        for el in tree.body:
+            if type(el) == ast.FunctionDef:
+                nodes.append(el)
+            elif type(el) == ast.ClassDef:
+                groups.append(el)
+            elif getattr(el, 'body', None):
+                tup = Python.separate_namespaces(el)
+                groups += tup[0]
+                nodes += tup[1]
+                body += tup[2]
+            else:
+                body.append(el)
+        return groups, nodes, body
 
+    @staticmethod
+    def make_nodes(tree, parent):
+        """
+        Given an ast of all the lines in a function, create the node along with the
+        calls and variables internal to it.
+
+        :param tree ast:
+        :param parent Group:
+        :rtype: list[Node]
+        """
+        token = tree.name
+        line_number = tree.lineno
+        calls = make_calls(tree.body)
+        variables = make_local_variables(tree.body, parent)
+        is_constructor = False
+        if parent.group_type == "CLASS" and token in ['__init__', '__new__']:
+            is_constructor = True
+        return [Node(token, line_number, calls, variables, parent=parent, is_constructor=is_constructor)]
+
+    @staticmethod
+    def make_root_node(lines, parent):
+        """
+        The "root_node" are is an implict node of lines which are executed in the global
+        scope on the file itself and not otherwise part of any function.
+
+        :param lines list[ast]:
+        :param parent Group:
+        :rtype: Node
+        """
+        token = "(global)"
+        line_number = 0
+        calls = make_calls(lines)
+        variables = make_local_variables(lines, parent)
+        return Node(token, line_number, calls, variables, parent=parent)
+
+    @staticmethod
+    def make_class_group(tree, parent):
+        """
+        Given an AST for the subgroup (a class), generate that subgroup.
+        In this function, we will also need to generate all of the nodes internal
+        to the group.
+
+        :param tree ast:
+        :param parent Group:
         :rtype: Group
         """
-        subgroup_trees, node_trees, body_trees = separate_namespaces(tree)
-        group_type = 'MODULE'
-        token = os.path.split(filename)[-1].rsplit('.py', 1)[0]
-        line_number = 0
+        assert type(tree) == ast.ClassDef
+        subgroup_trees, node_trees, body_trees = Python.separate_namespaces(tree)
 
-        file_group = Group(token, line_number, group_type, parent=None)
+        group_type = 'CLASS'
+        token = tree.name
+        line_number = tree.lineno
+
+        class_group = Group(token, line_number, group_type, parent=parent)
 
         for node_tree in node_trees:
-            file_group.add_node(make_node(node_tree, parent=file_group))
-        file_group.add_node(make_root_node(body_trees, parent=file_group), is_root=True)
+            class_group.add_node(Python.make_nodes(node_tree, parent=class_group)[0])
 
         for subgroup_tree in subgroup_trees:
-            file_group.add_subgroup(make_class_group(subgroup_tree, parent=file_group))
+            logging.warning("Code2flow does not support nested classes. Skipping %r in %r.",
+                            subgroup_tree.name, parent.token)
+        return class_group
 
-        return file_group
+    # @staticmethod
+    # def make_file_group(tree, filename):
+    #     """
+    #     Given an AST for the entire file, generate a file group complete with
+    #     subgroups, nodes, etc.
+
+    #     :param tree ast:
+    #     :param filename Str:
+
+    #     :rtype: Group
+    #     """
+    #     subgroup_trees, node_trees, body_trees = separate_namespaces(tree)
+    #     group_type = 'MODULE'
+    #     token = os.path.split(filename)[-1].rsplit('.py', 1)[0]
+    #     line_number = 0
+
+    #     file_group = Group(token, line_number, group_type, parent=None)
+
+    #     for node_tree in node_trees:
+    #         file_group.add_node(make_node(node_tree, parent=file_group))
+    #     file_group.add_node(make_root_node(body_trees, parent=file_group), is_root=True)
+
+    #     for subgroup_tree in subgroup_trees:
+    #         file_group.add_subgroup(make_class_group(subgroup_tree, parent=file_group))
+
+    #     return file_group

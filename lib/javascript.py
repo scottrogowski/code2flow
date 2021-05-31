@@ -195,88 +195,6 @@ def make_local_variables(tree, parent):
     return variables
 
 
-def make_nodes(tree, parent):
-    """
-    Given an ast of all the lines in a function, create the node along with the
-    calls and variables internal to it.
-    Also make the nested subnodes
-
-    :param tree ast:
-    :param parent Group:
-    :rtype: list[Node]
-    """
-    is_constructor = False
-    if tree.get('kind') == 'constructor':
-        token = '(constructor)'
-        is_constructor = True
-    elif tree['type'] == 'FunctionDeclaration':
-        token = tree['id']['name']
-    elif tree['type'] == 'MethodDefinition':
-        token = tree['key']['name']
-
-    if tree['type'] == 'FunctionDeclaration':
-        full_node_body = tree['body']
-    else:
-        full_node_body = tree['value']
-
-    subgroup_trees, subnode_trees, this_scope_body = separate_namespaces(full_node_body)
-    assert not subgroup_trees
-
-    line_number = lineno(tree)
-    calls = make_calls(this_scope_body)
-    variables = make_local_variables(this_scope_body, parent)
-    node = Node(token, line_number, calls, variables, parent=parent,
-                is_constructor=is_constructor)
-
-    subnodes = flatten([make_nodes(t, node) for t in subnode_trees])
-
-    return [node] + subnodes
-
-
-def make_root_node(lines, parent):
-    """
-    The "root_node" are is an implict node of lines which are executed in the global
-    scope on the file itself and not otherwise part of any function.
-
-    :param lines list[ast]:
-    :param parent Group:
-    :rtype: Node
-    """
-    token = "(global)"
-    line_number = 0
-    calls = make_calls(lines)
-    variables = make_local_variables(lines, parent)
-    root_node = Node(token, line_number, calls, variables, parent=parent)
-    return root_node
-
-
-def make_class_group(tree, parent):
-    """
-    Given an AST for the subgroup (a class), generate that subgroup.
-    In this function, we will also need to generate all of the nodes internal
-    to the group.
-
-    :param tree ast:
-    :param parent Group:
-    :rtype: Group
-    """
-    assert tree['type'] == 'ClassDeclaration'
-    subgroup_trees, node_trees, body_trees = separate_namespaces(tree)
-    assert not subgroup_trees
-
-    group_type = 'CLASS'
-    token = tree['id']['name']
-    line_number = lineno(tree)
-
-    class_group = Group(token, line_number, group_type, parent=parent)
-
-    for node_tree in node_trees:
-        for new_node in make_nodes(node_tree, parent=class_group):
-            class_group.add_node(new_node)
-
-    return class_group
-
-
 def children(tree):
     """
     The acorn AST is tricky. This returns all the children of an element
@@ -299,37 +217,6 @@ def get_acorn_version():
     :rtype: str
     """
     return subprocess.check_output(['npm', '-v', 'acorn'])
-
-
-def separate_namespaces(tree):
-    """
-    Given an AST, recursively separate that AST into lists of ASTs for the
-    subgroups, nodes, and body. This is an intermediate step to allow for
-    clearner processing downstream
-
-    :param tree ast:
-    :returns: tuple of group, node, and body trees. These are processed
-              downstream into real Groups and Nodes.
-    :rtype: (list[ast], list[ast], list[ast])
-    """
-
-    groups = []
-    nodes = []
-    body = []
-    for el in children(tree):
-        if el['type'] in ('MethodDefinition', 'FunctionDeclaration'):
-            nodes.append(el)
-        elif el['type'] == 'ClassDeclaration':
-            groups.append(el)
-        else:
-            tup = separate_namespaces(el)
-            if tup[0] or tup[1]:
-                groups += tup[0]
-                nodes += tup[1]
-                body += tup[2]
-            else:
-                body.append(el)
-    return groups, nodes, body
 
 
 class Javascript(BaseLanguage):
@@ -372,30 +259,143 @@ class Javascript(BaseLanguage):
         return tree
 
     @staticmethod
-    def make_file_group(tree, filename):
+    def separate_namespaces(tree):
         """
-        Given an AST for the entire file, generate a file group complete with
-        subgroups, nodes, etc.
+        Given an AST, recursively separate that AST into lists of ASTs for the
+        subgroups, nodes, and body. This is an intermediate step to allow for
+        clearner processing downstream
 
         :param tree ast:
-        :param filename Str:
-
-        :rtype: Group
+        :returns: tuple of group, node, and body trees. These are processed
+                  downstream into real Groups and Nodes.
+        :rtype: (list[ast], list[ast], list[ast])
         """
 
-        subgroup_trees, node_trees, body_trees = separate_namespaces(tree)
-        group_type = 'MODULE'
-        token = os.path.split(filename)[-1].rsplit('.js', 1)[0]
-        line_number = 0
+        groups = []
+        nodes = []
+        body = []
+        for el in children(tree):
+            if el['type'] in ('MethodDefinition', 'FunctionDeclaration'):
+                nodes.append(el)
+            elif el['type'] == 'ClassDeclaration':
+                groups.append(el)
+            else:
+                tup = Javascript.separate_namespaces(el)
+                if tup[0] or tup[1]:
+                    groups += tup[0]
+                    nodes += tup[1]
+                    body += tup[2]
+                else:
+                    body.append(el)
+        return groups, nodes, body
 
-        file_group = Group(token, line_number, group_type, parent=None)
+    @staticmethod
+    def make_nodes(tree, parent):
+        """
+        Given an ast of all the lines in a function, create the node along with the
+        calls and variables internal to it.
+        Also make the nested subnodes
+
+        :param tree ast:
+        :param parent Group:
+        :rtype: list[Node]
+        """
+        is_constructor = False
+        if tree.get('kind') == 'constructor':
+            token = '(constructor)'
+            is_constructor = True
+        elif tree['type'] == 'FunctionDeclaration':
+            token = tree['id']['name']
+        elif tree['type'] == 'MethodDefinition':
+            token = tree['key']['name']
+
+        if tree['type'] == 'FunctionDeclaration':
+            full_node_body = tree['body']
+        else:
+            full_node_body = tree['value']
+
+        subgroup_trees, subnode_trees, this_scope_body = Javascript.separate_namespaces(full_node_body)
+        assert not subgroup_trees
+
+        line_number = lineno(tree)
+        calls = make_calls(this_scope_body)
+        variables = make_local_variables(this_scope_body, parent)
+        node = Node(token, line_number, calls, variables, parent=parent,
+                    is_constructor=is_constructor)
+
+        subnodes = flatten([Javascript.make_nodes(t, node) for t in subnode_trees])
+
+        return [node] + subnodes
+
+    @staticmethod
+    def make_root_node(lines, parent):
+        """
+        The "root_node" are is an implict node of lines which are executed in the global
+        scope on the file itself and not otherwise part of any function.
+
+        :param lines list[ast]:
+        :param parent Group:
+        :rtype: Node
+        """
+        token = "(global)"
+        line_number = 0
+        calls = make_calls(lines)
+        variables = make_local_variables(lines, parent)
+        root_node = Node(token, line_number, calls, variables, parent=parent)
+        return root_node
+
+    @staticmethod
+    def make_class_group(tree, parent):
+        """
+        Given an AST for the subgroup (a class), generate that subgroup.
+        In this function, we will also need to generate all of the nodes internal
+        to the group.
+
+        :param tree ast:
+        :param parent Group:
+        :rtype: Group
+        """
+        assert tree['type'] == 'ClassDeclaration'
+        subgroup_trees, node_trees, body_trees = Javascript.separate_namespaces(tree)
+        assert not subgroup_trees
+
+        group_type = 'CLASS'
+        token = tree['id']['name']
+        line_number = lineno(tree)
+
+        class_group = Group(token, line_number, group_type, parent=parent)
 
         for node_tree in node_trees:
-            for new_node in make_nodes(node_tree, parent=file_group):
-                file_group.add_node(new_node)
+            for new_node in Javascript.make_nodes(node_tree, parent=class_group):
+                class_group.add_node(new_node)
 
-        file_group.add_node(make_root_node(body_trees, parent=file_group), is_root=True)
+        return class_group
 
-        for subgroup_tree in subgroup_trees:
-            file_group.add_subgroup(make_class_group(subgroup_tree, parent=file_group))
-        return file_group
+    # @staticmethod
+    # def make_file_group(tree, filename):
+    #     """
+    #     Given an AST for the entire file, generate a file group complete with
+    #     subgroups, nodes, etc.
+
+    #     :param tree ast:
+    #     :param filename Str:
+
+    #     :rtype: Group
+    #     """
+
+    #     subgroup_trees, node_trees, body_trees = separate_namespaces(tree)
+    #     group_type = 'MODULE'
+    #     token = os.path.split(filename)[-1].rsplit('.js', 1)[0]
+    #     line_number = 0
+
+    #     file_group = Group(token, line_number, group_type, parent=None)
+
+    #     for node_tree in node_trees:
+    #         for new_node in make_nodes(node_tree, parent=file_group):
+    #             file_group.add_node(new_node)
+
+    #     file_group.add_node(make_root_node(body_trees, parent=file_group), is_root=True)
+
+    #     for subgroup_tree in subgroup_trees:
+    #         file_group.add_subgroup(make_class_group(subgroup_tree, parent=file_group))
+    #     return file_group

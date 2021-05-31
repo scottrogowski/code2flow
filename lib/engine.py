@@ -163,6 +163,37 @@ def get_sources_and_language(raw_source_paths, language):
     return sources, language
 
 
+def make_file_group(tree, filename, extension):
+    """
+    Given an AST for the entire file, generate a file group complete with
+    subgroups, nodes, etc.
+
+    :param tree ast:
+    :param filename str:
+    :param extension str:
+
+    :rtype: Group
+    """
+    language = LANGUAGES[extension]
+
+    subgroup_trees, node_trees, body_trees = language.separate_namespaces(tree)
+    group_type = 'MODULE'
+    token = os.path.split(filename)[-1].rsplit('.' + extension, 1)[0]
+    line_number = 0
+
+    file_group = Group(token, line_number, group_type, parent=None)
+
+    for node_tree in node_trees:
+        for new_node in language.make_nodes(node_tree, parent=file_group):
+            file_group.add_node(new_node)
+
+    file_group.add_node(language.make_root_node(body_trees, parent=file_group), is_root=True)
+
+    for subgroup_tree in subgroup_trees:
+        file_group.add_subgroup(language.make_class_group(subgroup_tree, parent=file_group))
+    return file_group
+
+
 def _find_link_for_call(call, node_a, all_nodes):
     """
     Given a call that happened on a node (node_a), return the node
@@ -229,7 +260,7 @@ def _find_links(node_a, all_nodes):
     return list(filter(None, links))
 
 
-def map_it(sources, language, no_trimming, exclude_namespaces, exclude_functions,
+def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_functions,
            source_type):
     '''
     Given a language implementation and a list of filenames, do these things:
@@ -242,7 +273,7 @@ def map_it(sources, language, no_trimming, exclude_namespaces, exclude_functions
     6. Trim nodes that didn't connect to anything
 
     :param list[str] sources:
-    :param Language lang:
+    :param str extension:
     :param bool no_trimming:
     :param list exclude_namespaces:
     :param list exclude_functions:
@@ -250,6 +281,8 @@ def map_it(sources, language, no_trimming, exclude_namespaces, exclude_functions
 
     :rtype: (list[Group], list[Node], list[Edge])
     '''
+
+    language = LANGUAGES[extension]
 
     # 0. Assert dependencies
     language.assert_dependencies()
@@ -259,7 +292,7 @@ def map_it(sources, language, no_trimming, exclude_namespaces, exclude_functions
     file_groups = []
     for source in sources:
         mod_tree = language.get_tree(source, source_type)
-        file_group = language.make_file_group(mod_tree, source)
+        file_group = make_file_group(mod_tree, source, extension)
         file_groups.append(file_group)
 
     # 2. Trim namespaces / functions that we don't want
@@ -446,8 +479,6 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
         final_img_filename = output_file
         output_file, extension = output_file.rsplit('.', 1)
         output_file += '.gv'
-
-    language = LANGUAGES[language]
 
     file_groups, all_nodes, edges = map_it(sources, language, no_trimming,
                                            exclude_namespaces, exclude_functions,
