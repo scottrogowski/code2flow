@@ -2,7 +2,7 @@ import ast as ast
 import logging
 import os
 
-from .model import Group, Node, Call, Variable, BaseLanguage
+from .model import Group, Node, Call, Variable, BaseLanguage, djoin
 
 
 def _get_call_from_func_element(func):
@@ -26,7 +26,7 @@ def _get_call_from_func_element(func):
             val = getattr(val, 'value', None)
             if not val:
                 break
-        owner_token = '.'.join(reversed(owner_token))
+        owner_token = djoin(*reversed(owner_token))
         return Call(token=func.attr, line_number=func.lineno, owner_token=owner_token)
     if type(func) == ast.Name:
         return Call(token=func.id, line_number=func.lineno)
@@ -93,7 +93,7 @@ def _process_import(element):
         rhs = single_import.name
 
         if hasattr(element, 'module'):
-            rhs = element.module + '.' + rhs
+            rhs = djoin(element.module, rhs)
 
         ret.append(Variable(token, points_to=rhs, line_number=element.lineno))
     return ret
@@ -232,47 +232,6 @@ class Python(BaseLanguage):
             else:
                 body.append(el)
         return groups, nodes, body
-
-    @staticmethod
-    def find_link_for_call(call, node_a, all_nodes):
-        """
-        Given a call that happened on a node (node_a), return the node
-        that the call links to and the call itself if >1 node matched.
-
-        :param call Call:
-        :param node_a Node:
-        :param all_nodes list[Node]:
-
-        :returns: The node it links to and the call if >1 node matched.
-        :rtype: (Node|None, Call|None)
-        """
-        all_vars = node_a.get_variables(call.line_number)
-
-        for var in all_vars:
-            var_match = call.matches_variable(var)
-            if var_match:
-                if var_match == 'UNKNOWN_MODULE':
-                    return None, None
-                assert isinstance(var_match, Node)
-                return var_match, None
-
-        possible_nodes = []
-        if call.is_attr():
-            for node in all_nodes:
-                if call.token == node.token and node.parent != node_a.root_parent():
-                    possible_nodes.append(node)
-        else:
-            for node in all_nodes:
-                if node.parent.group_type == 'MODULE' and call.token == node.token:
-                    possible_nodes.append(node)
-                if node.is_constructor and call.token == node.parent.token:
-                    possible_nodes.append(node)
-
-        if len(possible_nodes) == 1:
-            return possible_nodes[0], None
-        if len(possible_nodes) > 1:
-            return None, call
-        return None, None
 
     @staticmethod
     def make_file_group(tree, filename):

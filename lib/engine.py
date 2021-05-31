@@ -6,7 +6,8 @@ import time
 
 from .python import Python
 from .javascript import Javascript
-from .model import TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, NODE_COLOR, Edge, Group, is_installed
+from .model import (TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, NODE_COLOR,
+                    Edge, Group, Node, is_installed)
 
 VERSION = '2.1.0'
 
@@ -170,7 +171,59 @@ def get_sources_and_language(raw_source_paths, language):
     return sources, language
 
 
-def _find_links(node_a, all_nodes, language):
+def find_link_for_call(call, node_a, all_nodes):
+    """
+    Given a call that happened on a node (node_a), return the node
+    that the call links to and the call itself if >1 node matched.
+
+    :param call Call:
+    :param node_a Node:
+    :param all_nodes list[Node]:
+
+    :returns: The node it links to and the call if >1 node matched.
+    :rtype: (Node|None, Call|None)
+    """
+
+    all_vars = node_a.get_variables(call.line_number)
+
+    # if call.token == 'myClass':
+    #     print('\a'); import ipdb; ipdb.set_trace()
+
+    for var in all_vars:
+        var_match = call.matches_variable(var)
+        if var_match:
+            # Known modules (e.g. in the same directory) we want to check through possible_nodes
+            if var_match == 'KNOWN_MODULE':
+                continue
+
+            # Unknown modules (e.g. third party) we don't want to match)
+            if var_match == 'UNKNOWN_MODULE':
+                return None, None
+            assert isinstance(var_match, Node)
+            return var_match, None
+
+    possible_nodes = []
+    if call.is_attr():
+        for node in all_nodes:
+            # checking node.parent != node_a.root_parent() prevents self linkage in cases like
+            # function a() {b = Obj(); b.a()}
+            if call.token == node.token and node.parent != node_a.root_parent():
+                possible_nodes.append(node)
+    else:
+        for node in all_nodes:
+            if call.token == node.token and node.parent.group_type in ('SCRIPT', 'MODULE'):
+                possible_nodes.append(node)
+            if node.is_constructor and call.token == node.parent.token:
+                possible_nodes.append(node)
+
+    if len(possible_nodes) == 1:
+        return possible_nodes[0], None
+    if len(possible_nodes) > 1:
+        return None, call
+    return None, None
+
+
+def _find_links(node_a, all_nodes):
     """
     Iterate through the calls on node_a to find everything the node links to.
     This will return a list of tuples of nodes and calls that were ambiguous.
@@ -181,7 +234,7 @@ def _find_links(node_a, all_nodes, language):
     """
     links = []
     for call in node_a.calls:
-        lfc = language.find_link_for_call(call, node_a, all_nodes)
+        lfc = find_link_for_call(call, node_a, all_nodes)
         assert not isinstance(lfc, Group)
         links.append(lfc)
     return list(filter(None, links))
@@ -239,7 +292,7 @@ def map_it(sources, language, no_trimming, exclude_namespaces, exclude_functions
     bad_calls = []
     edges = []
     for node_a in list(all_nodes):
-        links = _find_links(node_a, all_nodes, language)
+        links = _find_links(node_a, all_nodes)
         for node_b, bad_call in links:
             if bad_call:
                 bad_calls.append(bad_call)

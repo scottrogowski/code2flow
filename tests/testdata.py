@@ -352,10 +352,18 @@ testdata = {
             "expected_nodes": ["file_a::(global)", "file_a::a", "file_b::b"]
         },
         {
+            "test_name": "two_file_simple exclude entire file",
+            "directory": "two_file_simple",
+            "kwargs": {"exclude_namespaces": ["file_b", "file_c"]},
+            "expected_edges": [["file_a::(global)", "file_a::a"]],
+            "expected_nodes": ["file_a::(global)", "file_a::a"]
+        },
+
+        {
             "test_name": "exclude modules",
             "directory": "exclude_modules",
             "expected_edges": [["exclude_modules::(global)", "exclude_modules::alpha"],
-                               ["exclude_modules::beta", "exclude_modules::beta"],
+                               ["exclude_modules::alpha", "exclude_modules::alpha"],
                                ["exclude_modules::alpha", "exclude_modules::beta"],
                                ["exclude_modules::beta", "exclude_modules::readFileSync"]],
             "expected_nodes": ["exclude_modules::alpha",
@@ -364,11 +372,22 @@ testdata = {
                                "exclude_modules::readFileSync"]
         },
         {
+            "test_name": "exclude modules exclude_functions no_trimming",
+            "comment": "makes sense to test in js as well. Include a function that's not there for more coverage",
+            "directory": "exclude_modules",
+            "kwargs": {"exclude_functions": ["beta", "gamma"], "no_trimming": True},
+            "expected_edges": [["exclude_modules::(global)", "exclude_modules::alpha"],
+                               ["exclude_modules::alpha", "exclude_modules::alpha"]],
+            "expected_nodes": ["exclude_modules::alpha",
+                               "exclude_modules::(global)",
+                               "exclude_modules::readFileSync"],
+        },
+        {
             "test_name": "exclude modules es6",
             "directory": "exclude_modules_es6",
             "kwargs": {'source_type': 'module'},
             "expected_edges": [["exclude_modules_es6::(global)", "exclude_modules_es6::alpha"],
-                               ["exclude_modules_es6::beta", "exclude_modules_es6::beta"],
+                               ["exclude_modules_es6::alpha", "exclude_modules_es6::alpha"],
                                ["exclude_modules_es6::alpha", "exclude_modules_es6::beta"],
                                ["exclude_modules_es6::beta", "exclude_modules_es6::readFileSync"]],
             "expected_nodes": ["exclude_modules_es6::alpha",
@@ -392,6 +411,43 @@ testdata = {
                                "ambiguous_names::(global)",
                                "ambiguous_names::Abra.abra_it",
                                "ambiguous_names::Abra.(constructor)"]
+        },
+        {
+            "test_name": "ambiguous_names",
+            "directory": "ambiguous_names",
+            "kwargs": {"no_trimming": True},
+            "expected_edges": [["ambiguous_names::Cadabra.cadabra_it",
+                                "ambiguous_names::Abra.abra_it"],
+                               ["ambiguous_names::main",
+                                "ambiguous_names::Cadabra.cadabra_it"],
+                               ["ambiguous_names::(global)",
+                                "ambiguous_names::main"],
+                               ["ambiguous_names::Abra.(constructor)",
+                                "ambiguous_names::Abra.abra_it"]],
+            "expected_nodes": ["ambiguous_names::Cadabra.cadabra_it",
+                               "ambiguous_names::main",
+                               "ambiguous_names::(global)",
+                               "ambiguous_names::Abra.abra_it",
+                               "ambiguous_names::Abra.(constructor)",
+                               "ambiguous_names::Abra.magic",
+                               "ambiguous_names::Cadabra.magic",
+                               ]
+        },
+        {
+            "test_name": "ambiguous_names exclude_namespaces",
+            "directory": "ambiguous_names",
+            "comment": "Also tests an important thing. .magic is in two classes in the first test. This eliminates a class and magic is resolved.",
+            "kwargs": {"exclude_namespaces": ['Abra']},
+            "expected_edges": [["ambiguous_names::main",
+                                "ambiguous_names::Cadabra.cadabra_it"],
+                               ["ambiguous_names::(global)",
+                                "ambiguous_names::main"],
+                               ["ambiguous_names::main",
+                                "ambiguous_names::Cadabra.magic"]],
+            "expected_nodes": ["ambiguous_names::Cadabra.cadabra_it",
+                               "ambiguous_names::Cadabra.magic",
+                               "ambiguous_names::main",
+                               "ambiguous_names::(global)"]
         },
         {
             "test_name": "weird_assignments",
@@ -424,6 +480,22 @@ testdata = {
                                "complex_ownership::DEF.toABC",
                                "complex_ownership::GHI.doit2",
                                "complex_ownership::GHI.doit3"]
+        },
+        {
+            "test_name": "two_file_imports",
+            "directory": "two_file_imports",
+            "expected_edges": [["importer::outer", "imported::myClass.(constructor)"],
+                               ["importer::outer", "imported::inner"],
+                               ["importer::(global)", "importer::outer"],
+                               ["imported::myClass.(constructor)",
+                                "imported::myClass.doit"],
+                               ["imported::myClass.doit", "imported::myClass.doit2"]],
+            "expected_nodes": ["imported::myClass.doit2",
+                               "imported::myClass.(constructor)",
+                               "imported::myClass.doit",
+                               "imported::inner",
+                               "importer::(global)",
+                               "importer::outer",]
         }
     ]
 }

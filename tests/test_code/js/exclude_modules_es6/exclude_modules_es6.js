@@ -21,6 +21,7 @@ function alpha() {
     fs.readFileSync("exclude_modules.js");
     beta()
     match()
+    alpha()
 }
 
 

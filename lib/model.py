@@ -23,25 +23,39 @@ def is_installed(executable_cmd):
     return False
 
 
+def djoin(*tup):
+    """Convenience method to join strings with dots"""
+    return '.'.join(tup)
+
+
 def _resolve_str_variable(variable, file_groups):
     """
     String variables are when variable.points_to is a string
-    This indicates imports that we delayed processing for
+    This happens ONLY when we have imports that we delayed processing for
     This function looks through all processed files to see if we can find a match
 
     :param Variable variable:
     :param list[Group] file_groups:
     :rtype: Node|str
     """
+    has_known = False
 
     for file_group in file_groups:
+        # Check if any top level node in the other file matches the import
         for node in file_group.nodes:
-            if file_group.token + '.' + node.token == variable.points_to:
+            if djoin(file_group.token, node.token) == variable.points_to:
                 return node
+        # Check if any top level class in the other file matches the import
         for group in file_group.subgroups:
-            if file_group.token + '.' + group.token == variable.points_to \
+            if djoin(file_group.token, group.token) == variable.points_to \
                and group.get_constructor():
                 return group.get_constructor()
+        if file_group.token == variable.points_to.split('.', 1)[0]:
+            has_known = True
+    if has_known:
+        return "KNOWN_MODULE"
+
+    print("RETURNING UNKNOWN_MODULE for variable", variable)
     return "UNKNOWN_MODULE"  # Default indicates we must skip
 
 
@@ -167,8 +181,8 @@ class Call():
                 for node in getattr(variable.points_to, 'nodes', []):
                     if self.token == node.token:
                         return node
-                if variable.points_to == 'UNKNOWN_MODULE':
-                    return 'UNKNOWN_MODULE'  # TODO
+                if variable.points_to in ('KNOWN_MODULE', 'UNKNOWN_MODULE'):
+                    return variable.points_to  # TODO
             return None
         if self.token == variable.token:
             if isinstance(variable.points_to, Node):
@@ -177,6 +191,8 @@ class Call():
                and variable.points_to.group_type == 'CLASS' \
                and variable.points_to.get_constructor():
                 return variable.points_to.get_constructor()
+        if variable.points_to == 'KNOWN_MODULE':
+            return 'KNOWN_MODULE'
 
         return None
 
@@ -219,7 +235,7 @@ class Node():
         Token which includes what group this is a part of
         """
         if self.is_method():
-            return self.parent.token + '.' + self.token
+            return djoin(self.parent.token, self.token)
         return self.token
 
     def label(self):
@@ -251,7 +267,7 @@ class Node():
 
     def resolve_variables(self, file_groups):
         """
-        For all variables, attempt to resolve the Node/Group type.
+        For all variables, attempt to resolve the Node/Group on points_to.
         There is a good chance this will be unsuccessful.
 
         :param list[Group] file_groups:
@@ -304,7 +320,9 @@ class Node():
 
 def _wrap_as_variables(sequence):
     """
-    Given a list of either Nodes or Groups, wrap them in variables
+    Given a list of either Nodes or Groups, wrap them in variables.
+    This is used in the get_variables method to allow all defined
+    functions and classes to be defined as variables
     :param list[Group|Node] sequence:
     :rtype: list[Variable]
     """

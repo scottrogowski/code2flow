@@ -3,25 +3,13 @@ import os
 import json
 import subprocess
 
-from .model import is_installed, Group, Node, Call, Variable, BaseLanguage
+from .model import is_installed, Group, Node, Call, Variable, BaseLanguage, djoin
 
 
 def lineno(el):
     ret = el['loc']['start']['line']
     assert type(ret) == int
     return ret
-
-
-# def walk(tree):
-#     while isinstance(tree, dict):
-#         tree = tree['body']
-
-#     ret = []
-#     for el in tree:
-#         ret.append(el)
-#         if 'body' in el:
-#             ret += walk(el['body'])
-#     return ret
 
 
 def walk(tree):
@@ -44,17 +32,27 @@ def walk(tree):
 # TODO test chained().calls().on().python()
 
 def _resolve_owner(callee):
+    """
+    Resolve who owns the call object.
+    So if the expression is i_ate.pie(). And i_ate is a Person, the callee is Person.
+    This is returned as a string and eventually set to the owner_token in the call
+
+    :param ast callee:
+    :rtype: str
+    """
+
     if callee['object']['type'] == 'ThisExpression':
         return 'this'
     if callee['object']['type'] == 'Identifier':
         return callee['object']['name']
     if callee['object']['type'] == 'MemberExpression':
         if 'object' in callee['object'] and 'name' in callee['object']['property']:
-            return (_resolve_owner(callee['object']) or '') + '.' + callee['object']['property']['name']
+            return djoin((_resolve_owner(callee['object']) or ''),
+                         callee['object']['property']['name'])
         # else, probablys a []
         return 'UNKNOWN_MODULE'
     if callee['object']['type'] == 'CallExpression':
-        return 'UNKNOWN_MODULE' # TODO we don't know so no point?
+        return 'UNKNOWN_MODULE'  # TODO we don't know so no point?
         # TODO not sure on this... Might need to return two things when this happens... it's like a().b()
         # return _resolve_owner(callee['object']['callee'])
 
@@ -107,8 +105,7 @@ def _make_calls(body):
             if call:
                 calls.append(call)
         elif element['type'] == 'NewExpression':
-            calls.append(Call(token='(constructor)',
-                              owner_token=element['callee']['name'],
+            calls.append(Call(token=element['callee']['name'],
                               line_number=lineno(element)))
     return calls
 
@@ -116,8 +113,8 @@ def _make_calls(body):
 def _process_assign(element):
     """
     Given an element from the ast which is an assignment statement, return a
-    Variable that points_to the type of object being assigned. For now, the
-    points_to is a string but that is resolved later.
+    Variable that points_to the type of object being assigned. The
+    points_to is often a string but that is resolved later.
 
     :param element ast:
     :rtype: Variable
@@ -130,32 +127,46 @@ def _process_assign(element):
     if target['init'] is None:
         return []
 
+    # print('\a'); import ipdb; ipdb.set_trace()
+
     if target['init']['type'] == 'NewExpression':
         token = target['id']['name']
         call = _get_call_from_func_element(target['init'])
         return [Variable(token, call, lineno(element))]
 
+    # this block is for require (as in: import) expressions
     if target['init']['type'] == 'CallExpression' \
        and target['init']['callee'].get('name') == 'require':
-        call = target['init']['arguments'][0]['value']
+        import_src_str = target['init']['arguments'][0]['value']
         if 'name' in target['id']:
-            return [Variable(target['id']['name'], call, lineno(element))]
+            imported_name = target['id']['name']
+            points_to_str = djoin(import_src_str, imported_name)
+            return [Variable(imported_name, points_to_str, lineno(element))]
         ret = []
         for prop in target['id'].get('properties', []):
-            ret.append(Variable(prop['key']['name'], call, lineno(element)))
+            imported_name = prop['key']['name']
+            points_to_str = djoin(import_src_str, imported_name)
+            ret.append(Variable(imported_name, points_to_str, lineno(element)))
         return ret
+
+    # For the other type of import expressions
     if target['init']['type'] == 'ImportExpression':
-        return [Variable(target['id']['name'], target['init']['source']['raw'], lineno(element))]
+        import_src_str = target['init']['source']['raw']
+        imported_name = target['id']['name']
+        points_to_str = djoin(import_src_str, imported_name)
+        return [Variable(imported_name, points_to_str, lineno(element))]
 
     if target['init']['type'] == 'CallExpression':
         if 'name' not in target['id']:
             return []
-        return [Variable(target['id']['name'], _get_call_from_func_element(target['init']),
-                         lineno(element))]
+        call = _get_call_from_func_element(target['init'])
+        return [Variable(target['id']['name'], call, lineno(element))]
 
     if target['init']['type'] == 'ThisExpression':
         assert set(target['init'].keys()) == {'start', 'end', 'loc', 'type'}
         return []
+        # TODO does anything still need to happen here??? My guess is no given 'if parent.group_type == 'CLASS':'
+        # In the function below
         # return [Variable(target['id']['name'], _get_call_from_func_element(target['init']),
         #                  lineno(element))]
     return []
@@ -183,6 +194,8 @@ def _make_variables(tree, parent):
     for element in walk(tree):
         if element['type'] == 'VariableDeclaration':
             variables += _process_assign(element)
+
+    # Make a 'this' variable for use anywhere we need it that points to the class
     if parent.group_type == 'CLASS':
         variables.append(Variable('this', parent, lineno(tree)))  # TODO
 
@@ -199,8 +212,10 @@ def _make_node(tree, parent):
     :param parent Group:
     :rtype: Node
     """
+    is_constructor = False
     if tree.get('kind') == 'constructor':
-        token = '(constructor)'  # TODO this should go for Python init too
+        token = '(constructor)'
+        is_constructor = True
     elif tree['type'] == 'FunctionDeclaration':
         token = tree['id']['name']
     elif tree['type'] == 'MethodDefinition':
@@ -214,7 +229,8 @@ def _make_node(tree, parent):
     line_number = lineno(tree)
     calls = _make_calls(body)
     variables = _make_variables(body, parent)
-    node = Node(token, line_number, calls, variables, parent=parent)
+    node = Node(token, line_number, calls, variables, parent=parent,
+                is_constructor=is_constructor)
     return node
 
 
@@ -372,49 +388,7 @@ class Javascript(BaseLanguage):
 
         return groups, nodes, body
 
-    @staticmethod
-    def find_link_for_call(call, node_a, all_nodes):
-        """
-        Given a call that happened on a node (node_a), return the node
-        that the call links to and the call itself if >1 node matched.
-
-        :param call Call:
-        :param node_a Node:
-        :param all_nodes list[Node]:
-
-        :returns: The node it links to and the call if >1 node matched.
-        :rtype: (Node|None, Call|None)
-        """
-
-        # TODO js is callback hell so we really need to check nesting deep
-        all_vars = node_a.get_variables(call.line_number)
-
-        for var in all_vars:
-            var_match = call.matches_variable(var)
-            if var_match:
-                if var_match == 'UNKNOWN_MODULE':
-                    return None, None
-                assert isinstance(var_match, Node)
-                return var_match, None
-
-        possible_nodes = []
-        if call.is_attr():
-            for node in all_nodes:
-                if call.token != node.token:
-                    continue
-                if call.token == '(constructor)' and call.owner_token != node.parent.token:
-                    continue
-                possible_nodes.append(node)
-        else:
-            for node in all_nodes:
-                if call.token == node.token and node.parent.group_type in ('SCRIPT', 'MODULE'):
-                    possible_nodes.append(node)
-
-        if len(possible_nodes) == 1:
-            return possible_nodes[0], None
-        if len(possible_nodes) > 1:
-            return None, call
-        return None, None
+    # TODO js is callback hell so we really need to check nesting deep in call variables
 
     @staticmethod
     def make_file_group(tree, filename):

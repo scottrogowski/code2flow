@@ -10,14 +10,17 @@ sys.path.append(os.getcwd().split('/tests')[0])
 from lib.engine import code2flow
 from tests.testdata import testdata
 
-
-LANGUAGES = {
-    'py': testdata['py'],
-    'js': testdata['js'],
-}
+LANGUAGES = (
+    'py',  # TODO
+    'js',
+    'php',
+    'ruby'
+)
 
 flattened_tests = {}
 for lang, tests in testdata.items():
+    if lang not in LANGUAGES:
+        continue
     for test_dict in tests:
         flattened_tests[lang + ': ' + test_dict['test_name']] = (lang, test_dict)
 
