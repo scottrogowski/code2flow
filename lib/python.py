@@ -2,7 +2,7 @@ import ast as ast
 import logging
 import os
 
-from .model import Group, Node, Call, Variable, BaseLanguage, djoin
+from .model import OWNER_CONST, Group, Node, Call, Variable, BaseLanguage, djoin
 
 
 def _get_call_from_func_element(func):
@@ -26,7 +26,10 @@ def _get_call_from_func_element(func):
             val = getattr(val, 'value', None)
             if not val:
                 break
-        owner_token = djoin(*reversed(owner_token))
+        if owner_token:
+            owner_token = djoin(*reversed(owner_token))
+        else:
+            owner_token = OWNER_CONST.UNKNOWN_VAR
         return Call(token=func.attr, line_number=func.lineno, owner_token=owner_token)
     if type(func) == ast.Name:
         return Call(token=func.id, line_number=func.lineno)
@@ -99,7 +102,7 @@ def _process_import(element):
     return ret
 
 
-def _make_variables(lines, parent):
+def _make_local_variables(lines, parent):
     """
     Given an ast of all the lines in a function, generate a list of
     variables in that function. Variables are tokens and what they link to.
@@ -136,7 +139,7 @@ def _make_node(tree, parent):
     token = tree.name
     line_number = tree.lineno
     calls = _make_calls(tree.body)
-    variables = _make_variables(tree.body, parent)
+    variables = _make_local_variables(tree.body, parent)
     is_constructor = False
     if parent.group_type == "CLASS" and token in ['__init__', '__new__']:
         is_constructor = True
@@ -155,7 +158,7 @@ def _make_root_node(lines, parent):
     token = "(global)"
     line_number = 0
     calls = _make_calls(lines)
-    variables = _make_variables(lines, parent)
+    variables = _make_local_variables(lines, parent)
     return Node(token, line_number, calls, variables, parent=parent)
 
 
@@ -170,7 +173,7 @@ def _make_class_group(tree, parent):
     :rtype: Group
     """
     assert type(tree) == ast.ClassDef
-    subgroup_trees, node_trees, body_trees = Python.separate_namespaces(tree)
+    subgroup_trees, node_trees, body_trees = _separate_namespaces(tree)
 
     group_type = 'CLASS'
     token = tree.name
@@ -185,6 +188,35 @@ def _make_class_group(tree, parent):
         logging.warning("Code2flow does not support nested classes. Skipping %r in %r.",
                         subgroup_tree.name, parent.token)
     return class_group
+
+
+def _separate_namespaces(tree):
+    """
+    Given an AST, recursively separate that AST into lists of ASTs for the
+    subgroups, nodes, and body. This is an intermediate step to allow for
+    clearner processing downstream
+
+    :param tree ast:
+    :returns: tuple of group, node, and body trees. These are processed
+              downstream into real Groups and Nodes.
+    :rtype: (list[ast], list[ast], list[ast])
+    """
+    groups = []
+    nodes = []
+    body = []
+    for el in tree.body:
+        if type(el) == ast.FunctionDef:
+            nodes.append(el)
+        elif type(el) == ast.ClassDef:
+            groups.append(el)
+        elif getattr(el, 'body', None):
+            tup = _separate_namespaces(el)
+            groups += tup[0]
+            nodes += tup[1]
+            body += tup[2]
+        else:
+            body.append(el)
+    return groups, nodes, body
 
 
 class Python(BaseLanguage):
@@ -205,35 +237,6 @@ class Python(BaseLanguage):
         return tree
 
     @staticmethod
-    def separate_namespaces(tree):
-        """
-        Given an AST, recursively separate that AST into lists of ASTs for the
-        subgroups, nodes, and body. This is an intermediate step to allow for
-        clearner processing downstream
-
-        :param tree ast:
-        :returns: tuple of group, node, and body trees. These are processed
-                  downstream into real Groups and Nodes.
-        :rtype: (list[ast], list[ast], list[ast])
-        """
-        groups = []
-        nodes = []
-        body = []
-        for el in tree.body:
-            if type(el) == ast.FunctionDef:
-                nodes.append(el)
-            elif type(el) == ast.ClassDef:
-                groups.append(el)
-            elif getattr(el, 'body', None):
-                tup = Python.separate_namespaces(el)
-                groups += tup[0]
-                nodes += tup[1]
-                body += tup[2]
-            else:
-                body.append(el)
-        return groups, nodes, body
-
-    @staticmethod
     def make_file_group(tree, filename):
         """
         Given an AST for the entire file, generate a file group complete with
@@ -244,7 +247,7 @@ class Python(BaseLanguage):
 
         :rtype: Group
         """
-        subgroup_trees, node_trees, body_trees = Python.separate_namespaces(tree)
+        subgroup_trees, node_trees, body_trees = _separate_namespaces(tree)
         group_type = 'MODULE'
         token = os.path.split(filename)[-1].rsplit('.py', 1)[0]
         line_number = 0

@@ -11,10 +11,11 @@ from lib.engine import code2flow
 from tests.testdata import testdata
 
 LANGUAGES = (
-    'py',  # TODO
+    'py',
     'js',
+    'mjs',
     'php',
-    'ruby'
+    'ruby',
 )
 
 flattened_tests = {}

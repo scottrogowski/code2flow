@@ -3,16 +3,30 @@ import os
 import json
 import subprocess
 
-from .model import is_installed, Group, Node, Call, Variable, BaseLanguage, djoin
+from .model import (Group, Node, Call, Variable, BaseLanguage,
+                    OWNER_CONST, is_installed, djoin, flatten)
 
 
 def lineno(el):
+    """
+    Get the first line number of ast element
+
+    :param ast el:
+    :rtype: int
+    """
+    if isinstance(el, list):
+        el = el[0]
     ret = el['loc']['start']['line']
     assert type(ret) == int
     return ret
 
 
 def walk(tree):
+    """
+    Walk through the ast tree and return all nodes
+    :param ast tree:
+    :rtype: list[ast]
+    """
     ret = []
     if type(tree) == list:
         for el in tree:
@@ -28,8 +42,6 @@ def walk(tree):
                 ret += walk(v)
     return ret
 
-
-# TODO test chained().calls().on().python()
 
 def _resolve_owner(callee):
     """
@@ -49,23 +61,14 @@ def _resolve_owner(callee):
         if 'object' in callee['object'] and 'name' in callee['object']['property']:
             return djoin((_resolve_owner(callee['object']) or ''),
                          callee['object']['property']['name'])
-        # else, probablys a []
-        return 'UNKNOWN_MODULE'
+        return OWNER_CONST.UNKNOWN_VAR
     if callee['object']['type'] == 'CallExpression':
-        return 'UNKNOWN_MODULE'  # TODO we don't know so no point?
-        # TODO not sure on this... Might need to return two things when this happens... it's like a().b()
-        # return _resolve_owner(callee['object']['callee'])
+        return OWNER_CONST.UNKNOWN_VAR
 
     if callee['object']['type'] == 'NewExpression':
         return callee['object']['callee']['name']
 
-    # TODO Keep below for a while
-    # if callee['object']['type'] in ('ConditionalExpression', 'ArrayExpression',
-    # 'Literal', 'BinaryExpression', 'TemplateLiteral', 'LogicalExpression',
-    # 'FunctionExpression'):
-    #     return None
-
-    return 'UNKNOWN_MODULE'
+    return OWNER_CONST.UNKNOWN_VAR
 
 
 def _get_call_from_func_element(func):
@@ -85,9 +88,6 @@ def _get_call_from_func_element(func):
                     owner_token=owner_token)
     if callee['type'] == 'Identifier':
         return Call(token=callee['name'], line_number=lineno(callee))
-    # if type(func) in (ast.Subscript, ast.Call):
-    #     return None
-    # logging.warning("Unknown function type %r" % callee['type'])
     return None
 
 
@@ -127,8 +127,6 @@ def _process_assign(element):
     if target['init'] is None:
         return []
 
-    # print('\a'); import ipdb; ipdb.set_trace()
-
     if target['init']['type'] == 'NewExpression':
         token = target['id']['name']
         call = _get_call_from_func_element(target['init'])
@@ -165,52 +163,47 @@ def _process_assign(element):
     if target['init']['type'] == 'ThisExpression':
         assert set(target['init'].keys()) == {'start', 'end', 'loc', 'type'}
         return []
-        # TODO does anything still need to happen here??? My guess is no given 'if parent.group_type == 'CLASS':'
-        # In the function below
-        # return [Variable(target['id']['name'], _get_call_from_func_element(target['init']),
-        #                  lineno(element))]
     return []
-    # TODO keep those for a while maybe...
-    # if target['init']['type'] in ('Literal', 'BinaryExpression', 'MemberExpression',
-    #                               'Identifier', 'LogicalExpression', 'TemplateLiteral',
-    #                               'ArrayExpression', 'ConditionalExpression',
-    #                               'ObjectExpression', 'FunctionExpression'):
-    #     # TODO on binary expression (= a + b) and memberexpression ( = a.b)
-    #     return []
 
 
-def _make_variables(tree, parent):
+def _make_local_variables(tree, parent):
     """
     Given an ast of all the lines in a function, generate a list of
     variables in that function. Variables are tokens and what they link to.
     In this case, what it links to is just a string. However, that is resolved
     later.
 
+    Also return variables for the outer scope parent
+
     :param tree list|dict:
     :param parent Group:
     :rtype: list[Variable]
     """
+    if not tree:
+        return []
+
     variables = []
     for element in walk(tree):
         if element['type'] == 'VariableDeclaration':
             variables += _process_assign(element)
 
     # Make a 'this' variable for use anywhere we need it that points to the class
-    if parent.group_type == 'CLASS':
-        variables.append(Variable('this', parent, lineno(tree)))  # TODO
+    if isinstance(parent, Group) and parent.group_type == 'CLASS':
+        variables.append(Variable('this', parent, lineno(tree)))
 
     variables = list(filter(None, variables))
     return variables
 
 
-def _make_node(tree, parent):
+def _make_nodes(tree, parent):
     """
     Given an ast of all the lines in a function, create the node along with the
     calls and variables internal to it.
+    Also make the nested subnodes
 
     :param tree ast:
     :param parent Group:
-    :rtype: Node
+    :rtype: list[Node]
     """
     is_constructor = False
     if tree.get('kind') == 'constructor':
@@ -222,16 +215,22 @@ def _make_node(tree, parent):
         token = tree['key']['name']
 
     if tree['type'] == 'FunctionDeclaration':
-        body = tree['body']
+        full_node_body = tree['body']
     else:
-        body = tree['value']
+        full_node_body = tree['value']
+
+    subgroup_trees, subnode_trees, this_scope_body = _separate_namespaces(full_node_body)
+    assert not subgroup_trees
 
     line_number = lineno(tree)
-    calls = _make_calls(body)
-    variables = _make_variables(body, parent)
+    calls = _make_calls(this_scope_body)
+    variables = _make_local_variables(this_scope_body, parent)
     node = Node(token, line_number, calls, variables, parent=parent,
                 is_constructor=is_constructor)
-    return node
+
+    subnodes = flatten([_make_nodes(t, node) for t in subnode_trees])
+
+    return [node] + subnodes
 
 
 def _make_root_node(lines, parent):
@@ -246,7 +245,7 @@ def _make_root_node(lines, parent):
     token = "(global)"
     line_number = 0
     calls = _make_calls(lines)
-    variables = _make_variables(lines, parent)
+    variables = _make_local_variables(lines, parent)
     root_node = Node(token, line_number, calls, variables, parent=parent)
     return root_node
 
@@ -262,7 +261,8 @@ def _make_class_group(tree, parent):
     :rtype: Group
     """
     assert tree['type'] == 'ClassDeclaration'
-    subgroup_trees, node_trees, body_trees = Javascript.separate_namespaces(tree)
+    subgroup_trees, node_trees, body_trees = _separate_namespaces(tree)
+    assert not subgroup_trees
 
     group_type = 'CLASS'
     token = tree['id']['name']
@@ -271,13 +271,18 @@ def _make_class_group(tree, parent):
     class_group = Group(token, line_number, group_type, parent=parent)
 
     for node_tree in node_trees:
-        class_group.add_node(_make_node(node_tree, parent=class_group))
+        for new_node in _make_nodes(node_tree, parent=class_group):
+            class_group.add_node(new_node)
 
-    assert not subgroup_trees
     return class_group
 
 
-def _dive(tree):
+def _children(tree):
+    """
+    The acorn AST is tricky. This returns all the children of an element
+    :param ast tree:
+    :rtype: list[ast]
+    """
     assert type(tree) == dict
     ret = []
     for k, v in tree.items():
@@ -289,30 +294,45 @@ def _dive(tree):
 
 
 def _get_acorn_version():
+    """
+    Get the version of installed acorn
+    :rtype: str
+    """
     return subprocess.check_output(['npm', '-v', 'acorn'])
 
 
+def _separate_namespaces(tree):
+    """
+    Given an AST, recursively separate that AST into lists of ASTs for the
+    subgroups, nodes, and body. This is an intermediate step to allow for
+    clearner processing downstream
+
+    :param tree ast:
+    :returns: tuple of group, node, and body trees. These are processed
+              downstream into real Groups and Nodes.
+    :rtype: (list[ast], list[ast], list[ast])
+    """
+
+    groups = []
+    nodes = []
+    body = []
+    for el in _children(tree):
+        if el['type'] in ('MethodDefinition', 'FunctionDeclaration'):
+            nodes.append(el)
+        elif el['type'] == 'ClassDeclaration':
+            groups.append(el)
+        else:
+            tup = _separate_namespaces(el)
+            if tup[0] or tup[1]:
+                groups += tup[0]
+                nodes += tup[1]
+                body += tup[2]
+            else:
+                body.append(el)
+    return groups, nodes, body
+
+
 class Javascript(BaseLanguage):
-    # from https://www.w3schools.com/js/js_reserved.asp
-    RESERVED_KEYWORDS = [
-        'Array', 'Date', 'eval', 'function', 'hasOwnProperty', 'Infinity',
-        'isFinite', 'isNaN', 'isPrototypeOf', 'length', 'Math', 'NaN', 'name',
-        'Number', 'Object', 'prototype', 'String', 'toString', 'undefined',
-        'valueOf', 'alert', 'all', 'anchor', 'anchors', 'area', 'assign',
-        'blur', 'button', 'checkbox', 'clearInterval', 'clearTimeout',
-        'clientInformation', 'close', 'closed', 'confirm', 'constructor',
-        'crypto', 'decodeURI', 'decodeURIComponent', 'defaultStatus', 'document',
-        'element', 'elements', 'embed', 'embeds', 'encodeURI',
-        'encodeURIComponent', 'escape', 'event', 'fileUpload', 'focus', 'form',
-        'forms', 'frame', 'innerHeight', 'innerWidth', 'layer', 'layers',
-        'link', 'location', 'mimeTypes', 'navigate', 'navigator', 'frames',
-        'frameRate', 'hidden', 'history', 'image', 'images', 'offscreenBuffering',
-        'open', 'opener', 'option', 'outerHeight', 'outerWidth', 'packages',
-        'pageXOffset', 'pageYOffset', 'parent', 'parseFloat', 'parseInt',
-        'password', 'pkcs11', 'plugin', 'prompt', 'propertyIsEnum', 'radio',
-        'reset', 'screenX', 'screenY', 'scroll', 'secure', 'select', 'self',
-        'setInterval', 'setTimeout', 'status', 'submit', 'taint', 'text',
-        'textarea', 'top', 'unescape', 'untaint', 'window']
 
     @staticmethod
     def assert_dependencies():
@@ -333,62 +353,23 @@ class Javascript(BaseLanguage):
         :param filename str:
         :rtype: ast
         """
-        # output = subprocess.check_output(["acorn", filename])#, '--location'])
         script_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                   "get_ast.js")
         cmd = ["node", script_loc, source_type, filename]
         try:
             output = subprocess.check_output(cmd, stderr=subprocess.PIPE)
-        except subprocess.CalledProcessError as ex:
+        except subprocess.CalledProcessError:
             raise AssertionError(
                 "Acorn could not parse file %r. You may have a JS syntax error or "
-                "you may need to run code2flow with --source-type. "
+                "if this is an es6-style source, you may need to run code2flow "
+                "with --source-type=module. "
                 "For more detail, try running the command `acorn %s`. "
-                "Warning: Acorn CANNOT parse all javascript files. See their docs. " % \
+                "Warning: Acorn CANNOT parse all javascript files. See their docs. " %
                 (filename, filename)) from None
         tree = json.loads(output)
         assert isinstance(tree, dict)
         assert tree['type'] == 'Program'
-        # assert tree['sourceType'] == 'script'
         return tree
-
-    @staticmethod
-    def separate_namespaces(tree):
-        """
-        Given an AST, recursively separate that AST into lists of ASTs for the
-        subgroups, nodes, and body. This is an intermediate step to allow for
-        clearner processing downstream
-
-        :param tree ast:
-        :returns: tuple of group, node, and body trees. These are processed
-                  downstream into real Groups and Nodes.
-        :rtype: (list[ast], list[ast], list[ast])
-        """
-        # while isinstance(tree, dict):
-        #     tree = tree['body']
-
-
-        # TODO body elements really need to just be all the leftover.
-        # We really need to capture ALL method definitions and functiondeclarations
-        # in a walk
-
-        groups = []
-        nodes = []
-        body = []
-        for el in _dive(tree):
-            if type(el) == dict and el['type'] in ('MethodDefinition', 'FunctionDeclaration'):
-                nodes.append(el)
-            elif type(el) == dict and el['type'] == 'ClassDeclaration':
-                groups.append(el)
-            else:
-                body.append(el)
-                tup = Javascript.separate_namespaces(el)
-                groups += tup[0]
-                nodes += tup[1]
-
-        return groups, nodes, body
-
-    # TODO js is callback hell so we really need to check nesting deep in call variables
 
     @staticmethod
     def make_file_group(tree, filename):
@@ -402,7 +383,7 @@ class Javascript(BaseLanguage):
         :rtype: Group
         """
 
-        subgroup_trees, node_trees, body_trees = Javascript.separate_namespaces(tree)
+        subgroup_trees, node_trees, body_trees = _separate_namespaces(tree)
         group_type = 'SCRIPT'
         token = os.path.split(filename)[-1].rsplit('.js', 1)[0]
         line_number = 0
@@ -410,11 +391,11 @@ class Javascript(BaseLanguage):
         file_group = Group(token, line_number, group_type, parent=None)
 
         for node_tree in node_trees:
-            file_group.add_node(_make_node(node_tree, parent=file_group))
+            for new_node in _make_nodes(node_tree, parent=file_group):
+                file_group.add_node(new_node)
 
         file_group.add_node(_make_root_node(body_trees, parent=file_group), is_root=True)
 
         for subgroup_tree in subgroup_trees:
             file_group.add_subgroup(_make_class_group(subgroup_tree, parent=file_group))
-
         return file_group

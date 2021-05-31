@@ -8,6 +8,25 @@ EDGE_COLOR = "#cf142b"
 NODE_COLOR = "#cccccc"
 
 
+class Namespace(dict):
+    """
+    Abstract constants class
+    Constants can be accessed via .attribute or [key] and can be iterated over.
+    """
+    def __init__(self, *args, **kwargs):
+        d = {k: k for k in args}
+        d.update(dict(kwargs.items()))
+        super().__init__(d)
+
+    def __getattr__(self, item):
+        if item in self:
+            return self[item]
+        raise AttributeError
+
+
+OWNER_CONST = Namespace("UNKNOWN_VAR", "UNKNOWN_MODULE", "KNOWN_MODULE")
+
+
 def is_installed(executable_cmd):
     """
     Determine whether a command can be run or not
@@ -26,6 +45,15 @@ def is_installed(executable_cmd):
 def djoin(*tup):
     """Convenience method to join strings with dots"""
     return '.'.join(tup)
+
+
+def flatten(list_of_lists):
+    """
+    Return a list from a list of lists
+    :param list[list[Value]] list_of_lists:
+    :rtype: list[Value]
+    """
+    return [el for sublist in list_of_lists for el in sublist]
 
 
 def _resolve_str_variable(variable, file_groups):
@@ -53,10 +81,9 @@ def _resolve_str_variable(variable, file_groups):
         if file_group.token == variable.points_to.split('.', 1)[0]:
             has_known = True
     if has_known:
-        return "KNOWN_MODULE"
+        return OWNER_CONST.KNOWN_MODULE
 
-    print("RETURNING UNKNOWN_MODULE for variable", variable)
-    return "UNKNOWN_MODULE"  # Default indicates we must skip
+    return OWNER_CONST.UNKNOWN_MODULE  # Default indicates we must skip
 
 
 class BaseLanguage(abc.ABC):
@@ -69,41 +96,12 @@ class BaseLanguage(abc.ABC):
      type for different languages. In Python, it is an ast)
     """
 
-    @property
-    @abc.abstractmethod
-    def RESERVED_KEYWORDS(self):
-        """
-        :rtype: list[str]
-        """
-
     @staticmethod
     @abc.abstractmethod
     def get_tree(filename):
         """
         :param filename str:
         :rtype: Tree
-        """
-
-    @staticmethod
-    @abc.abstractmethod
-    def separate_namespaces(tree):
-        """
-        :param tree Tree:
-        :returns: tuple of group, node, and body trees. These are processed
-                  downstream into real Groups and Nodes.
-        :rtype: (list[Tree], list[Tree], list[Tree])
-        """
-
-    @staticmethod
-    @abc.abstractmethod
-    def find_link_for_call(call, node_a, all_nodes):
-        """
-        :param call Call:
-        :param node_a Node:
-        :param all_nodes list[Node]:
-
-        :returns: The node it links to and the call if >1 node matched.
-        :rtype: (Node|None, Call|None)
         """
 
     @staticmethod
@@ -162,7 +160,7 @@ class Call():
         """
         Attribute calls are like `a.do_something()` rather than `do_something()`
         """
-        return bool(self.owner_token)
+        return self.owner_token is not None
 
     def matches_variable(self, variable):
         """
@@ -181,8 +179,8 @@ class Call():
                 for node in getattr(variable.points_to, 'nodes', []):
                     if self.token == node.token:
                         return node
-                if variable.points_to in ('KNOWN_MODULE', 'UNKNOWN_MODULE'):
-                    return variable.points_to  # TODO
+                if variable.points_to in OWNER_CONST:
+                    return variable.points_to
             return None
         if self.token == variable.token:
             if isinstance(variable.points_to, Node):
@@ -191,8 +189,8 @@ class Call():
                and variable.points_to.group_type == 'CLASS' \
                and variable.points_to.get_constructor():
                 return variable.points_to.get_constructor()
-        if variable.points_to == 'KNOWN_MODULE':
-            return 'KNOWN_MODULE'
+        if variable.points_to == OWNER_CONST.KNOWN_MODULE:
+            return OWNER_CONST.KNOWN_MODULE
 
         return None
 
@@ -219,7 +217,13 @@ class Node():
         """
         Names exist largely for unit tests
         """
-        return f"{self.parent.filename()}::{self.token_with_ownership()}"
+        return f"{self.group_parent().filename()}::{self.token_with_ownership()}"
+
+    def group_parent(self):
+        parent = self.parent
+        while type(parent) != Group:
+            parent = parent.parent
+        return parent
 
     def root_parent(self):
         parent = self.parent
@@ -228,7 +232,9 @@ class Node():
         return parent
 
     def is_method(self):
-        return self.parent and self.parent.group_type == 'CLASS'
+        return (self.parent
+                and isinstance(self.parent, Group)
+                and self.parent.group_type == 'CLASS')
 
     def token_with_ownership(self):
         """
@@ -248,15 +254,18 @@ class Node():
         """
         Remove this node from it's parent. This effectively deletes the node.
         """
-        self.parent.nodes = [n for n in self.parent.nodes if n != self]
+        self.group_parent().nodes = [n for n in self.group_parent().nodes if n != self]
 
-    def get_variables(self, line_number):
+    def get_variables(self, line_number=None):
         """
         Get variables in-scope on the line number.
         This includes all local variables as-well-as outer-scope variables
         """
-        ret = []
-        ret += list([v for v in self.variables if v.line_number <= line_number])
+        if line_number is None:
+            ret = self.variables
+        else:
+            ret = []
+            ret += list([v for v in self.variables if v.line_number <= line_number])
         ret.sort(key=lambda v: v.line_number, reverse=True)
 
         parent = self.parent
@@ -440,13 +449,16 @@ class Group():
             ret += subgroup.all_groups()
         return ret
 
-    def get_variables(self):
+    def get_variables(self, line_number=None):
         """
         Get in-scope variables from this group.
         This assumes every variable will be in-scope in nested functions
+        line_number is included for compatibility with Node.get_variables but is not used
 
+        :param int line_number:
         :rtype: list[Variable]
         """
+
         if self.root_node:
             variables = (self.root_node.variables
                          + _wrap_as_variables(self.subgroups)

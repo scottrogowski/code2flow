@@ -40,7 +40,7 @@ if __name__ == "__main__":
         help='by default, Code2flow generates a small legend. This flag hides it.')
     parser.add_argument(
         '--source-type', choices=['script', 'module'], default='script',
-        help='javascript only. Should the files by parsed as scripts or modules')
+        help='js only. Parse the source as scripts (commonJS) or modules (es6)')
     parser.add_argument(
         '--quiet', '-q', action='store_true',
         help='suppress most logging')

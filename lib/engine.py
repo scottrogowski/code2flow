@@ -7,7 +7,7 @@ import time
 from .python import Python
 from .javascript import Javascript
 from .model import (TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, NODE_COLOR,
-                    Edge, Group, Node, is_installed)
+                    Edge, Group, Node, is_installed, flatten)
 
 VERSION = '2.1.0'
 
@@ -35,18 +35,10 @@ LEGEND = """subgraph legend{
 LANGUAGES = {
     'py': Python,
     'js': Javascript,
+    'mjs': Javascript,
     # 'php': PHP,
     # 'rb': Ruby,
 }
-
-
-def flatten(list_of_lists):
-    """
-    Return a list from a list of lists
-    :param list[list[Value]] list_of_lists:
-    :rtype: list[Value]
-    """
-    return [el for sublist in list_of_lists for el in sublist]
 
 
 def generate_json(nodes, edges):
@@ -171,7 +163,7 @@ def get_sources_and_language(raw_source_paths, language):
     return sources, language
 
 
-def find_link_for_call(call, node_a, all_nodes):
+def _find_link_for_call(call, node_a, all_nodes):
     """
     Given a call that happened on a node (node_a), return the node
     that the call links to and the call itself if >1 node matched.
@@ -185,9 +177,6 @@ def find_link_for_call(call, node_a, all_nodes):
     """
 
     all_vars = node_a.get_variables(call.line_number)
-
-    # if call.token == 'myClass':
-    #     print('\a'); import ipdb; ipdb.set_trace()
 
     for var in all_vars:
         var_match = call.matches_variable(var)
@@ -213,7 +202,7 @@ def find_link_for_call(call, node_a, all_nodes):
         for node in all_nodes:
             if call.token == node.token and node.parent.group_type in ('SCRIPT', 'MODULE'):
                 possible_nodes.append(node)
-            if node.is_constructor and call.token == node.parent.token:
+            elif call.token == node.parent.token and node.is_constructor:
                 possible_nodes.append(node)
 
     if len(possible_nodes) == 1:
@@ -234,7 +223,7 @@ def _find_links(node_a, all_nodes):
     """
     links = []
     for call in node_a.calls:
-        lfc = find_link_for_call(call, node_a, all_nodes)
+        lfc = _find_link_for_call(call, node_a, all_nodes)
         assert not isinstance(lfc, Group)
         links.append(lfc)
     return list(filter(None, links))
@@ -257,6 +246,7 @@ def map_it(sources, language, no_trimming, exclude_namespaces, exclude_functions
     :param bool no_trimming:
     :param list exclude_namespaces:
     :param list exclude_functions:
+    :param str source_type:
 
     :rtype: (list[Group], list[Node], list[Edge])
     '''
@@ -478,6 +468,8 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
 
     logging.info("Wrote output file %r with %d nodes and %d edges.",
                  output_file, len(all_nodes), len(edges))
+    if not output_ext == 'json':
+        logging.info("For better machine readability, you can also try outputting in a json format.")
     logging.info("Code2flow finished processing in %.2f seconds." % (time.time() - start_time))
 
     # translate to an image if that was requested
