@@ -234,30 +234,3 @@ class Python(BaseLanguage):
             logging.warning("Code2flow does not support nested classes. Skipping %r in %r.",
                             subgroup_tree.name, parent.token)
         return class_group
-
-    # @staticmethod
-    # def make_file_group(tree, filename):
-    #     """
-    #     Given an AST for the entire file, generate a file group complete with
-    #     subgroups, nodes, etc.
-
-    #     :param tree ast:
-    #     :param filename Str:
-
-    #     :rtype: Group
-    #     """
-    #     subgroup_trees, node_trees, body_trees = separate_namespaces(tree)
-    #     group_type = 'MODULE'
-    #     token = os.path.split(filename)[-1].rsplit('.py', 1)[0]
-    #     line_number = 0
-
-    #     file_group = Group(token, line_number, group_type, parent=None)
-
-    #     for node_tree in node_trees:
-    #         file_group.add_node(make_node(node_tree, parent=file_group))
-    #     file_group.add_node(make_root_node(body_trees, parent=file_group), is_root=True)
-
-    #     for subgroup_tree in subgroup_trees:
-    #         file_group.add_subgroup(make_class_group(subgroup_tree, parent=file_group))
-
-    #     return file_group

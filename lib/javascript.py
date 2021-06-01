@@ -216,7 +216,7 @@ def get_acorn_version():
     Get the version of installed acorn
     :rtype: str
     """
-    return subprocess.check_output(['npm', '-v', 'acorn'])
+    return subprocess.check_output(['node', '-p', 'require(\'acorn/package.json\').version'])
 
 
 class Javascript(BaseLanguage):
@@ -227,10 +227,10 @@ class Javascript(BaseLanguage):
                                       "but was not found on the path. Install it " \
                                       "from npm and try again."
 
-        if not get_acorn_version().startswith(b'7.7.'):
+        if not get_acorn_version().startswith(b'8.'):
             logging.warning("Acorn is required to parse javascript files. "
                             "Version %r was found but code2flow has only been "
-                            "tested on 7.7.", get_acorn_version())
+                            "tested on 8.*", get_acorn_version())
 
     @staticmethod
     def get_tree(filename, source_type):
@@ -370,32 +370,3 @@ class Javascript(BaseLanguage):
                 class_group.add_node(new_node)
 
         return class_group
-
-    # @staticmethod
-    # def make_file_group(tree, filename):
-    #     """
-    #     Given an AST for the entire file, generate a file group complete with
-    #     subgroups, nodes, etc.
-
-    #     :param tree ast:
-    #     :param filename Str:
-
-    #     :rtype: Group
-    #     """
-
-    #     subgroup_trees, node_trees, body_trees = separate_namespaces(tree)
-    #     group_type = 'MODULE'
-    #     token = os.path.split(filename)[-1].rsplit('.js', 1)[0]
-    #     line_number = 0
-
-    #     file_group = Group(token, line_number, group_type, parent=None)
-
-    #     for node_tree in node_trees:
-    #         for new_node in make_nodes(node_tree, parent=file_group):
-    #             file_group.add_node(new_node)
-
-    #     file_group.add_node(make_root_node(body_trees, parent=file_group), is_root=True)
-
-    #     for subgroup_tree in subgroup_trees:
-    #         file_group.add_subgroup(make_class_group(subgroup_tree, parent=file_group))
-    #     return file_group
