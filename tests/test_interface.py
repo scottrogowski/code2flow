@@ -112,7 +112,7 @@ def test_bad_acorn(mocker, caplog):
     caplog.set_level(logging.DEBUG)
     mocker.patch('lib.javascript.get_acorn_version', return_value=b'7.6.9')
     code2flow("test_code/js/simple_a_js", "/tmp/code2flow/out.json")
-    assert "Acorn" in caplog.text and "7.7" in caplog.text
+    assert "Acorn" in caplog.text and "8.*" in caplog.text
 
 
 def test_no_source_type():
