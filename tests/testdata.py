@@ -1180,4 +1180,107 @@ testdata = {
                                "importer_es6::outer"]
         },
     ],
+    'rb': [
+        {
+            "test_name": "simple_a",
+            "directory": "simple_a",
+            "expected_edges": [["simple_a::func_a", "simple_a::func_b"],
+                               ["simple_a::(global)", "simple_a::func_a"]],
+            "expected_nodes": ["simple_a::(global)",
+                               "simple_a::func_a",
+                               "simple_a::func_b"]
+        },
+        {
+            "test_name": "simple_b",
+            "directory": "simple_b",
+            "expected_edges": [["simple_b::b", "simple_b::a"],
+                               ["simple_b::a", "simple_b::b"],
+                               ["simple_b::Cls.d", "simple_b::a"],
+                               ["simple_b::(global)", "simple_b::Cls.initialize"],
+                               ["simple_b::(global)", "simple_b::Cls.d"]],
+            "expected_nodes": ["simple_b::(global)",
+                               "simple_b::a",
+                               "simple_b::b",
+                               "simple_b::Cls.d",
+                               "simple_b::Cls.initialize"]
+        },
+        {
+            "test_name": "two_file_simple",
+            "directory": "two_file_simple",
+            "expected_edges": [["file_a::(global)", "file_a::abra"],
+                               ["file_a::abra", "file_b::babra"]],
+            "expected_nodes": ["file_a::(global)", "file_a::abra", "file_b::babra"]
+        },
+        {
+            "test_name": "resolve_correct_class",
+            "directory": "resolve_correct_class",
+            "expected_edges": [["rcc::Beta.func_1", "rcc::Alpha.func_2"],
+                               ["rcc::Alpha.func_1", "rcc::Beta.func_2"],
+                               ["rcc::Alpha.func_1", "rcc::Alpha.func_1"]],
+            "expected_nodes": ["rcc::Beta.func_1",
+                               "rcc::Alpha.func_1",
+                               "rcc::Alpha.func_2",
+                               "rcc::Beta.func_2"]
+        },
+        {
+            "test_name": "ambiguous_resolution",
+            "directory": "ambiguous_resolution",
+            "expected_edges": [["ambiguous_resolution::Cadabra.cadabra_it",
+                                "ambiguous_resolution::Abra.abra_it"],
+                               ["ambiguous_resolution::(global)",
+                                "ambiguous_resolution::main"],
+                               ["ambiguous_resolution::main",
+                                "ambiguous_resolution::Cadabra.cadabra_it"]],
+            "expected_nodes": ["ambiguous_resolution::Abra.abra_it",
+                               "ambiguous_resolution::main",
+                               "ambiguous_resolution::(global)",
+                               "ambiguous_resolution::Cadabra.cadabra_it"]
+
+        },
+        {
+            "test_name": "instance_methods",
+            "directory": "instance_methods",
+            "expected_edges": [["instance_methods::Abra.nested2",
+                                "instance_methods::Abra.main"],
+                               ["instance_methods::(global)",
+                                "instance_methods::Abra.nested2"],
+                               ["instance_methods::Abra.nested",
+                                "instance_methods::Abra.main"],
+                               ["instance_methods::(global)",
+                                "instance_methods::Abra.nested"],
+                               ["instance_methods::(global)",
+                                "instance_methods::Abra.main2"],
+                               ["instance_methods::Abra.main",
+                                "instance_methods::Abra.nested"],
+                               ["instance_methods::(global)",
+                                "instance_methods::Abra.main"]],
+            "expected_nodes": ["instance_methods::Abra.nested2",
+                               "instance_methods::Abra.main2",
+                               "instance_methods::Abra.nested",
+                               "instance_methods::Abra.main",
+                               "instance_methods::(global)"]
+
+        },
+        {
+            "test_name": "chains",
+            "directory": "chains",
+            "expected_edges": [["chains::a", "chains::b"],
+                               ["chains::(global)", "chains::c"],
+                               ["chains::b", "chains::a"],
+                               ["chains::c", "chains::Cls.initialize"],
+                               ["chains::c", "chains::Cls.b"],
+                               ["chains::(global)", "chains::b"],
+                               ["chains::(global)", "chains::a"],
+                               ["chains::c", "chains::Cls.a"]],
+            "expected_nodes": ["chains::a",
+                               "chains::Cls.initialize",
+                               "chains::Cls.a",
+                               "chains::c",
+                               "chains::(global)",
+                               "chains::Cls.b",
+                               "chains::b"]
+
+        }
+
+    ]
 }

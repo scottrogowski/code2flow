@@ -6,6 +6,7 @@ import time
 
 from .python import Python
 from .javascript import Javascript
+from .ruby import Ruby
 from .model import (TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, NODE_COLOR,
                     Edge, Group, Node, is_installed, flatten)
 
@@ -36,9 +37,18 @@ LANGUAGES = {
     'py': Python,
     'js': Javascript,
     'mjs': Javascript,
+    'rb': Ruby,
     # 'php': PHP,
-    # 'rb': Ruby,
 }
+
+
+class LanguageParams():
+    """
+    Shallow structure to make storing language-specific parameters cleaner
+    """
+    def __init__(self, source_type='script', ruby_version='27'):
+        self.source_type = source_type
+        self.ruby_version = ruby_version
 
 
 def generate_json(nodes, edges):
@@ -181,7 +191,7 @@ def make_file_group(tree, filename, extension):
     token = os.path.split(filename)[-1].rsplit('.' + extension, 1)[0]
     line_number = 0
 
-    file_group = Group(token, line_number, group_type, parent=None)
+    file_group = Group(token, group_type, line_number, parent=None)
 
     for node_tree in node_trees:
         for new_node in language.make_nodes(node_tree, parent=file_group):
@@ -208,6 +218,10 @@ def _find_link_for_call(call, node_a, all_nodes):
     """
 
     all_vars = node_a.get_variables(call.line_number)
+
+    # TODO
+    # if call.token == 'nested2':
+    #     print('\a'); import ipdb; ipdb.set_trace()
 
     for var in all_vars:
         var_match = call.matches_variable(var)
@@ -261,7 +275,7 @@ def _find_links(node_a, all_nodes):
 
 
 def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_functions,
-           source_type):
+           lang_params):
     '''
     Given a language implementation and a list of filenames, do these things:
     1. Read source ASTs & find all groups (classes/modules) and nodes (functions)
@@ -277,7 +291,7 @@ def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_function
     :param bool no_trimming:
     :param list exclude_namespaces:
     :param list exclude_functions:
-    :param str source_type:
+    :param LanguageParams lang_params:
 
     :rtype: (list[Group], list[Node], list[Edge])
     '''
@@ -291,7 +305,8 @@ def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_function
     #    (a lot happens here)
     file_groups = []
     for source in sources:
-        mod_tree = language.get_tree(source, source_type)
+        print('\a'); from icecream import ic; ic(lang_params)
+        mod_tree = language.get_tree(source, lang_params)
         file_group = make_file_group(mod_tree, source, extension)
         file_groups.append(file_group)
 
@@ -309,7 +324,7 @@ def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_function
         node.resolve_variables(file_groups)
     logging.info("Found nodes %r." % sorted([n.token_with_ownership() for n in all_nodes]))
     logging.info("Found calls %r." % sorted(list(set(c.to_string() for c in flatten(n.calls for n in all_nodes)))))
-    logging.info("Found variables %r." % sorted(list(set(v.token for v in flatten(n.variables for n in all_nodes)))))
+    logging.info("Found variables %r." % sorted(list(set(str(v) for v in flatten(n.variables for n in all_nodes)))))
 
     # 4. Find all calls between all nodes
     bad_calls = []
@@ -431,8 +446,7 @@ def _generate_final_img(output_file, extension, final_img_filename, num_edges):
 
 def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
               exclude_namespaces=None, exclude_functions=None,
-              no_grouping=False, no_trimming=False, source_type='script',
-              level=logging.INFO):
+              no_grouping=False, no_trimming=False, lang_params=None, level=logging.INFO):
     """
     Top-level function. Generate a diagram based on source code.
     Can generate either a dotfile or an image.
@@ -445,6 +459,7 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
     :param list exclude_functions: List of functions to exclude
     :param bool no_grouping: Don't group functions into namespaces in the final output
     :param bool no_trimming: Don't trim orphaned functions / namespaces
+    :param lang_params LanguageParams: Object to store lang-specific params
     :param int level: logging level
     :rtype: None
     """
@@ -457,6 +472,7 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
     assert isinstance(exclude_namespaces, list)
     exclude_functions = exclude_functions or []
     assert isinstance(exclude_functions, list)
+    lang_params = lang_params or LanguageParams()
 
     logging.basicConfig(format="Code2Flow: %(message)s", level=level)
 
@@ -482,7 +498,7 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
 
     file_groups, all_nodes, edges = map_it(sources, language, no_trimming,
                                            exclude_namespaces, exclude_functions,
-                                           source_type)
+                                           lang_params)
 
     logging.info("Generating output file...")
 

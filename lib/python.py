@@ -189,7 +189,7 @@ class Python(BaseLanguage):
         is_constructor = False
         if parent.group_type == "CLASS" and token in ['__init__', '__new__']:
             is_constructor = True
-        return [Node(token, line_number, calls, variables, parent=parent, is_constructor=is_constructor)]
+        return [Node(token, calls, variables, parent=parent, line_number=line_number, is_constructor=is_constructor)]
 
     @staticmethod
     def make_root_node(lines, parent):
@@ -205,7 +205,7 @@ class Python(BaseLanguage):
         line_number = 0
         calls = make_calls(lines)
         variables = make_local_variables(lines, parent)
-        return Node(token, line_number, calls, variables, parent=parent)
+        return Node(token, calls, variables, line_number=line_number, parent=parent)
 
     @staticmethod
     def make_class_group(tree, parent):
@@ -225,7 +225,7 @@ class Python(BaseLanguage):
         token = tree.name
         line_number = tree.lineno
 
-        class_group = Group(token, line_number, group_type, parent=parent)
+        class_group = Group(token, group_type, line_number=line_number, parent=parent)
 
         for node_tree in node_trees:
             class_group.add_node(Python.make_nodes(node_tree, parent=class_group)[0])

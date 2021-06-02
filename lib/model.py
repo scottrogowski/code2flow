@@ -101,7 +101,7 @@ class BaseLanguage(abc.ABC):
 
     @staticmethod
     @abc.abstractmethod
-    def get_tree(filename):
+    def get_tree(filename, lang_params):
         """
         :param filename str:
         :rtype: Tree
@@ -149,13 +149,20 @@ class Variable():
     They may either point to a string or, once resolved, a Group/Node.
     Not all variables can be resolved
     """
-    def __init__(self, token, points_to, line_number):
+    def __init__(self, token, points_to, line_number=None):
         self.token = token
         self.points_to = points_to
         self.line_number = line_number
 
     def __repr__(self):
         return f"<Variable token={self.token} points_to={repr(self.points_to)}"
+
+    def __str__(self):
+        if self.points_to and isinstance(self.points_to, Group):
+            return f'{self.token}->{self.points_to.token}'
+        if self.points_to:
+            return f'{self.token}->"{self.points_to}"'
+        return self.token
 
 
 class Call():
@@ -167,10 +174,11 @@ class Call():
         do_something()
 
     """
-    def __init__(self, token, line_number, owner_token=None):
+    def __init__(self, token, line_number=None, owner_token=None, definite_constructor=False):
         self.token = token
         self.owner_token = owner_token
         self.line_number = line_number
+        self.definite_constructor = definite_constructor
 
     def __repr__(self):
         return f"<Call owner_token={self.owner_token} token={self.token}>"
@@ -224,7 +232,8 @@ class Call():
 
 
 class Node():
-    def __init__(self, token, line_number, calls, variables, parent, is_constructor=False):
+    # TODO for other languages line number needs to go 2nd-to-last now in the params
+    def __init__(self, token, calls, variables, parent, line_number=None, is_constructor=False):
         self.token = token
         self.line_number = line_number
         self.calls = calls
@@ -276,7 +285,9 @@ class Node():
         """
         Labels are what you see on the graph
         """
-        return f"{self.line_number}: {self.token}()"
+        if self.line_number is not None:
+            return f"{self.line_number}: {self.token}()"
+        return f"{self.token}()"
 
     def remove_from_parent(self):
         """
@@ -290,11 +301,12 @@ class Node():
         This includes all local variables as-well-as outer-scope variables
         """
         if line_number is None:
-            ret = self.variables
+            ret = list(self.variables)
         else:
             ret = []
             ret += list([v for v in self.variables if v.line_number <= line_number])
-        ret.sort(key=lambda v: v.line_number, reverse=True)
+        if any(v.line_number for v in ret):
+            ret.sort(key=lambda v: v.line_number, reverse=True)
 
         parent = self.parent
         while parent:
@@ -314,7 +326,7 @@ class Node():
             if isinstance(variable.points_to, str):
                 variable.points_to = _resolve_str_variable(variable, file_groups)
             elif isinstance(variable.points_to, Call):
-                if variable.points_to.is_attr():
+                if variable.points_to.is_attr() and not variable.points_to.definite_constructor:
                     # Only process Class(); Not a.Class()
                     continue
                 for file_group in file_groups:
@@ -400,7 +412,8 @@ class Group():
     """
     Groups represent namespaces (classes and modules/files)
     """
-    def __init__(self, token, line_number, group_type, parent=None):
+    # TODO here too with the line_number
+    def __init__(self, token, group_type, line_number=None, parent=None):
         self.token = token
         self.line_number = line_number
         self.nodes = []
@@ -491,7 +504,9 @@ class Group():
             variables = (self.root_node.variables
                          + _wrap_as_variables(self.subgroups)
                          + _wrap_as_variables(n for n in self.nodes if n != self.root_node))
-            return sorted(variables, key=lambda v: v.line_number, reverse=True)
+            if any(v.line_number for v in variables):
+                return sorted(variables, key=lambda v: v.line_number, reverse=True)
+            return variables
         else:
             return []
 

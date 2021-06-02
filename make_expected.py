@@ -18,14 +18,15 @@ if __name__ == '__main__':
     code2flow(filename, output_file)
     generated_edges = get_edges_set_from_file(output_file)
     generated_nodes = get_nodes_set_from_file(output_file)
+    directory = os.path.split(filename)[-1]
 
     ret = {
-        'test_name': 'FIXME',
-        'directory': os.path.split(os.path.dirname(filename))[-1],
+        'test_name': directory,
+        'directory': directory,
         'expected_edges': list(map(list, generated_edges)),
         'expected_nodes': list(generated_nodes),
     }
 
     ret = pprint.pformat(ret, sort_dicts=False)
     ret = " " + ret.replace("'", '"')[1:-1]
-    print('\n'.join("       " + l for l in ret.split('\n')))
+    print('\n'.join("           " + l for l in ret.split('\n')))
