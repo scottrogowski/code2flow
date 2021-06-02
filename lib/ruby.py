@@ -14,19 +14,32 @@ def resolve_owner(owner_struct):
     :param ast callee:
     :rtype: str
     """
-    if not owner_struct:
-        return None
-    if owner_struct[0] == 'lvar':
-        # var.func()
-        return owner_struct[1]
-    if owner_struct[0] == 'ivar':
-        # @var.func()
-        return owner_struct[1]
-    if owner_struct[0] == 'self':
-        return 'self'
-    if owner_struct[1]:
-        return djoin(resolve_owner(owner_struct[1]), owner_struct[2])
-    return owner_struct[2]
+    try:
+        if not owner_struct or not isinstance(owner_struct, list):
+            return None
+        if owner_struct[0] == 'begin':
+            # skip complex ownership
+            return "UNKNOWN_VAR"
+        if owner_struct[0] == 'send':
+            # sends are complex too
+            return "UNKNOWN_VAR"
+        if owner_struct[0] == 'lvar':
+            # var.func()
+            return owner_struct[1]
+        if owner_struct[0] == 'ivar':
+            # @var.func()
+            return owner_struct[1]
+        if owner_struct[0] == 'self':
+            return 'self'
+        if owner_struct[0] == 'const':
+            return owner_struct[2]
+
+        return "UNKNOWN_VAR"
+        # if owner_struct[1]:
+        #     return djoin(resolve_owner(owner_struct[1]), owner_struct[2])
+        # return owner_struct[2]
+    except:
+        print('\a'); import ipdb; ipdb.set_trace()
 
 
 def get_call_from_send_element(func):
@@ -174,7 +187,10 @@ class Ruby(BaseLanguage):
                 "For more detail, try running the command `ruby-parse %s`. " %
                 (filename, filename)) from None
         assert isinstance(tree, list)
-        assert tree[0] in ('module', 'begin')
+
+        if tree[0] not in ('module', 'begin'):
+            # one-line files
+            tree = [tree]
         return tree
 
     @staticmethod

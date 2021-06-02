@@ -1347,6 +1347,29 @@ testdata = {
                                "doublecolon::Class1.func_b",
                                "doublecolon::Class1.func_a",
                                "doublecolon::Class2.func_b"]
+        },
+        {
+            "test_name": "weird_chains",
+            "directory": "weird_chains",
+            "expected_edges": [["weird_chains::(global)", "weird_chains::DivByTwo.result"],
+                               ["weird_chains::(global)", "weird_chains::DivByTwo.-"],
+                               ["weird_chains::(global)",
+                                "weird_chains::DivByTwo.initialize"],
+                               ["weird_chains::(global)", "weird_chains::DivByTwo.*"],
+                               ["weird_chains::(global)", "weird_chains::DivByTwo.+"]],
+            "expected_nodes": ["weird_chains::DivByTwo.+",
+                               "weird_chains::DivByTwo.*",
+                               "weird_chains::DivByTwo.-",
+                               "weird_chains::DivByTwo.result",
+                               "weird_chains::DivByTwo.initialize",
+                               "weird_chains::(global)"]
+        },
+        {
+            "test_name": "onelinefile",
+            "directory": "onelinefile",
+            "comment": "Including this because the ruby ast treats single line stuff different from multiline. Also there is a lambda",
+            "expected_edges": [],
+            "expected_nodes": []
         }
     ]
 }

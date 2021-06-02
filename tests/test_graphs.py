@@ -12,8 +12,8 @@ from tests.testdata import testdata
 
 LANGUAGES = (
     'py',
-    'js',
-    'mjs',
+    # 'js',
+    # 'mjs',
     'rb',
     # 'php',
 )

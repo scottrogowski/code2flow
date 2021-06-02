@@ -221,7 +221,9 @@ def _find_link_for_call(call, node_a, all_nodes):
     all_vars = node_a.get_variables(call.line_number)
 
     # TODO
-    # if call.token == 'func_b':
+    # if call.token in ('-', '+'):
+    #     print('\a'); import ipdb; ipdb.set_trace()
+    # if call.token == 'b':
     #     print('\a'); import ipdb; ipdb.set_trace()
 
     for var in all_vars:
