@@ -1,5 +1,8 @@
 # Code2flow CHANGELOG
 
+## [2.2.0] - 2021-06-03
+Ruby support
+
 ## [2.1.0] - 2021-05-31
 Javascript support
 

@@ -1419,6 +1419,17 @@ testdata = {
                                "nested_classes::Mod.func_2",
                                "nested_classes::(global)",
                                "nested_classes::Nested.func_1"]
+        },
+        {
+            "test_name": "inheritance_2",
+            "directory": "inheritance_2",
+            "comment": "The '<' style of inheritance",
+            "expected_edges": [["inheritance_2::Cat.meow", "inheritance_2::Animal.speak"],
+                               ["inheritance_2::(global)", "inheritance_2::Animal.speak"],
+                               ["inheritance_2::(global)", "inheritance_2::Cat.meow"]],
+            "expected_nodes": ["inheritance_2::Cat.meow",
+                               "inheritance_2::Animal.speak",
+                               "inheritance_2::(global)"]
         }
     ]
 }

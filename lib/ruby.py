@@ -155,14 +155,18 @@ def get_tree_body(tree_el):
     return [body_struct]
 
 
-def get_mixins(body_tree):
+def get_mixins(tree, body_tree):
     """
     Get the mixins (includes) of the body_tree
 
+    :param tree element(list):
     :param body_tree list[element(list)]
     :rtype: list[str]
     """
     mixins = []
+    if tree[0] == 'class' and tree[2]:
+        mixins.append(tree[2][2])
+
     for el in body_tree:
         if el[0] == 'send' and el[2] == 'include':
             mixins.append(el[3][2])
@@ -295,7 +299,7 @@ class Ruby(BaseLanguage):
         assert tree[1][0] == 'const'
         token = tree[1][2]
 
-        mixins = get_mixins(body_trees)
+        mixins = get_mixins(tree, body_trees)
         class_group = Group(token, group_type, inherits=mixins, parent=parent)
 
         for subgroup_tree in subgroup_trees:
