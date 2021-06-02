@@ -101,9 +101,10 @@ class BaseLanguage(abc.ABC):
 
     @staticmethod
     @abc.abstractmethod
-    def get_tree(filename):
+    def get_tree(filename, source_type):
         """
         :param filename str:
+        :param source_type str:
         :rtype: Tree
         """
 
