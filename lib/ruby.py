@@ -2,114 +2,112 @@ import json
 import subprocess
 
 from .model import (Group, Node, Call, Variable, BaseLanguage,
-                    OWNER_CONST, is_installed, djoin, flatten)
+                    OWNER_CONST, is_installed, flatten)
 
 
-def resolve_owner(owner_struct):
+def resolve_owner(owner_el):
     """
-    Resolve who owns the call object.
+    Resolve who owns the call, if anyone.
     So if the expression is i_ate.pie(). And i_ate is a Person, the callee is Person.
     This is returned as a string and eventually set to the owner_token in the call
 
-    :param ast callee:
-    :rtype: str
+    :param owner_el element(list):
+    :rtype: str|None
     """
-    try:
-        if not owner_struct or not isinstance(owner_struct, list):
-            return None
-        if owner_struct[0] == 'begin':
-            # skip complex ownership
-            return "UNKNOWN_VAR"
-        if owner_struct[0] == 'send':
-            # sends are complex too
-            return "UNKNOWN_VAR"
-        if owner_struct[0] == 'lvar':
-            # var.func()
-            return owner_struct[1]
-        if owner_struct[0] == 'ivar':
-            # @var.func()
-            return owner_struct[1]
-        if owner_struct[0] == 'self':
-            return 'self'
-        if owner_struct[0] == 'const':
-            return owner_struct[2]
+    if not owner_el or not isinstance(owner_el, list):
+        return None
+    if owner_el[0] == 'begin':
+        # skip complex ownership
+        return OWNER_CONST.UNKNOWN_VAR
+    if owner_el[0] == 'send':
+        # sends are complex too
+        return OWNER_CONST.UNKNOWN_VAR
+    if owner_el[0] == 'lvar':
+        # var.func()
+        return owner_el[1]
+    if owner_el[0] == 'ivar':
+        # @var.func()
+        return owner_el[1]
+    if owner_el[0] == 'self':
+        return 'self'
+    if owner_el[0] == 'const':
+        return owner_el[2]
 
-        return "UNKNOWN_VAR"
-        # if owner_struct[1]:
-        #     return djoin(resolve_owner(owner_struct[1]), owner_struct[2])
-        # return owner_struct[2]
-    except:
-        print('\a'); import ipdb; ipdb.set_trace()
+    return OWNER_CONST.UNKNOWN_VAR
 
 
-def get_call_from_send_element(func):
+def get_call_from_send_el(func_el):
     """
-    Given a Ruby ast that represents a send call, clear and create our
+    Given an ast that represents a send call, clear and create our
     generic Call object. Some calls have no chance at resolution (e.g. array[2](param))
     so we return nothing instead.
 
-    :param func dict:
+    :param func_el element(list):
     :rtype: Call|None
-    # TODO filter out builtin methods???
     """
-    owner_struct = func[1]
-    token = func[2]
-    owner = resolve_owner(owner_struct)
+    owner_el = func_el[1]
+    token = func_el[2]
+    owner = resolve_owner(owner_el)
     if owner and token == 'new':
+        # Taking out owner_token for constructors as a little hack to make it work
         return Call(token=owner)
-        # TODO
-        # owner_token=owner,
-        # definite_constructor=True)
     return Call(token=token,
                 owner_token=owner)
 
 
-def walk(tree):
-    if not tree:
+def walk(tree_el):
+    """
+    Given an ast element (list), walk it in a dfs to get every el (list) out of it
+
+    :param tree_el element(list):
+    :rtype: list[element(list)]
+    """
+
+    if not tree_el:
         return []
-    ret = [tree]
-    for el in tree:
+    ret = [tree_el]
+    for el in tree_el:
         if isinstance(el, list):
             ret += walk(el)
     return ret
 
 
-def make_calls(body):
+def make_calls(body_el):
     """
     Given a list of lines, find all calls in this list.
 
-    :param list|dict body:
+    :param body_el element(list):
     :rtype: list[Call]
     """
     calls = []
-    for element in walk(body):
-        if element[0] == 'send':
-            call = get_call_from_send_element(element)
+    for el in walk(body_el):
+        if el[0] == 'send':
+            call = get_call_from_send_el(el)
             if call:
                 calls.append(call)
     return calls
 
 
-def process_assign(element):
+def process_assign(assignment_el):
     """
-    Given an element from the ast which is an assignment statement, return a
+    Given an assignment statement, return a
     Variable that points_to the type of object being assigned. The
     points_to is often a string but that is resolved later.
 
-    :param element ast:
+    :param assignment_el element(list):
     :rtype: Variable
     """
 
-    assert element[0] == 'lvasgn'
-    varname = element[1]
-    if element[2][0] == 'send':
-        call = get_call_from_send_element(element[2])
+    assert assignment_el[0] == 'lvasgn'
+    varname = assignment_el[1]
+    if assignment_el[2][0] == 'send':
+        call = get_call_from_send_el(assignment_el[2])
         return Variable(varname, call)
     # else is something like `varname = num`
     return None
 
 
-def make_local_variables(tree, parent):
+def make_local_variables(tree_el, parent):
     """
     Given an ast of all the lines in a function, generate a list of
     variables in that function. Variables are tokens and what they link to.
@@ -118,14 +116,14 @@ def make_local_variables(tree, parent):
 
     Also return variables for the outer scope parent
 
-    :param tree list|dict:
+    :param tree_el element(list):
     :param parent Group:
     :rtype: list[Variable]
     """
     variables = []
-    for element in tree:
-        if element[0] == 'lvasgn':
-            variables.append(process_assign(element))
+    for el in tree_el:
+        if el[0] == 'lvasgn':
+            variables.append(process_assign(el))
 
     # Make a 'self' variable for use anywhere we need it that points to the class
     if isinstance(parent, Group) and parent.group_type == 'CLASS':
@@ -135,13 +133,20 @@ def make_local_variables(tree, parent):
     return variables
 
 
-def get_tree_body(tree):
-    if tree[0] == 'module':
-        body_struct = tree[2]
-    elif tree[0] == 'defs':
-        body_struct = tree[4]
+def get_tree_body(tree_el):
+    """
+    Depending on the type of element, get the body of that element
+
+    :param tree_el element(list):
+    :rtype: list[tree_el]
+    """
+
+    if tree_el[0] == 'module':
+        body_struct = tree_el[2]
+    elif tree_el[0] == 'defs':
+        body_struct = tree_el[4]
     else:
-        body_struct = tree[3]
+        body_struct = tree_el[3]
 
     if not body_struct:
         return []
@@ -151,6 +156,12 @@ def get_tree_body(tree):
 
 
 def get_mixins(body_tree):
+    """
+    Get the mixins (includes) of the body_tree
+
+    :param body_tree list[element(list)]
+    :rtype: list[str]
+    """
     mixins = []
     for el in body_tree:
         if el[0] == 'send' and el[2] == 'include':
@@ -174,7 +185,7 @@ class Ruby(BaseLanguage):
 
         :param filename str:
         :param lang_params LanguageParams:
-        :rtype: ast
+        :rtype: element(list)
         """
         version_flag = "--" + lang_params.ruby_version
         cmd = ["ruby-parse", "--emit-json", version_flag, filename]
@@ -196,14 +207,14 @@ class Ruby(BaseLanguage):
     @staticmethod
     def separate_namespaces(tree):
         """
-        Given an AST body, recursively separate that AST into lists of ASTs for the
+        Given a tree element, recursively separate that AST into lists of ASTs for the
         subgroups, nodes, and body. This is an intermediate step to allow for
         clearner processing downstream
 
-        :param tree ast:
+        :param tree element(list):
         :returns: tuple of group, node, and body trees. These are processed
                   downstream into real Groups and Nodes.
-        :rtype: (list[ast], list[ast], list[ast])
+        :rtype: (list[element(list)], list[element(list)], list[element(list)])
         """
         groups = []
         nodes = []
@@ -220,11 +231,11 @@ class Ruby(BaseLanguage):
     @staticmethod
     def make_nodes(tree, parent):
         """
-        Given an ast of all the lines in a function, create the node along with the
-        calls and variables internal to it.
+        Given a tree element of all the lines in a function, create the node along
+        with the calls and variables internal to it.
         Also make the nested subnodes
 
-        :param tree ast:
+        :param tree element(list):
         :param parent Group:
         :rtype: list[Node]
         """
@@ -255,7 +266,7 @@ class Ruby(BaseLanguage):
         The "root_node" are is an implict node of lines which are executed in the global
         scope on the file itself and not otherwise part of any function.
 
-        :param lines list[ast]:
+        :param lines list[element(list)]:
         :param parent Group:
         :rtype: Node
         """
@@ -272,15 +283,13 @@ class Ruby(BaseLanguage):
         In this function, we will also need to generate all of the nodes internal
         to the group.
 
-        :param tree ast:
+        :param tree element(list):
         :param parent Group:
         :rtype: Group
         """
         assert tree[0] in ('class', 'module')
         tree_body = get_tree_body(tree)
         subgroup_trees, node_trees, body_trees = Ruby.separate_namespaces(tree_body)
-        # assert not subgroup_trees
-        # print('\a'); import ipdb; ipdb.set_trace()
 
         group_type = 'CLASS'
         assert tree[1][0] == 'const'

@@ -210,8 +210,6 @@ class Call():
         :param variable Variable:
         :rtype: Node
         """
-        # if self.token == 'majorNum' and self.owner_token:
-        #     print('\a'); import ipdb; ipdb.set_trace()
 
         if self.is_attr():
             if self.owner_token == variable.token:
@@ -219,10 +217,6 @@ class Call():
                     if self.token == node.token:
                         return node
                 for inherit_cls in getattr(variable.points_to, 'inherits', []):
-                    try:
-                        inherit_cls.nodes
-                    except:
-                        print('\a'); import ipdb; ipdb.set_trace()
                     for node in inherit_cls.nodes:
                         if self.token == node.token:
                             return node
@@ -243,7 +237,6 @@ class Call():
 
 
 class Node():
-    # TODO for other languages line number needs to go 2nd-to-last now in the params
     def __init__(self, token, calls, variables, parent, line_number=None, is_constructor=False):
         self.token = token
         self.line_number = line_number
@@ -423,7 +416,6 @@ class Group():
     """
     Groups represent namespaces (classes and modules/files)
     """
-    # TODO here too with the line_number
     def __init__(self, token, group_type, line_number=None, parent=None,
                  inherits=None):
         self.token = token

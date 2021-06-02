@@ -200,7 +200,6 @@ def make_file_group(tree, filename, extension):
     file_group.add_node(language.make_root_node(body_trees, parent=file_group), is_root=True)
 
     for subgroup_tree in subgroup_trees:
-        print("MAKING SUBGROUP", subgroup_tree)
         file_group.add_subgroup(language.make_class_group(subgroup_tree, parent=file_group))
     return file_group
 
@@ -219,12 +218,6 @@ def _find_link_for_call(call, node_a, all_nodes):
     """
 
     all_vars = node_a.get_variables(call.line_number)
-
-    # TODO
-    # if call.token in ('-', '+'):
-    #     print('\a'); import ipdb; ipdb.set_trace()
-    # if call.token == 'b':
-    #     print('\a'); import ipdb; ipdb.set_trace()
 
     for var in all_vars:
         var_match = call.matches_variable(var)
@@ -320,8 +313,6 @@ def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_function
         file_groups = _exclude_functions(file_groups, exclude_functions)
 
     # 3. Consolidate structure
-    # TODO
-    # language.consolidate_structure()
     all_subgroups = flatten(g.subgroups for g in file_groups)
     subgroups_by_token = {g.token: g for g in all_subgroups}
     for group in file_groups:
