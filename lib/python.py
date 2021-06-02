@@ -126,6 +126,17 @@ def make_local_variables(lines, parent):
     return variables
 
 
+def get_inherits(tree):
+    """
+    Get what superclasses this class inherits
+    This handles exact names like 'MyClass' but skips things like 'cls' and 'mod.MyClass'
+    Resolving those would be difficult
+    :param tree ast:
+    :rtype: list[str]
+    """
+    return [base.id for base in tree.bases if type(base) == ast.Name]
+
+
 class Python(BaseLanguage):
     @staticmethod
     def assert_dependencies():
@@ -225,7 +236,9 @@ class Python(BaseLanguage):
         token = tree.name
         line_number = tree.lineno
 
-        class_group = Group(token, group_type, line_number=line_number, parent=parent)
+        inherits = get_inherits(tree)
+
+        class_group = Group(token, group_type, inherits=inherits, line_number=line_number, parent=parent)
 
         for node_tree in node_trees:
             class_group.add_node(Python.make_nodes(node_tree, parent=class_group)[0])

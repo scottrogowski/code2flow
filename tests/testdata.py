@@ -242,6 +242,24 @@ testdata = {
                                "chained::Chain.mul"]
         },
         {
+            "test_name": "inherits",
+            "directory": "inherits",
+            "expected_edges": [["inherits::(global)", "inherits::ScaleDemo.__init__"],
+                               ["inherits::ScaleDemoLimited.__init__",
+                                "inherits_import::MajorScales.majorNum"],
+                               ["inherits::ScaleDemo.__init__",
+                                "inherits_import::MajorScales.majorNum"],
+                               ["inherits::(global)", "inherits::majorNum"],
+                               ["inherits::ScaleDemo.__init__",
+                                "inherits_import::PentatonicScales.pentaNum"]],
+            "expected_nodes": ["inherits_import::MajorScales.majorNum",
+                               "inherits::(global)",
+                               "inherits::ScaleDemoLimited.__init__",
+                               "inherits_import::PentatonicScales.pentaNum",
+                               "inherits::majorNum",
+                               "inherits::ScaleDemo.__init__"]
+        },
+        {
             "test_name": "pytz",
             "directory": "pytz",
             "kwargs": {"exclude_namespaces": ["test_tzinfo"]},
@@ -549,6 +567,19 @@ testdata = {
                                "chained::Chain.(constructor)",
                                "chained::Chain.add",
                                "chained::Chain.mul"]
+        },
+        {
+            "test_name": "inheritance",
+            "directory": "inheritance",
+            "expected_edges": [["inheritance::(global)",
+                                "inheritance::ScaleDemo.(constructor)"],
+                               ["inheritance::(global)", "inheritance::pentaNum"],
+                               ["inheritance::ScaleDemo.(constructor)",
+                                "inheritance::MajorScales.majorNum"]],
+            "expected_nodes": ["inheritance::MajorScales.majorNum",
+                               "inheritance::ScaleDemo.(constructor)",
+                               "inheritance::pentaNum",
+                               "inheritance::(global)"]
         },
         {
             "test_name": "moment.js",
@@ -1280,7 +1311,42 @@ testdata = {
                                "chains::Cls.b",
                                "chains::b"]
 
+        },
+        {
+            "test_name": "modules",
+            "directory": "modules",
+            "expected_edges": [["modules::(global)", "modules::ScaleDemo.initialize"],
+                               ["modules::(global)", "modules::majorNum"],
+                               ["modules::ScaleDemoLimited.initialize",
+                                "modules::MajorScales.majorNum"],
+                               ["modules::ScaleDemo.initialize",
+                                "modules::MajorScales.majorNum"],
+                               ["modules::ScaleDemo.initialize",
+                                "modules::PentatonicScales.pentaNum"]],
+            "expected_nodes": ["modules::PentatonicScales.pentaNum",
+                               "modules::ScaleDemo.initialize",
+                               "modules::(global)",
+                               "modules::MajorScales.majorNum",
+                               "modules::ScaleDemoLimited.initialize",
+                               "modules::majorNum"]
+        },
+        {
+            "test_name": "doublecolon",
+            "directory": "doublecolon",
+            "expected_edges": [["doublecolon::Class1.func_a",
+                                "doublecolon::Class2.func_b"],
+                               ["doublecolon::Class1.func_b",
+                                "doublecolon::Class1.func_a"],
+                               ["doublecolon::Class2.func_b",
+                                "doublecolon::Class2.func_a"],
+                               ["doublecolon::Class2.func_a",
+                                "doublecolon::Class1.func_b"],
+                               ["doublecolon::(global)", "doublecolon::Class2.func_b"]],
+            "expected_nodes": ["doublecolon::Class2.func_a",
+                               "doublecolon::(global)",
+                               "doublecolon::Class1.func_b",
+                               "doublecolon::Class1.func_a",
+                               "doublecolon::Class2.func_b"]
         }
-
     ]
 }

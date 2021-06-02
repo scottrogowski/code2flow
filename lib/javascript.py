@@ -211,6 +211,17 @@ def children(tree):
     return ret
 
 
+def get_inherits(tree):
+    """
+    Gets the superclass of the class. In js, this will be max 1 element
+    :param ast tree:
+    :rtype: list[str]
+    """
+    if tree['superClass']:
+        return [tree['superClass']['name']]
+    return []
+
+
 def get_acorn_version():
     """
     Get the version of installed acorn
@@ -362,8 +373,10 @@ class Javascript(BaseLanguage):
         group_type = 'CLASS'
         token = tree['id']['name']
         line_number = lineno(tree)
+        print(tree)
+        inherits = get_inherits(tree)
 
-        class_group = Group(token, group_type, line_number=line_number, parent=parent)
+        class_group = Group(token, group_type, inherits=inherits, line_number=line_number, parent=parent)
 
         for node_tree in node_trees:
             for new_node in Javascript.make_nodes(node_tree, parent=class_group):

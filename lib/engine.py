@@ -8,7 +8,7 @@ from .python import Python
 from .javascript import Javascript
 from .ruby import Ruby
 from .model import (TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, NODE_COLOR,
-                    Edge, Group, Node, is_installed, flatten)
+                    Edge, Group, Node, Variable, is_installed, flatten)
 
 VERSION = '2.1.0'
 
@@ -200,6 +200,7 @@ def make_file_group(tree, filename, extension):
     file_group.add_node(language.make_root_node(body_trees, parent=file_group), is_root=True)
 
     for subgroup_tree in subgroup_trees:
+        print("MAKING SUBGROUP", subgroup_tree)
         file_group.add_subgroup(language.make_class_group(subgroup_tree, parent=file_group))
     return file_group
 
@@ -220,7 +221,7 @@ def _find_link_for_call(call, node_a, all_nodes):
     all_vars = node_a.get_variables(call.line_number)
 
     # TODO
-    # if call.token == 'nested2':
+    # if call.token == 'func_b':
     #     print('\a'); import ipdb; ipdb.set_trace()
 
     for var in all_vars:
@@ -281,10 +282,11 @@ def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_function
     1. Read source ASTs & find all groups (classes/modules) and nodes (functions)
        (a lot happens here)
     2. Trim namespaces / functions that we don't want
-    3. Attempt to resolve the variables (point them to a node or group)
-    4. Find all calls between all nodes
-    5. Loudly complain about duplicate edges that were skipped
-    6. Trim nodes that didn't connect to anything
+    3. Consolidate groups / nodes given all we know so far
+    4. Attempt to resolve the variables (point them to a node or group)
+    5. Find all calls between all nodes
+    6. Loudly complain about duplicate edges that were skipped
+    7. Trim nodes that didn't connect to anything
 
     :param list[str] sources:
     :param str extension:
@@ -305,7 +307,6 @@ def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_function
     #    (a lot happens here)
     file_groups = []
     for source in sources:
-        print('\a'); from icecream import ic; ic(lang_params)
         mod_tree = language.get_tree(source, lang_params)
         file_group = make_file_group(mod_tree, source, extension)
         file_groups.append(file_group)
@@ -316,17 +317,33 @@ def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_function
     if exclude_functions:
         file_groups = _exclude_functions(file_groups, exclude_functions)
 
-    # 3. Attempt to resolve the variables (point them to a node or group)
+    # 3. Consolidate structure
+    # TODO
+    # language.consolidate_structure()
+    all_subgroups = flatten(g.subgroups for g in file_groups)
+    subgroups_by_token = {g.token: g for g in all_subgroups}
+    for group in file_groups:
+        for subgroup in group.subgroups:
+            subgroup.inherits = [subgroups_by_token.get(g) for g in subgroup.inherits]
+            subgroup.inherits = list(filter(None, subgroup.inherits))
+            for inherit_cls in subgroup.inherits:
+                for node in subgroup.nodes:
+                    node.variables += [Variable(n.token, n, n.line_number) for n in inherit_cls.nodes]
+
+    # 4. Attempt to resolve the variables (point them to a node or group)
     all_nodes = []
     for group in file_groups:
         all_nodes += group.all_nodes()
     for node in all_nodes:
         node.resolve_variables(file_groups)
-    logging.info("Found nodes %r." % sorted([n.token_with_ownership() for n in all_nodes]))
-    logging.info("Found calls %r." % sorted(list(set(c.to_string() for c in flatten(n.calls for n in all_nodes)))))
-    logging.info("Found variables %r." % sorted(list(set(str(v) for v in flatten(n.variables for n in all_nodes)))))
 
-    # 4. Find all calls between all nodes
+    # Not a step. Just log what we know so far
+    logging.info("Found groups %r." % sorted(g.label() for g in list(file_groups) + all_subgroups))
+    logging.info("Found nodes %r." % sorted(n.token_with_ownership() for n in all_nodes))
+    logging.info("Found calls %r." % sorted(list(set(c.to_string() for c in flatten(n.calls for n in all_nodes)))))
+    logging.info("Found variables %r." % sorted(list(set(v.to_string() for v in flatten(n.variables for n in all_nodes)))))
+
+    # 5. Find all calls between all nodes
     bad_calls = []
     edges = []
     for node_a in list(all_nodes):
@@ -338,7 +355,7 @@ def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_function
                 continue
             edges.append(Edge(node_a, node_b))
 
-    # 5. Loudly complain about duplicate edges that were skipped
+    # 6. Loudly complain about duplicate edges that were skipped
     bad_calls_strings = set()
     for bad_call in bad_calls:
         bad_calls_strings.add(bad_call.to_string())
@@ -350,7 +367,7 @@ def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_function
     if no_trimming:
         return file_groups, all_nodes, edges
 
-    # 6. Trim nodes that didn't connect to anything
+    # 7. Trim nodes that didn't connect to anything
     nodes_with_edges = set()
     for edge in edges:
         nodes_with_edges.add(edge.node0)

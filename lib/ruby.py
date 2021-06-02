@@ -16,10 +16,11 @@ def resolve_owner(owner_struct):
     """
     if not owner_struct:
         return None
-    if isinstance(owner_struct, str):
-        # TODO
-        return owner_struct
     if owner_struct[0] == 'lvar':
+        # var.func()
+        return owner_struct[1]
+    if owner_struct[0] == 'ivar':
+        # @var.func()
         return owner_struct[1]
     if owner_struct[0] == 'self':
         return 'self'
@@ -91,7 +92,7 @@ def process_assign(element):
     if element[2][0] == 'send':
         call = get_call_from_send_element(element[2])
         return Variable(varname, call)
-    print('\a'); import ipdb; ipdb.set_trace()
+    # else is something like `varname = num`
     return None
 
 
@@ -122,11 +123,26 @@ def make_local_variables(tree, parent):
 
 
 def get_tree_body(tree):
-    if not tree[3]:
+    if tree[0] == 'module':
+        body_struct = tree[2]
+    elif tree[0] == 'defs':
+        body_struct = tree[4]
+    else:
+        body_struct = tree[3]
+
+    if not body_struct:
         return []
-    if tree[3][0] == 'begin':
-        return tree[3]
-    return [tree[3]]
+    if body_struct[0] == 'begin':
+        return body_struct
+    return [body_struct]
+
+
+def get_mixins(body_tree):
+    mixins = []
+    for el in body_tree:
+        if el[0] == 'send' and el[2] == 'include':
+            mixins.append(el[3][2])
+    return mixins
 
 
 class Ruby(BaseLanguage):
@@ -173,14 +189,13 @@ class Ruby(BaseLanguage):
                   downstream into real Groups and Nodes.
         :rtype: (list[ast], list[ast], list[ast])
         """
-
         groups = []
         nodes = []
         body = []
         for el in tree:
-            if el[0] == 'def':
+            if el[0] in ('def', 'defs'):
                 nodes.append(el)
-            elif el[0] == 'class':
+            elif el[0] in ('class', 'module'):
                 groups.append(el)
             else:
                 body.append(el)
@@ -197,7 +212,11 @@ class Ruby(BaseLanguage):
         :param parent Group:
         :rtype: list[Node]
         """
-        token = tree[1]
+        if tree[0] == 'defs':
+            token = tree[2]
+        else:
+            token = tree[1]
+
         is_constructor = token == 'initialize'
 
         tree_body = get_tree_body(tree)
@@ -241,16 +260,19 @@ class Ruby(BaseLanguage):
         :param parent Group:
         :rtype: Group
         """
-        assert tree[0] == 'class'
+        assert tree[0] in ('class', 'module')
         tree_body = get_tree_body(tree)
         subgroup_trees, node_trees, body_trees = Ruby.separate_namespaces(tree_body)
         assert not subgroup_trees
+        # print('\a'); import ipdb; ipdb.set_trace()
 
         group_type = 'CLASS'
         assert tree[1][0] == 'const'
         token = tree[1][2]
 
-        class_group = Group(token, group_type, parent=parent)
+        mixins = get_mixins(body_trees)
+
+        class_group = Group(token, group_type, inherits=mixins, parent=parent)
 
         for node_tree in node_trees:
             for new_node in Ruby.make_nodes(node_tree, parent=class_group):

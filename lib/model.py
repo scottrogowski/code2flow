@@ -157,7 +157,7 @@ class Variable():
     def __repr__(self):
         return f"<Variable token={self.token} points_to={repr(self.points_to)}"
 
-    def __str__(self):
+    def to_string(self):
         if self.points_to and isinstance(self.points_to, Group):
             return f'{self.token}->{self.points_to.token}'
         if self.points_to:
@@ -210,11 +210,18 @@ class Call():
         :param variable Variable:
         :rtype: Node
         """
+        # if self.token == 'majorNum' and self.owner_token:
+        #     print('\a'); import ipdb; ipdb.set_trace()
+
         if self.is_attr():
             if self.owner_token == variable.token:
                 for node in getattr(variable.points_to, 'nodes', []):
                     if self.token == node.token:
                         return node
+                for inherit_cls in getattr(variable.points_to, 'inherits', []):
+                    for node in inherit_cls.nodes:
+                        if self.token == node.token:
+                            return node
                 if variable.points_to in OWNER_CONST:
                     return variable.points_to
             return None
@@ -303,8 +310,8 @@ class Node():
         if line_number is None:
             ret = list(self.variables)
         else:
-            ret = []
-            ret += list([v for v in self.variables if v.line_number <= line_number])
+            # TODO variables should be sorted by scope before line_number
+            ret = list([v for v in self.variables if v.line_number <= line_number])
         if any(v.line_number for v in ret):
             ret.sort(key=lambda v: v.line_number, reverse=True)
 
@@ -413,7 +420,8 @@ class Group():
     Groups represent namespaces (classes and modules/files)
     """
     # TODO here too with the line_number
-    def __init__(self, token, group_type, line_number=None, parent=None):
+    def __init__(self, token, group_type, line_number=None, parent=None,
+                 inherits=None):
         self.token = token
         self.line_number = line_number
         self.nodes = []
@@ -421,6 +429,7 @@ class Group():
         self.subgroups = []
         self.parent = parent
         self.group_type = group_type
+        self.inherits = inherits or []
         assert group_type in ('MODULE', 'SCRIPT', 'CLASS')
 
         self.uid = "cluster_" + os.urandom(4).hex()  # group doesn't work by syntax rules

@@ -12,10 +12,10 @@ from tests.testdata import testdata
 
 LANGUAGES = (
     'py',
-    # 'js',
-    # 'mjs',
-    # 'php',
+    'js',
+    'mjs',
     'rb',
+    # 'php',
 )
 
 flattened_tests = {}
