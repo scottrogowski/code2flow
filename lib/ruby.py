@@ -279,7 +279,7 @@ class Ruby(BaseLanguage):
         assert tree[0] in ('class', 'module')
         tree_body = get_tree_body(tree)
         subgroup_trees, node_trees, body_trees = Ruby.separate_namespaces(tree_body)
-        assert not subgroup_trees
+        # assert not subgroup_trees
         # print('\a'); import ipdb; ipdb.set_trace()
 
         group_type = 'CLASS'
@@ -287,13 +287,14 @@ class Ruby(BaseLanguage):
         token = tree[1][2]
 
         mixins = get_mixins(body_trees)
-
         class_group = Group(token, group_type, inherits=mixins, parent=parent)
+
+        for subgroup_tree in subgroup_trees:
+            class_group.add_subgroup(Ruby.make_class_group(subgroup_tree, class_group))
 
         for node_tree in node_trees:
             for new_node in Ruby.make_nodes(node_tree, parent=class_group):
                 class_group.add_node(new_node)
-
         for node in class_group.nodes:
             node.variables += [Variable(n.token, n) for n in class_group.nodes]
 
