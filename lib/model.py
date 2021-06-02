@@ -219,6 +219,10 @@ class Call():
                     if self.token == node.token:
                         return node
                 for inherit_cls in getattr(variable.points_to, 'inherits', []):
+                    try:
+                        inherit_cls.nodes
+                    except:
+                        print('\a'); import ipdb; ipdb.set_trace()
                     for node in inherit_cls.nodes:
                         if self.token == node.token:
                             return node

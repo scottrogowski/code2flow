@@ -325,7 +325,7 @@ def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_function
     all_subgroups = flatten(g.subgroups for g in file_groups)
     subgroups_by_token = {g.token: g for g in all_subgroups}
     for group in file_groups:
-        for subgroup in group.subgroups:
+        for subgroup in group.all_groups():
             subgroup.inherits = [subgroups_by_token.get(g) for g in subgroup.inherits]
             subgroup.inherits = list(filter(None, subgroup.inherits))
             for inherit_cls in subgroup.inherits:
