@@ -1546,6 +1546,70 @@ testdata = {
             "expected_nodes": ["simple_a::func_a",
                                "simple_a::func_b",
                                "simple_a::(global)"]
-        }
+        },
+        {
+            "test_name": "simple_b",
+            "directory": "simple_b",
+            "expected_edges": [["simple_b::(global)", "simple_b::C.d"],
+                               ["simple_b::a", "simple_b::b"],
+                               ["simple_b::C.d", "simple_b::a"],
+                               ["simple_b::b", "simple_b::a"]],
+            "expected_nodes": ["simple_b::b",
+                               "simple_b::(global)",
+                               "simple_b::a",
+                               "simple_b::C.d"]
+        },
+        {
+            "test_name": "two_file_simple",
+            "directory": "two_file_simple",
+            "expected_edges": [["file_a::(global)", "file_a::a"],
+                               ["file_a::a", "file_b::b"]],
+            "expected_nodes": ["file_a::a", "file_b::b", "file_a::(global)"]
+        },
+        {
+            "test_name": "resolve_correct_class",
+            "directory": "resolve_correct_class",
+            "expected_edges": [["rcc::Alpha.func_1", "rcc::Alpha.func_1"],
+                               ["rcc::Alpha.func_1", "rcc::Beta.func_2"],
+                               ["rcc::Beta.func_1", "rcc::Alpha.func_2"]],
+            "expected_nodes": ["rcc::Beta.func_1",
+                               "rcc::Beta.func_2",
+                               "rcc::Alpha.func_2",
+                               "rcc::Alpha.func_1"]
+        },
+        {
+            "test_name": "ambiguous_resolution",
+            "directory": "ambiguous_resolution",
+            "expected_edges": [["ambiguous_resolution::main",
+                                "ambiguous_resolution::Cadabra.cadabra_it"],
+                               ["ambiguous_resolution::Cadabra.cadabra_it",
+                                "ambiguous_resolution::Abra.abra_it"],
+                               ["ambiguous_resolution::(global)",
+                                "ambiguous_resolution::main"]],
+            "expected_nodes": ["ambiguous_resolution::main",
+                               "ambiguous_resolution::(global)",
+                               "ambiguous_resolution::Abra.abra_it",
+                               "ambiguous_resolution::Cadabra.cadabra_it"]
+        },
+        {
+            "test_name": "chains",
+            "directory": "chains",
+            "expected_edges": [["chains::c", "chains::Cls.__construct"],
+                               ["chains::a", "chains::b"],
+                               ["chains::b", "chains::a"],
+                               ["chains::c", "chains::Cls.a"],
+                               ["chains::c", "chains::Cls.b"],
+                               ["chains::(global)", "chains::c"],
+                               ["chains::(global)", "chains::b"],
+                               ["chains::(global)", "chains::a"]],
+            "expected_nodes": ["chains::c",
+                               "chains::Cls.b",
+                               "chains::(global)",
+                               "chains::a",
+                               "chains::Cls.__construct",
+                               "chains::b",
+                               "chains::Cls.a"]
+        },
+
     ]
 }

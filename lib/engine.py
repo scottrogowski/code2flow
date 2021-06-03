@@ -221,6 +221,9 @@ def _find_link_for_call(call, node_a, all_nodes):
 
     all_vars = node_a.get_variables(call.line_number)
 
+    # if call.token == 'func_2':
+    #     print('\a'); import ipdb; ipdb.set_trace()
+
     for var in all_vars:
         var_match = call.matches_variable(var)
         if var_match:
@@ -350,12 +353,15 @@ def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_function
     edges = []
     for node_a in list(all_nodes):
         links = _find_links(node_a, all_nodes)
+        print(node_a, links)
         for node_b, bad_call in links:
             if bad_call:
                 bad_calls.append(bad_call)
             if not node_b:
                 continue
             edges.append(Edge(node_a, node_b))
+
+    print("edges", edges)
 
     # 6. Loudly complain about duplicate edges that were skipped
     bad_calls_strings = set()

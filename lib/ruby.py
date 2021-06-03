@@ -266,7 +266,7 @@ class Ruby(BaseLanguage):
         else:
             token = tree[1]  # def func
 
-        is_constructor = token == 'initialize'
+        is_constructor = token == 'initialize' and parent.group_type == GROUP_TYPE.CLASS
 
         tree_body = get_tree_body(tree)
         subgroup_trees, subnode_trees, this_scope_body = Ruby.separate_namespaces(tree_body)
