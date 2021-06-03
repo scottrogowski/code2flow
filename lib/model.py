@@ -23,6 +23,7 @@ class Namespace(dict):
 
 
 OWNER_CONST = Namespace("UNKNOWN_VAR", "UNKNOWN_MODULE", "KNOWN_MODULE")
+GROUP_TYPE = Namespace("MODULE", "CLASS")
 
 
 def is_installed(executable_cmd):
@@ -161,7 +162,7 @@ class Variable():
         if self.points_to and isinstance(self.points_to, Group):
             return f'{self.token}->{self.points_to.token}'
         if self.points_to:
-            return f'{self.token}->"{self.points_to}"'
+            return f'{self.token}->{self.points_to}'
         return self.token
 
 
@@ -216,8 +217,8 @@ class Call():
                 for node in getattr(variable.points_to, 'nodes', []):
                     if self.token == node.token:
                         return node
-                for inherit_cls in getattr(variable.points_to, 'inherits', []):
-                    for node in inherit_cls.nodes:
+                for inherit_nodes in getattr(variable.points_to, 'inherits', []):
+                    for node in inherit_nodes:
                         if self.token == node.token:
                             return node
                 if variable.points_to in OWNER_CONST:
@@ -227,7 +228,7 @@ class Call():
             if isinstance(variable.points_to, Node):
                 return variable.points_to
             if isinstance(variable.points_to, Group) \
-               and variable.points_to.group_type == 'CLASS' \
+               and variable.points_to.group_type == GROUP_TYPE.CLASS \
                and variable.points_to.get_constructor():
                 return variable.points_to.get_constructor()
         if variable.points_to == OWNER_CONST.KNOWN_MODULE:
@@ -275,7 +276,7 @@ class Node():
     def is_method(self):
         return (self.parent
                 and isinstance(self.parent, Group)
-                and self.parent.group_type == 'CLASS')
+                and self.parent.group_type == GROUP_TYPE.CLASS)
 
     def token_with_ownership(self):
         """
@@ -416,7 +417,7 @@ class Group():
     """
     Groups represent namespaces (classes and modules/files)
     """
-    def __init__(self, token, group_type, line_number=None, parent=None,
+    def __init__(self, token, group_type, display_type, line_number=None, parent=None,
                  inherits=None):
         self.token = token
         self.line_number = line_number
@@ -425,25 +426,26 @@ class Group():
         self.subgroups = []
         self.parent = parent
         self.group_type = group_type
+        self.display_type = display_type
         self.inherits = inherits or []
-        assert group_type in ('MODULE', 'SCRIPT', 'CLASS')
+        assert group_type in GROUP_TYPE
 
         self.uid = "cluster_" + os.urandom(4).hex()  # group doesn't work by syntax rules
 
     def __repr__(self):
-        return f"<Group token={self.token} type={self.group_type}>"
+        return f"<Group token={self.token} type={self.display_type}>"
 
     def label(self):
         """
         Labels are what you see on the graph
         """
-        return f"{self.group_type}: {self.token}"
+        return f"{self.display_type}: {self.token}"
 
     def filename(self):
         """
         The ultimate filename of this group.
         """
-        if self.group_type in ('MODULE', 'SCRIPT'):
+        if self.group_type == GROUP_TYPE.MODULE:
             return self.token
         return self.parent.filename()
 
@@ -480,7 +482,7 @@ class Group():
         TODO, this excludes the possibility of multiple constructors
         :rtype: Node|None
         """
-        assert self.group_type == 'CLASS'
+        assert self.group_type == GROUP_TYPE.CLASS
         constructors = [n for n in self.nodes if n.is_constructor]
         if constructors:
             return constructors[0]

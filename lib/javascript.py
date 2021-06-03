@@ -4,7 +4,7 @@ import json
 import subprocess
 
 from .model import (Group, Node, Call, Variable, BaseLanguage,
-                    OWNER_CONST, is_installed, djoin, flatten)
+                    OWNER_CONST, GROUP_TYPE, is_installed, djoin, flatten)
 
 
 def lineno(el):
@@ -188,7 +188,7 @@ def make_local_variables(tree, parent):
             variables += process_assign(element)
 
     # Make a 'this' variable for use anywhere we need it that points to the class
-    if isinstance(parent, Group) and parent.group_type == 'CLASS':
+    if isinstance(parent, Group) and parent.group_type == GROUP_TYPE.CLASS:
         variables.append(Variable('this', parent, lineno(tree)))
 
     variables = list(filter(None, variables))
@@ -370,13 +370,13 @@ class Javascript(BaseLanguage):
         subgroup_trees, node_trees, body_trees = Javascript.separate_namespaces(tree)
         assert not subgroup_trees
 
-        group_type = 'CLASS'
+        group_type = GROUP_TYPE.CLASS
         token = tree['id']['name']
         line_number = lineno(tree)
-        print(tree)
         inherits = get_inherits(tree)
 
-        class_group = Group(token, group_type, inherits=inherits, line_number=line_number, parent=parent)
+        class_group = Group(token, group_type, 'Class', inherits=inherits,
+                            line_number=line_number, parent=parent)
 
         for node_tree in node_trees:
             for new_node in Javascript.make_nodes(node_tree, parent=class_group):

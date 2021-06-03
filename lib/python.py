@@ -1,7 +1,8 @@
 import ast as ast
 import logging
 
-from .model import OWNER_CONST, Group, Node, Call, Variable, BaseLanguage, djoin
+from .model import (OWNER_CONST, GROUP_TYPE, Group, Node, Call, Variable,
+                    BaseLanguage, djoin)
 
 
 def get_call_from_func_element(func):
@@ -119,7 +120,7 @@ def make_local_variables(lines, parent):
                 variables += process_assign(element)
             if type(element) in (ast.Import, ast.ImportFrom):
                 variables += process_import(element)
-    if parent.group_type == 'CLASS':
+    if parent.group_type == GROUP_TYPE.CLASS:
         variables.append(Variable('self', parent, lines[0].lineno))
 
     variables = list(filter(None, variables))
@@ -232,13 +233,13 @@ class Python(BaseLanguage):
         assert type(tree) == ast.ClassDef
         subgroup_trees, node_trees, body_trees = Python.separate_namespaces(tree)
 
-        group_type = 'CLASS'
+        group_type = GROUP_TYPE.CLASS
         token = tree.name
         line_number = tree.lineno
 
         inherits = get_inherits(tree)
 
-        class_group = Group(token, group_type, inherits=inherits, line_number=line_number, parent=parent)
+        class_group = Group(token, group_type, 'Class', inherits=inherits, line_number=line_number, parent=parent)
 
         for node_tree in node_trees:
             class_group.add_node(Python.make_nodes(node_tree, parent=class_group)[0])

@@ -2,7 +2,7 @@ import json
 import subprocess
 
 from .model import (Group, Node, Call, Variable, BaseLanguage,
-                    OWNER_CONST, is_installed, flatten)
+                    OWNER_CONST, GROUP_TYPE, is_installed, flatten)
 
 
 def resolve_owner(owner_el):
@@ -11,7 +11,7 @@ def resolve_owner(owner_el):
     So if the expression is i_ate.pie(). And i_ate is a Person, the callee is Person.
     This is returned as a string and eventually set to the owner_token in the call
 
-    :param owner_el element(list):
+    :param owner_el ast:
     :rtype: str|None
     """
     if not owner_el or not isinstance(owner_el, list):
@@ -42,7 +42,7 @@ def get_call_from_send_el(func_el):
     generic Call object. Some calls have no chance at resolution (e.g. array[2](param))
     so we return nothing instead.
 
-    :param func_el element(list):
+    :param func_el ast:
     :rtype: Call|None
     """
     owner_el = func_el[1]
@@ -59,8 +59,8 @@ def walk(tree_el):
     """
     Given an ast element (list), walk it in a dfs to get every el (list) out of it
 
-    :param tree_el element(list):
-    :rtype: list[element(list)]
+    :param tree_el ast:
+    :rtype: list[ast]
     """
 
     if not tree_el:
@@ -76,7 +76,7 @@ def make_calls(body_el):
     """
     Given a list of lines, find all calls in this list.
 
-    :param body_el element(list):
+    :param body_el ast:
     :rtype: list[Call]
     """
     calls = []
@@ -94,7 +94,7 @@ def process_assign(assignment_el):
     Variable that points_to the type of object being assigned. The
     points_to is often a string but that is resolved later.
 
-    :param assignment_el element(list):
+    :param assignment_el ast:
     :rtype: Variable
     """
 
@@ -116,7 +116,7 @@ def make_local_variables(tree_el, parent):
 
     Also return variables for the outer scope parent
 
-    :param tree_el element(list):
+    :param tree_el ast:
     :param parent Group:
     :rtype: list[Variable]
     """
@@ -126,18 +126,35 @@ def make_local_variables(tree_el, parent):
             variables.append(process_assign(el))
 
     # Make a 'self' variable for use anywhere we need it that points to the class
-    if isinstance(parent, Group) and parent.group_type == 'CLASS':
+    if isinstance(parent, Group) and parent.group_type == GROUP_TYPE.CLASS:
         variables.append(Variable('self', parent))
 
     variables = list(filter(None, variables))
     return variables
 
 
+def as_lines(tree_el):
+    """
+    Ruby ast bodies are structured differently depending on circumstances.
+    This ensures that they are structured as a list of statements
+
+    :param tree_el ast:
+    :rtype: list[tree_el]
+    """
+    if not tree_el:
+        return []
+    if isinstance(tree_el[0], list):
+        return tree_el
+    if tree_el[0] == 'begin':
+        return tree_el
+    return [tree_el]
+
+
 def get_tree_body(tree_el):
     """
     Depending on the type of element, get the body of that element
 
-    :param tree_el element(list):
+    :param tree_el ast:
     :rtype: list[tree_el]
     """
 
@@ -147,30 +164,33 @@ def get_tree_body(tree_el):
         body_struct = tree_el[4]
     else:
         body_struct = tree_el[3]
-
-    if not body_struct:
-        return []
-    if body_struct[0] == 'begin':
-        return body_struct
-    return [body_struct]
+    return as_lines(body_struct)
 
 
-def get_mixins(tree, body_tree):
+def get_inherits(tree, body_tree):
     """
-    Get the mixins (includes) of the body_tree
+    Get the various types of inheritances this class/module can have
 
-    :param tree element(list):
-    :param body_tree list[element(list)]
+    :param tree ast:
+    :param body_tree list[ast]
     :rtype: list[str]
     """
-    mixins = []
-    if tree[0] == 'class' and tree[2]:
-        mixins.append(tree[2][2])
+    inherits = []
 
+    # extends
+    if tree[0] == 'class' and tree[2]:
+        inherits.append(tree[2][2])
+
+    # module automatically extends same-named modules
+    if tree[0] == 'module':
+        inherits.append(tree[1][2])
+
+    # mixins
     for el in body_tree:
         if el[0] == 'send' and el[2] == 'include':
-            mixins.append(el[3][2])
-    return mixins
+            inherits.append(el[3][2])
+
+    return inherits
 
 
 class Ruby(BaseLanguage):
@@ -189,7 +209,7 @@ class Ruby(BaseLanguage):
 
         :param filename str:
         :param lang_params LanguageParams:
-        :rtype: element(list)
+        :rtype: ast
         """
         version_flag = "--" + lang_params.ruby_version
         cmd = ["ruby-parse", "--emit-json", version_flag, filename]
@@ -215,15 +235,15 @@ class Ruby(BaseLanguage):
         subgroups, nodes, and body. This is an intermediate step to allow for
         clearner processing downstream
 
-        :param tree element(list):
+        :param tree ast:
         :returns: tuple of group, node, and body trees. These are processed
                   downstream into real Groups and Nodes.
-        :rtype: (list[element(list)], list[element(list)], list[element(list)])
+        :rtype: (list[ast], list[ast], list[ast])
         """
         groups = []
         nodes = []
         body = []
-        for el in tree:
+        for el in as_lines(tree):
             if el[0] in ('def', 'defs'):
                 nodes.append(el)
             elif el[0] in ('class', 'module'):
@@ -239,14 +259,14 @@ class Ruby(BaseLanguage):
         with the calls and variables internal to it.
         Also make the nested subnodes
 
-        :param tree element(list):
+        :param tree ast:
         :param parent Group:
         :rtype: list[Node]
         """
         if tree[0] == 'defs':
-            token = tree[2]
+            token = tree[2]  # def self.func
         else:
-            token = tree[1]
+            token = tree[1]  # def func
 
         is_constructor = token == 'initialize'
 
@@ -270,7 +290,7 @@ class Ruby(BaseLanguage):
         The "root_node" are is an implict node of lines which are executed in the global
         scope on the file itself and not otherwise part of any function.
 
-        :param lines list[element(list)]:
+        :param lines list[ast]:
         :param parent Group:
         :rtype: Node
         """
@@ -287,7 +307,7 @@ class Ruby(BaseLanguage):
         In this function, we will also need to generate all of the nodes internal
         to the group.
 
-        :param tree element(list):
+        :param tree ast:
         :param parent Group:
         :rtype: Group
         """
@@ -295,12 +315,13 @@ class Ruby(BaseLanguage):
         tree_body = get_tree_body(tree)
         subgroup_trees, node_trees, body_trees = Ruby.separate_namespaces(tree_body)
 
-        group_type = 'CLASS'
+        group_type = GROUP_TYPE.CLASS
+        display_type = tree[0].capitalize()
         assert tree[1][0] == 'const'
         token = tree[1][2]
 
-        mixins = get_mixins(tree, body_trees)
-        class_group = Group(token, group_type, inherits=mixins, parent=parent)
+        inherits = get_inherits(tree, body_trees)
+        class_group = Group(token, group_type, display_type, inherits=inherits, parent=parent)
 
         for subgroup_tree in subgroup_trees:
             class_group.add_subgroup(Ruby.make_class_group(subgroup_tree, class_group))

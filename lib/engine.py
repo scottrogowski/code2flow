@@ -1,3 +1,4 @@
+import collections
 import json
 import logging
 import os
@@ -7,7 +8,7 @@ import time
 from .python import Python
 from .javascript import Javascript
 from .ruby import Ruby
-from .model import (TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, NODE_COLOR,
+from .model import (TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, NODE_COLOR, GROUP_TYPE,
                     Edge, Group, Node, Variable, is_installed, flatten)
 
 VERSION = '2.2.0'
@@ -187,11 +188,11 @@ def make_file_group(tree, filename, extension):
     language = LANGUAGES[extension]
 
     subgroup_trees, node_trees, body_trees = language.separate_namespaces(tree)
-    group_type = 'MODULE'
+    group_type = GROUP_TYPE.MODULE
     token = os.path.split(filename)[-1].rsplit('.' + extension, 1)[0]
     line_number = 0
 
-    file_group = Group(token, group_type, line_number, parent=None)
+    file_group = Group(token, group_type, 'File', line_number, parent=None)
 
     for node_tree in node_trees:
         for new_node in language.make_nodes(node_tree, parent=file_group):
@@ -241,7 +242,7 @@ def _find_link_for_call(call, node_a, all_nodes):
                 possible_nodes.append(node)
     else:
         for node in all_nodes:
-            if call.token == node.token and node.parent.group_type in ('SCRIPT', 'MODULE'):
+            if call.token == node.token and node.parent.group_type == GROUP_TYPE.MODULE:
                 possible_nodes.append(node)
             elif call.token == node.parent.token and node.is_constructor:
                 possible_nodes.append(node)
@@ -312,16 +313,23 @@ def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_function
     if exclude_functions:
         file_groups = _exclude_functions(file_groups, exclude_functions)
 
-    # 3. Consolidate structure
+    # 3. Consolidate structure for inheritance
     all_subgroups = flatten(g.subgroups for g in file_groups)
-    subgroups_by_token = {g.token: g for g in all_subgroups}
+
+    nodes_by_subgroup_token = collections.defaultdict(list)
+    for subgroup in all_subgroups:
+        if subgroup.token in nodes_by_subgroup_token:
+            logging.warning("Duplicate group name %r. Naming collision possible.",
+                            subgroup.token)
+        nodes_by_subgroup_token[subgroup.token] += subgroup.nodes
+
     for group in file_groups:
         for subgroup in group.all_groups():
-            subgroup.inherits = [subgroups_by_token.get(g) for g in subgroup.inherits]
+            subgroup.inherits = [nodes_by_subgroup_token.get(g) for g in subgroup.inherits]
             subgroup.inherits = list(filter(None, subgroup.inherits))
-            for inherit_cls in subgroup.inherits:
+            for inherit_nodes in subgroup.inherits:
                 for node in subgroup.nodes:
-                    node.variables += [Variable(n.token, n, n.line_number) for n in inherit_cls.nodes]
+                    node.variables += [Variable(n.token, n, n.line_number) for n in inherit_nodes]
 
     # 4. Attempt to resolve the variables (point them to a node or group)
     all_nodes = []
