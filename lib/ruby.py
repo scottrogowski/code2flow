@@ -82,9 +82,7 @@ def make_calls(body_el):
     calls = []
     for el in walk(body_el):
         if el[0] == 'send':
-            call = get_call_from_send_el(el)
-            if call:
-                calls.append(call)
+            calls.append(get_call_from_send_el(el))
     return calls
 
 
@@ -218,7 +216,7 @@ class Ruby(BaseLanguage):
             tree = json.loads(output)
         except json.decoder.JSONDecodeError:
             raise AssertionError(
-                "Ruby-parse could not parse file %r. You may have a syntax error or "
+                "Ruby-parse could not parse file %r. You may have a syntax error. "
                 "For more detail, try running the command `ruby-parse %s`. " %
                 (filename, filename)) from None
         assert isinstance(tree, list)
