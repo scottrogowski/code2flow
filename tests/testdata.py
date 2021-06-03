@@ -1536,5 +1536,16 @@ testdata = {
                                "rule::Wildcard.build",
                                "public_suffix::PublicSuffix.normalize"]
         }
+    ],
+    'php': [
+        {
+            "test_name": "simple_a",
+            "directory": "simple_a",
+            "expected_edges": [["simple_a::func_a", "simple_a::func_b"],
+                               ["simple_a::(global)", "simple_a::func_a"]],
+            "expected_nodes": ["simple_a::func_a",
+                               "simple_a::func_b",
+                               "simple_a::(global)"]
+        }
     ]
 }

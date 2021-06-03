@@ -8,6 +8,7 @@ import time
 from .python import Python
 from .javascript import Javascript
 from .ruby import Ruby
+from .php import PHP
 from .model import (TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, NODE_COLOR, GROUP_TYPE,
                     Edge, Group, Node, Variable, is_installed, flatten)
 
@@ -39,7 +40,7 @@ LANGUAGES = {
     'js': Javascript,
     'mjs': Javascript,
     'rb': Ruby,
-    # 'php': PHP,
+    'php': PHP,
 }
 
 
