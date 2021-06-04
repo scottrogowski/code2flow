@@ -9,12 +9,15 @@ class ABC {
     apply() {
         return 5;
     }
+    ret_def() {
+        return DEF
+    }
 }
 
 class DEF {
     toABC() {
         calls = 5;
-        return new ABC()
+        return new ABC();
     }
 }
 
@@ -53,3 +56,5 @@ var obj_calls = {
 }
 obj_calls['ghi'].doit3();
 
+// This below shouldn't match anything because it's too complex of a constructor
+var def = new abc.ret_def()

@@ -231,7 +231,7 @@ def _find_link_for_call(call, node_a, all_nodes):
                 possible_nodes.append(node)
     else:
         for node in all_nodes:
-            if call.token == node.token and node.parent.group_type in ('SCRIPT', 'MODULE'):
+            if call.token == node.token and getattr(node.parent, 'group_type', '') in ('SCRIPT', 'MODULE'):
                 possible_nodes.append(node)
             elif call.token == node.parent.token and node.is_constructor:
                 possible_nodes.append(node)
