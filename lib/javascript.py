@@ -104,7 +104,7 @@ def make_calls(body):
             call = get_call_from_func_element(element)
             if call:
                 calls.append(call)
-        elif element['type'] == 'NewExpression':
+        elif element['type'] == 'NewExpression' and element['callee']['type'] == 'Identifier':
             calls.append(Call(token=element['callee']['name'],
                               line_number=lineno(element)))
     return calls
