@@ -39,6 +39,9 @@ if __name__ == "__main__":
         '--hide-legend', action='store_true',
         help='by default, Code2flow generates a small legend. This flag hides it.')
     parser.add_argument(
+        '--skip-parse-errors', action='store_true',
+        help='skip files that the language parser fails on.')
+    parser.add_argument(
         '--source-type', choices=['script', 'module'], default='script',
         help='js only. Parse the source as scripts (commonJS) or modules (es6)')
     parser.add_argument(
@@ -68,4 +71,5 @@ if __name__ == "__main__":
 
     code2flow(args.sources, args.output, args.language, args.hide_legend,
               exclude_namespaces, exclude_functions,
-              args.no_grouping, args.no_trimming, lang_params, level)
+              args.no_grouping, args.no_trimming, args.skip_parse_errors,
+              lang_params, level)
