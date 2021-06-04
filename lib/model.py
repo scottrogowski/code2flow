@@ -23,6 +23,7 @@ class Namespace(dict):
 
 
 OWNER_CONST = Namespace("UNKNOWN_VAR", "UNKNOWN_MODULE", "KNOWN_MODULE")
+GROUP_TYPE = Namespace("MODULE", "CLASS")
 
 
 def is_installed(executable_cmd):
@@ -101,10 +102,9 @@ class BaseLanguage(abc.ABC):
 
     @staticmethod
     @abc.abstractmethod
-    def get_tree(filename, source_type):
+    def get_tree(filename, lang_params):
         """
         :param filename str:
-        :param source_type str:
         :rtype: Tree
         """
 
@@ -150,13 +150,20 @@ class Variable():
     They may either point to a string or, once resolved, a Group/Node.
     Not all variables can be resolved
     """
-    def __init__(self, token, points_to, line_number):
+    def __init__(self, token, points_to, line_number=None):
         self.token = token
         self.points_to = points_to
         self.line_number = line_number
 
     def __repr__(self):
         return f"<Variable token={self.token} points_to={repr(self.points_to)}"
+
+    def to_string(self):
+        if self.points_to and isinstance(self.points_to, Group):
+            return f'{self.token}->{self.points_to.token}'
+        if self.points_to:
+            return f'{self.token}->{self.points_to}'
+        return self.token
 
 
 class Call():
@@ -168,10 +175,11 @@ class Call():
         do_something()
 
     """
-    def __init__(self, token, line_number, owner_token=None):
+    def __init__(self, token, line_number=None, owner_token=None, definite_constructor=False):
         self.token = token
         self.owner_token = owner_token
         self.line_number = line_number
+        self.definite_constructor = definite_constructor
 
     def __repr__(self):
         return f"<Call owner_token={self.owner_token} token={self.token}>"
@@ -203,11 +211,16 @@ class Call():
         :param variable Variable:
         :rtype: Node
         """
+
         if self.is_attr():
             if self.owner_token == variable.token:
                 for node in getattr(variable.points_to, 'nodes', []):
                     if self.token == node.token:
                         return node
+                for inherit_nodes in getattr(variable.points_to, 'inherits', []):
+                    for node in inherit_nodes:
+                        if self.token == node.token:
+                            return node
                 if variable.points_to in OWNER_CONST:
                     return variable.points_to
             return None
@@ -215,7 +228,7 @@ class Call():
             if isinstance(variable.points_to, Node):
                 return variable.points_to
             if isinstance(variable.points_to, Group) \
-               and variable.points_to.group_type == 'CLASS' \
+               and variable.points_to.group_type == GROUP_TYPE.CLASS \
                and variable.points_to.get_constructor():
                 return variable.points_to.get_constructor()
         if variable.points_to == OWNER_CONST.KNOWN_MODULE:
@@ -225,7 +238,7 @@ class Call():
 
 
 class Node():
-    def __init__(self, token, line_number, calls, variables, parent, is_constructor=False):
+    def __init__(self, token, calls, variables, parent, line_number=None, is_constructor=False):
         self.token = token
         self.line_number = line_number
         self.calls = calls
@@ -263,7 +276,7 @@ class Node():
     def is_method(self):
         return (self.parent
                 and isinstance(self.parent, Group)
-                and self.parent.group_type == 'CLASS')
+                and self.parent.group_type == GROUP_TYPE.CLASS)
 
     def token_with_ownership(self):
         """
@@ -277,7 +290,9 @@ class Node():
         """
         Labels are what you see on the graph
         """
-        return f"{self.line_number}: {self.token}()"
+        if self.line_number is not None:
+            return f"{self.line_number}: {self.token}()"
+        return f"{self.token}()"
 
     def remove_from_parent(self):
         """
@@ -291,11 +306,12 @@ class Node():
         This includes all local variables as-well-as outer-scope variables
         """
         if line_number is None:
-            ret = self.variables
+            ret = list(self.variables)
         else:
-            ret = []
-            ret += list([v for v in self.variables if v.line_number <= line_number])
-        ret.sort(key=lambda v: v.line_number, reverse=True)
+            # TODO variables should be sorted by scope before line_number
+            ret = list([v for v in self.variables if v.line_number <= line_number])
+        if any(v.line_number for v in ret):
+            ret.sort(key=lambda v: v.line_number, reverse=True)
 
         parent = self.parent
         while parent:
@@ -315,7 +331,7 @@ class Node():
             if isinstance(variable.points_to, str):
                 variable.points_to = _resolve_str_variable(variable, file_groups)
             elif isinstance(variable.points_to, Call):
-                if variable.points_to.is_attr():
+                if variable.points_to.is_attr() and not variable.points_to.definite_constructor:
                     # Only process Class(); Not a.Class()
                     continue
                 for file_group in file_groups:
@@ -401,7 +417,8 @@ class Group():
     """
     Groups represent namespaces (classes and modules/files)
     """
-    def __init__(self, token, line_number, group_type, parent=None):
+    def __init__(self, token, group_type, display_type, line_number=None, parent=None,
+                 inherits=None):
         self.token = token
         self.line_number = line_number
         self.nodes = []
@@ -409,24 +426,26 @@ class Group():
         self.subgroups = []
         self.parent = parent
         self.group_type = group_type
-        assert group_type in ('MODULE', 'SCRIPT', 'CLASS')
+        self.display_type = display_type
+        self.inherits = inherits or []
+        assert group_type in GROUP_TYPE
 
         self.uid = "cluster_" + os.urandom(4).hex()  # group doesn't work by syntax rules
 
     def __repr__(self):
-        return f"<Group token={self.token} type={self.group_type}>"
+        return f"<Group token={self.token} type={self.display_type}>"
 
     def label(self):
         """
         Labels are what you see on the graph
         """
-        return f"{self.group_type}: {self.token}"
+        return f"{self.display_type}: {self.token}"
 
     def filename(self):
         """
         The ultimate filename of this group.
         """
-        if self.group_type in ('MODULE', 'SCRIPT'):
+        if self.group_type == GROUP_TYPE.MODULE:
             return self.token
         return self.parent.filename()
 
@@ -463,7 +482,7 @@ class Group():
         TODO, this excludes the possibility of multiple constructors
         :rtype: Node|None
         """
-        assert self.group_type == 'CLASS'
+        assert self.group_type == GROUP_TYPE.CLASS
         constructors = [n for n in self.nodes if n.is_constructor]
         if constructors:
             return constructors[0]
@@ -492,7 +511,9 @@ class Group():
             variables = (self.root_node.variables
                          + _wrap_as_variables(self.subgroups)
                          + _wrap_as_variables(n for n in self.nodes if n != self.root_node))
-            return sorted(variables, key=lambda v: v.line_number, reverse=True)
+            if any(v.line_number for v in variables):
+                return sorted(variables, key=lambda v: v.line_number, reverse=True)
+            return variables
         else:
             return []
 

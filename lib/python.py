@@ -1,7 +1,8 @@
 import ast as ast
 import logging
 
-from .model import OWNER_CONST, Group, Node, Call, Variable, BaseLanguage, djoin
+from .model import (OWNER_CONST, GROUP_TYPE, Group, Node, Call, Variable,
+                    BaseLanguage, djoin)
 
 
 def get_call_from_func_element(func):
@@ -119,11 +120,22 @@ def make_local_variables(lines, parent):
                 variables += process_assign(element)
             if type(element) in (ast.Import, ast.ImportFrom):
                 variables += process_import(element)
-    if parent.group_type == 'CLASS':
+    if parent.group_type == GROUP_TYPE.CLASS:
         variables.append(Variable('self', parent, lines[0].lineno))
 
     variables = list(filter(None, variables))
     return variables
+
+
+def get_inherits(tree):
+    """
+    Get what superclasses this class inherits
+    This handles exact names like 'MyClass' but skips things like 'cls' and 'mod.MyClass'
+    Resolving those would be difficult
+    :param tree ast:
+    :rtype: list[str]
+    """
+    return [base.id for base in tree.bases if type(base) == ast.Name]
 
 
 class Python(BaseLanguage):
@@ -189,7 +201,7 @@ class Python(BaseLanguage):
         is_constructor = False
         if parent.group_type == "CLASS" and token in ['__init__', '__new__']:
             is_constructor = True
-        return [Node(token, line_number, calls, variables, parent=parent, is_constructor=is_constructor)]
+        return [Node(token, calls, variables, parent=parent, line_number=line_number, is_constructor=is_constructor)]
 
     @staticmethod
     def make_root_node(lines, parent):
@@ -205,7 +217,7 @@ class Python(BaseLanguage):
         line_number = 0
         calls = make_calls(lines)
         variables = make_local_variables(lines, parent)
-        return Node(token, line_number, calls, variables, parent=parent)
+        return Node(token, calls, variables, line_number=line_number, parent=parent)
 
     @staticmethod
     def make_class_group(tree, parent):
@@ -221,11 +233,13 @@ class Python(BaseLanguage):
         assert type(tree) == ast.ClassDef
         subgroup_trees, node_trees, body_trees = Python.separate_namespaces(tree)
 
-        group_type = 'CLASS'
+        group_type = GROUP_TYPE.CLASS
         token = tree.name
         line_number = tree.lineno
 
-        class_group = Group(token, line_number, group_type, parent=parent)
+        inherits = get_inherits(tree)
+
+        class_group = Group(token, group_type, 'Class', inherits=inherits, line_number=line_number, parent=parent)
 
         for node_tree in node_trees:
             class_group.add_node(Python.make_nodes(node_tree, parent=class_group)[0])

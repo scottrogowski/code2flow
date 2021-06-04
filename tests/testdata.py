@@ -242,6 +242,24 @@ testdata = {
                                "chained::Chain.mul"]
         },
         {
+            "test_name": "inherits",
+            "directory": "inherits",
+            "expected_edges": [["inherits::(global)", "inherits::ScaleDemo.__init__"],
+                               ["inherits::ScaleDemoLimited.__init__",
+                                "inherits_import::MajorScales.majorNum"],
+                               ["inherits::ScaleDemo.__init__",
+                                "inherits_import::MajorScales.majorNum"],
+                               ["inherits::(global)", "inherits::majorNum"],
+                               ["inherits::ScaleDemo.__init__",
+                                "inherits_import::PentatonicScales.pentaNum"]],
+            "expected_nodes": ["inherits_import::MajorScales.majorNum",
+                               "inherits::(global)",
+                               "inherits::ScaleDemoLimited.__init__",
+                               "inherits_import::PentatonicScales.pentaNum",
+                               "inherits::majorNum",
+                               "inherits::ScaleDemo.__init__"]
+        },
+        {
             "test_name": "pytz",
             "directory": "pytz",
             "kwargs": {"exclude_namespaces": ["test_tzinfo"]},
@@ -549,6 +567,19 @@ testdata = {
                                "chained::Chain.(constructor)",
                                "chained::Chain.add",
                                "chained::Chain.mul"]
+        },
+        {
+            "test_name": "inheritance",
+            "directory": "inheritance",
+            "expected_edges": [["inheritance::(global)",
+                                "inheritance::ScaleDemo.(constructor)"],
+                               ["inheritance::(global)", "inheritance::pentaNum"],
+                               ["inheritance::ScaleDemo.(constructor)",
+                                "inheritance::MajorScales.majorNum"]],
+            "expected_nodes": ["inheritance::MajorScales.majorNum",
+                               "inheritance::ScaleDemo.(constructor)",
+                               "inheritance::pentaNum",
+                               "inheritance::(global)"]
         },
         {
             "test_name": "moment.js",
@@ -1179,5 +1210,5 @@ testdata = {
                                "importer_es6::(global)",
                                "importer_es6::outer"]
         },
-    ],
+    ]
 }

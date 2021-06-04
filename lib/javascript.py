@@ -4,7 +4,7 @@ import json
 import subprocess
 
 from .model import (Group, Node, Call, Variable, BaseLanguage,
-                    OWNER_CONST, is_installed, djoin, flatten)
+                    OWNER_CONST, GROUP_TYPE, is_installed, djoin, flatten)
 
 
 def lineno(el):
@@ -188,7 +188,7 @@ def make_local_variables(tree, parent):
             variables += process_assign(element)
 
     # Make a 'this' variable for use anywhere we need it that points to the class
-    if isinstance(parent, Group) and parent.group_type == 'CLASS':
+    if isinstance(parent, Group) and parent.group_type == GROUP_TYPE.CLASS:
         variables.append(Variable('this', parent, lineno(tree)))
 
     variables = list(filter(None, variables))
@@ -209,6 +209,17 @@ def children(tree):
         if type(v) == list:
             ret += v
     return ret
+
+
+def get_inherits(tree):
+    """
+    Gets the superclass of the class. In js, this will be max 1 element
+    :param ast tree:
+    :rtype: list[str]
+    """
+    if tree['superClass']:
+        return [tree['superClass']['name']]
+    return []
 
 
 def get_acorn_version():
@@ -233,16 +244,17 @@ class Javascript(BaseLanguage):
                             "tested on 8.*", get_acorn_version())
 
     @staticmethod
-    def get_tree(filename, source_type):
+    def get_tree(filename, lang_params):
         """
         Get the entire AST for this file
 
         :param filename str:
+        :param lang_params LanguageParams:
         :rtype: ast
         """
         script_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                   "get_ast.js")
-        cmd = ["node", script_loc, source_type, filename]
+        cmd = ["node", script_loc, lang_params.source_type, filename]
         try:
             output = subprocess.check_output(cmd, stderr=subprocess.PIPE)
         except subprocess.CalledProcessError:
@@ -320,7 +332,7 @@ class Javascript(BaseLanguage):
         line_number = lineno(tree)
         calls = make_calls(this_scope_body)
         variables = make_local_variables(this_scope_body, parent)
-        node = Node(token, line_number, calls, variables, parent=parent,
+        node = Node(token, calls, variables, parent=parent, line_number=line_number,
                     is_constructor=is_constructor)
 
         subnodes = flatten([Javascript.make_nodes(t, node) for t in subnode_trees])
@@ -338,10 +350,9 @@ class Javascript(BaseLanguage):
         :rtype: Node
         """
         token = "(global)"
-        line_number = 0
         calls = make_calls(lines)
         variables = make_local_variables(lines, parent)
-        root_node = Node(token, line_number, calls, variables, parent=parent)
+        root_node = Node(token, calls, variables, line_number=0, parent=parent)
         return root_node
 
     @staticmethod
@@ -359,11 +370,13 @@ class Javascript(BaseLanguage):
         subgroup_trees, node_trees, body_trees = Javascript.separate_namespaces(tree)
         assert not subgroup_trees
 
-        group_type = 'CLASS'
+        group_type = GROUP_TYPE.CLASS
         token = tree['id']['name']
         line_number = lineno(tree)
+        inherits = get_inherits(tree)
 
-        class_group = Group(token, line_number, group_type, parent=parent)
+        class_group = Group(token, group_type, 'Class', inherits=inherits,
+                            line_number=line_number, parent=parent)
 
         for node_tree in node_trees:
             for new_node in Javascript.make_nodes(node_tree, parent=class_group):
