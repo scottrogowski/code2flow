@@ -1714,13 +1714,13 @@ testdata = {
         {
             "test_name": "factory",
             "directory": "factory",
-            "expected_edges": [["factory::(global)", "currency::Money.contains"],
-                               ["factory::(global)", "currency::Currency.getCode"],
-                               ["factory::(global)", "currency::Currency.__construct"]],
-            "expected_nodes": ["currency::Currency.__construct",
-                               "factory::(global)",
+            "expected_edges": [["factory::(Closure)", "currency::Currency.__construct"],
+                               ["factory::(Closure)", "currency::Currency.getCode"],
+                               ["factory::(Closure)", "currency::Money.contains"]],
+            "expected_nodes": ["currency::Currency.getCode",
                                "currency::Money.contains",
-                               "currency::Currency.getCode"]
+                               "factory::(Closure)",
+                               "currency::Currency.__construct"]
         }
     ]
 }

@@ -189,7 +189,6 @@ def make_file_group(tree, filename, extension):
     language = LANGUAGES[extension]
 
     subgroup_trees, node_trees, body_trees = language.separate_namespaces(tree)
-    # print('\a'); import ipdb; ipdb.set_trace()
     group_type = GROUP_TYPE.MODULE
     token = os.path.split(filename)[-1].rsplit('.' + extension, 1)[0]
     line_number = 0
