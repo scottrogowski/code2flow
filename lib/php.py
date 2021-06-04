@@ -212,30 +212,19 @@ def make_local_variables(tree_el, parent):
 #     return as_lines(body_struct)
 
 
-# def get_inherits(tree, body_tree):
-#     """
-#     Get the various types of inheritances this class/module can have
+def get_inherits(tree):
+    """
+    Get the various types of inheritances this class/module can have
 
-#     :param tree ast:
-#     :param body_tree list[ast]
-#     :rtype: list[str]
-#     """
-#     inherits = []
+    :param tree ast:
+    :rtype: list[str]
+    """
 
-#     # extends
-#     if tree[0] == 'class' and tree[2]:
-#         inherits.append(tree[2][2])
+    if tree['extends']:
+        assert len(tree['extends']['parts']) == 1
+        return [tree['extends']['parts'][0]]
 
-#     # module automatically extends same-named modules
-#     if tree[0] == 'module':
-#         inherits.append(tree[1][2])
-
-#     # mixins
-#     for el in body_tree:
-#         if el[0] == 'send' and el[2] == 'include':
-#             inherits.append(el[3][2])
-
-#     return inherits
+    return []
 
 
 class PHP(BaseLanguage):
@@ -360,9 +349,7 @@ class PHP(BaseLanguage):
 
         display_name = tree['nodeType'][5:]
 
-        # inherits = get_inherits(tree, body_trees)
-        print('\a'); import ipdb; ipdb.set_trace()
-        inherits = [] # TODO
+        inherits = get_inherits(tree)
 
         print("processing group", token)
         # if tree['nodeType'] == 'Stmt_Namespace':

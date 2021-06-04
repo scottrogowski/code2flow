@@ -1627,7 +1627,19 @@ testdata = {
                                "publicprivateprotected::Fruit.set_weight",
                                "publicprivateprotected::Fruit.set_name",
                                "publicprivateprotected::(global)"]
+        },
+        {
+            "test_name": "inheritance",
+            "directory": "inheritance",
+            "expected_edges": [["inheritance::Strawberry.message",
+                                "inheritance::Fruit.getColor"],
+                               ["inheritance::(global)",
+                                "inheritance::Strawberry.message"],
+                               ["inheritance::(global)", "inheritance::Fruit.intro"]],
+            "expected_nodes": ["inheritance::Fruit.intro",
+                               "inheritance::(global)",
+                               "inheritance::Fruit.getColor",
+                               "inheritance::Strawberry.message"]
         }
-
     ]
 }
