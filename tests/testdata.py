@@ -1640,6 +1640,32 @@ testdata = {
                                "inheritance::(global)",
                                "inheritance::Fruit.getColor",
                                "inheritance::Strawberry.message"]
+        },
+        {
+            "test_name": "inheritance2",
+            "directory": "inheritance2",
+            "expected_edges": [["inheritance2::(global)", "inheritance2::Audi.intro"],
+                               ["inheritance2::(global)", "inheritance2::Volvo.intro"],
+                               ["inheritance2::(global)", "inheritance2::Audi.makeSound"],
+                               ["inheritance2::(global)", "inheritance2::Citroen.intro"]],
+            "expected_nodes": ["inheritance2::Audi.makeSound",
+                               "inheritance2::Citroen.intro",
+                               "inheritance2::Audi.intro",
+                               "inheritance2::Volvo.intro",
+                               "inheritance2::(global)"]
+        },
+        {
+            "test_name": "traits",
+            "directory": "traits",
+            "expected_edges": [["traits::welcome2", "traits::message1.msg1"],
+                               ["traits::welcome1", "traits::Welcome.__construct"],
+                               ["traits::welcome2", "traits::message2.msg2"],
+                               ["traits::welcome1", "traits::message1.msg1"]],
+            "expected_nodes": ["traits::message1.msg1",
+                               "traits::Welcome.__construct",
+                               "traits::message2.msg2",
+                               "traits::welcome2",
+                               "traits::welcome1"]
         }
     ]
 }

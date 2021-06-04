@@ -6,35 +6,9 @@ from .model import (Group, Node, Call, Variable, BaseLanguage,
                     OWNER_CONST, GROUP_TYPE, is_installed, flatten)
 
 
-# def resolve_owner(owner_el):
-#     """
-#     Resolve who owns the call, if anyone.
-#     So if the expression is i_ate.pie(). And i_ate is a Person, the callee is Person.
-#     This is returned as a string and eventually set to the owner_token in the call
+def lineno(tree):
+    return tree['attributes']['startLine']
 
-#     :param owner_el ast:
-#     :rtype: str|None
-#     """
-#     if not owner_el or not isinstance(owner_el, list):
-#         return None
-#     if owner_el[0] == 'begin':
-#         # skip complex ownership
-#         return OWNER_CONST.UNKNOWN_VAR
-#     if owner_el[0] == 'send':
-#         # sends are complex too
-#         return OWNER_CONST.UNKNOWN_VAR
-#     if owner_el[0] == 'lvar':
-#         # var.func()
-#         return owner_el[1]
-#     if owner_el[0] == 'ivar':
-#         # @var.func()
-#         return owner_el[1]
-#     if owner_el[0] == 'self':
-#         return 'self'
-#     if owner_el[0] == 'const':
-#         return owner_el[2]
-
-#     return OWNER_CONST.UNKNOWN_VAR
 
 def get_name(tree):
     try:
@@ -72,6 +46,10 @@ def get_call_from_expr(func_expr):
             token = get_name(func_expr['right'])
             # token = func_expr['right']['name']['parts'][0]
             owner_token = func_expr['left']['name']
+        elif func_expr['nodeType'] == 'Expr_StaticCall':
+            token = get_name(func_expr)
+            assert len(func_expr['class']['parts']) == 1
+            owner_token = func_expr['class']['parts'][0]
         else:
             return None
     except:
@@ -79,9 +57,11 @@ def get_call_from_expr(func_expr):
 
     if owner_token and token == '__construct':
         # Taking out owner_token for constructors as a little hack to make it work
-        return Call(token=owner_token)
+        return Call(token=owner_token,
+                    line_number=lineno(func_expr))
     ret = Call(token=token,
-               owner_token=owner_token)
+               owner_token=owner_token,
+               line_number=lineno(func_expr))
     print("returning call", ret)
     # print(func_expr)
     return ret
@@ -107,6 +87,10 @@ def walk(tree):
     if 'var' in tree:
         ret.append(tree['var'])
         ret += walk(tree['var'])
+    if 'exprs' in tree:
+        ret += tree['exprs']
+        for expr in tree['exprs']:
+            ret += walk(expr)
 
     # if 'nodeType' in tree:
     #     ret.append(tree)
@@ -129,7 +113,9 @@ def make_calls(body_el):
         # print("walk expre", expr)
         calls.append(get_call_from_expr(expr))
     ret = list(filter(None, calls))
-    # print('\a'); import ipdb; ipdb.set_trace()
+
+    # if ret:
+    #     print('\a'); import ipdb; ipdb.set_trace()
     return ret
 
 def process_assign(assignment_el):
@@ -146,7 +132,7 @@ def process_assign(assignment_el):
     varname = assignment_el['var']['name']
     call = get_call_from_expr(assignment_el['expr'])
     if call:
-        return Variable(varname, call)
+        return Variable(varname, call, line_number=lineno(assignment_el))
     # else is something like `varname = num`
     return None
 
@@ -170,7 +156,7 @@ def make_local_variables(tree_el, parent):
 
     # Make a 'this' variable for use anywhere we need it that points to the class
     if isinstance(parent, Group) and parent.group_type == GROUP_TYPE.CLASS:
-        variables.append(Variable('this', parent))
+        variables.append(Variable('this', parent, line_number=parent.line_number))
 
     # TODO maybe a self variable too for class variables
 
@@ -219,12 +205,17 @@ def get_inherits(tree):
     :param tree ast:
     :rtype: list[str]
     """
+    ret = []
 
-    if tree['extends']:
+    if tree.get('extends', {}):
         assert len(tree['extends']['parts']) == 1
-        return [tree['extends']['parts'][0]]
+        ret.append(tree['extends']['parts'][0])
 
-    return []
+    for stmt in tree.get('stmts', []):
+        if stmt['nodeType'] == 'Stmt_TraitUse':
+            for trait in stmt['traits']:
+                ret.append(trait['parts'][0])
+    return ret
 
 
 class PHP(BaseLanguage):
@@ -272,13 +263,15 @@ class PHP(BaseLanguage):
                   downstream into real Groups and Nodes.
         :rtype: (list[ast], list[ast], list[ast])
         """
+        tree = tree or []  # if its abstract, it comes in with no body
+
         groups = []
         nodes = []
         body = []
         for el in tree:
             if el['nodeType'] in ('Stmt_Function', 'Stmt_ClassMethod'):
                 nodes.append(el)
-            elif el['nodeType'] in ('Stmt_Class', 'Stmt_Namespace'):
+            elif el['nodeType'] in ('Stmt_Class', 'Stmt_Namespace', 'Stmt_Trait'):
                 groups.append(el)
             else:
                 body.append(el)
@@ -307,7 +300,7 @@ class PHP(BaseLanguage):
         calls = make_calls(this_scope_body)
         variables = make_local_variables(this_scope_body, parent) # TODO
         node = Node(token, calls, variables, parent=parent,
-                    is_constructor=is_constructor)
+                    is_constructor=is_constructor, line_number=lineno(tree))
 
         # TODO
         # subnodes = flatten([PHP.make_nodes(t, parent) for t in subnode_trees])
@@ -325,9 +318,11 @@ class PHP(BaseLanguage):
         :rtype: Node
         """
         token = "(global)"
+        line_number = lines and lineno(lines[0]) or 0
         calls = make_calls(lines)
         variables = make_local_variables(lines, parent)
-        root_node = Node(token, calls, variables, parent=parent)
+        root_node = Node(token, calls, variables, parent=parent,
+                         line_number=line_number)
         return root_node
 
     @staticmethod
@@ -341,7 +336,7 @@ class PHP(BaseLanguage):
         :param parent Group:
         :rtype: Group
         """
-        assert tree['nodeType'] in ('Stmt_Class', 'Stmt_Namespace')
+        assert tree['nodeType'] in ('Stmt_Class', 'Stmt_Namespace', 'Stmt_Trait')
         subgroup_trees, node_trees, body_trees = PHP.separate_namespaces(tree['stmts'])
 
         token = get_name(tree)
@@ -355,7 +350,7 @@ class PHP(BaseLanguage):
         # if tree['nodeType'] == 'Stmt_Namespace':
         #     print('\a'); import ipdb; ipdb.set_trace()
         class_group = Group(token, GROUP_TYPE.CLASS, display_name,
-                            inherits=inherits, parent=parent)
+                            inherits=inherits, parent=parent, line_number=lineno(tree))
 
         # TODO
         # assert not subgroup_trees
