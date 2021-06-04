@@ -7,15 +7,15 @@ import pytest
 
 sys.path.append(os.getcwd().split('/tests')[0])
 
-from lib.engine import code2flow
+from lib.engine import code2flow, LanguageParams
 from tests.testdata import testdata
 
 LANGUAGES = (
     'py',
     'js',
     'mjs',
-    'php',
-    'ruby',
+    # 'rb',
+    # 'php',
 )
 
 flattened_tests = {}
@@ -63,6 +63,8 @@ def test_all(test_tup):
     print("Running test %r..." % test_dict['test_name'])
     directory_path = os.path.join('test_code', language, test_dict['directory'])
     kwargs = test_dict.get('kwargs', {})
+    kwargs['lang_params'] = LanguageParams(kwargs.pop('source_type', 'script'),
+                                           kwargs.pop('ruby_version', '27'))
     output_file = io.StringIO()
     code2flow([directory_path], output_file, language, **kwargs)
 
