@@ -291,9 +291,7 @@ class PHP(BaseLanguage):
         node = Node(token, calls, variables, parent=parent,
                     is_constructor=is_constructor, line_number=lineno(tree))
 
-        # TODO
-        # subnodes = flatten([PHP.make_nodes(t, parent) for t in subnode_trees])
-        subnodes = []
+        subnodes = flatten([PHP.make_nodes(t, parent) for t in subnode_trees])
         return [node] + subnodes
 
     @staticmethod
@@ -329,8 +327,6 @@ class PHP(BaseLanguage):
         subgroup_trees, node_trees, body_trees = PHP.separate_namespaces(tree['stmts'])
 
         token = get_name(tree)
-        # token = tree['name']['name']
-
         display_name = tree['nodeType'][5:]
 
         inherits = get_inherits(tree)

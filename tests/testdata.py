@@ -1721,6 +1721,13 @@ testdata = {
                                "currency::Money.contains",
                                "factory::(Closure)",
                                "currency::Currency.__construct"]
+        },
+        {
+            "test_name": "nested",
+            "directory": "nested",
+            "expected_edges": [["nested::(global)", "nested::outer"],
+                               ["nested::(global)", "nested::inner"]],
+            "expected_nodes": ["nested::outer", "nested::inner", "nested::(global)"]
         }
     ]
 }
