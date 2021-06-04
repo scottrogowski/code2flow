@@ -13,9 +13,19 @@ def lineno(tree):
 def get_name(tree):
     try:
         return tree['name']['name']
-    except:
+    except KeyError:
+        pass
+    try:
         assert len(tree['name']['parts']) == 1
         return tree['name']['parts'][0]
+    except KeyError:
+        pass
+    if tree['name']['nodeType'] == 'Expr_Closure':
+        return None
+    assert False
+
+
+# STOP_TYPES = ('Expr_FuncCall', 'Expr_New', 'Expr_MethodCall', 'Expr_BinaryOp_Concat', 'Expr_StaticCall' )
 
 
 def get_call_from_expr(func_expr):
@@ -42,7 +52,7 @@ def get_call_from_expr(func_expr):
                 owner_token = OWNER_CONST.UNKNOWN_VAR
             else:
                 owner_token = func_expr['var']['name']
-        elif func_expr['nodeType'] == 'Expr_BinaryOp_Concat':
+        elif func_expr['nodeType'] == 'Expr_BinaryOp_Concat' and func_expr['right']['nodeType'] == 'Expr_FuncCall':
             token = get_name(func_expr['right'])
             # token = func_expr['right']['name']['parts'][0]
             owner_token = func_expr['left']['name']
@@ -52,8 +62,11 @@ def get_call_from_expr(func_expr):
             owner_token = func_expr['class']['parts'][0]
         else:
             return None
-    except:
+    except Exception as ex:
         print('\a'); import ipdb; ipdb.set_trace()
+
+    # if token == 'b':
+    #     print('\a'); import ipdb; ipdb.set_trace()
 
     if owner_token and token == '__construct':
         # Taking out owner_token for constructors as a little hack to make it work
@@ -62,41 +75,88 @@ def get_call_from_expr(func_expr):
     ret = Call(token=token,
                owner_token=owner_token,
                line_number=lineno(func_expr))
-    print("returning call", ret)
-    # print(func_expr)
     return ret
 
 
-def walk(tree):
-    """
-    Given an ast tree walk it to get every node
+# def walk(tree):
+#     """
+#     Given an ast tree walk it to get every node
 
-    :param tree_el ast:
-    :rtype: list[ast]
-    """
-    ret = []
+#     :param tree_el ast:
+#     :rtype: list[ast]
+#     """
+#     ret = []
+#     if isinstance(tree, list):
+#         for el in tree:
+#             ret += walk(el)
+#         return ret
+
+#     assert isinstance(tree, dict)
+#     if tree.get('expr'):
+#         ret.append(tree['expr'])
+#         ret += walk(tree['expr'])
+#     if tree.get('var'):
+#         ret.append(tree['var'])
+#         ret += walk(tree['var'])
+#     if tree.get('exprs'):
+#         ret += tree['exprs']
+#         for expr in tree['exprs']:
+#             ret += walk(expr)
+#     if tree.get('stmts'):
+#         ret += tree['stmts']
+#         for expr in tree['stmts']:
+#             ret += walk(expr)
+
+#     assert 'stmt' not in tree
+#     assert 'vars' not in tree
+
+#     return list(filter(None, ret))
+
+def walk(tree):
+#     """
+#     Given an ast tree walk it to get every node
+
+#     :param tree_el ast:
+#     :rtype: list[ast]
+#     """
+
     if isinstance(tree, list):
+        ret = []
         for el in tree:
-            ret += walk(el)
+            if isinstance(el, dict) and el.get('nodeType'):
+                ret += walk(el)
         return ret
 
     assert isinstance(tree, dict)
-    if 'expr' in tree:
-        ret.append(tree['expr'])
-        ret += walk(tree['expr'])
-    if 'var' in tree:
-        ret.append(tree['var'])
-        ret += walk(tree['var'])
-    if 'exprs' in tree:
-        ret += tree['exprs']
-        for expr in tree['exprs']:
-            ret += walk(expr)
+    assert tree['nodeType']
+    ret = [tree]
+    # if tree['nodeType'] in STOP_TYPES:
+        # return ret
+    if tree['nodeType'] == 'Expr_BinaryOp_Concat':
+        return ret
 
-    # if 'nodeType' in tree:
-    #     ret.append(tree)
-    #     for el in tree.values():
-    #         if isinstance(el, dict):
-    #             ret += walk(el)
+    for v in tree.values():
+        # if v in ('left', 'right'):
+        #     continue
+        if isinstance(v, list) or (isinstance(v, dict) and v.get('nodeType')):
+            ret += walk(v)
+    return ret
+
+
+def dive(tree):
+    ret = []
+    if tree.get('expr'):
+        ret.append(tree['expr'])
+    if tree.get('var'):
+        ret.append(tree['var'])
+    if tree.get('exprs'):
+        ret += tree['exprs']
+    if tree.get('stmts'):
+        ret += tree['stmts']
+
+    assert 'stmt' not in tree
+    assert 'vars' not in tree
+
     return ret
 
 
@@ -108,15 +168,12 @@ def make_calls(body_el):
     :rtype: list[Call]
     """
     calls = []
-    # print('\a'); import ipdb; ipdb.set_trace()
     for expr in walk(body_el):
-        # print("walk expre", expr)
         calls.append(get_call_from_expr(expr))
     ret = list(filter(None, calls))
 
-    # if ret:
-    #     print('\a'); import ipdb; ipdb.set_trace()
     return ret
+
 
 def process_assign(assignment_el):
     """
@@ -148,7 +205,6 @@ def make_local_variables(tree_el, parent):
     :param parent Group:
     :rtype: list[Variable]
     """
-    # print('\a'); import ipdb; ipdb.set_trace()
     variables = []
     for el in walk(tree_el):
         if el['nodeType'] == 'Expr_Assign':
@@ -157,8 +213,7 @@ def make_local_variables(tree_el, parent):
     # Make a 'this' variable for use anywhere we need it that points to the class
     if isinstance(parent, Group) and parent.group_type == GROUP_TYPE.CLASS:
         variables.append(Variable('this', parent, line_number=parent.line_number))
-
-    # TODO maybe a self variable too for class variables
+        variables.append(Variable('self', parent, line_number=parent.line_number))
 
     variables = list(filter(None, variables))
     return variables
@@ -268,13 +323,22 @@ class PHP(BaseLanguage):
         groups = []
         nodes = []
         body = []
+        # print('\a'); import ipdb; ipdb.set_trace()
         for el in tree:
-            if el['nodeType'] in ('Stmt_Function', 'Stmt_ClassMethod'):
+            if el['nodeType'] in ('Stmt_Function', 'Stmt_ClassMethod', 'Expr_Closure'):
                 nodes.append(el)
             elif el['nodeType'] in ('Stmt_Class', 'Stmt_Namespace', 'Stmt_Trait'):
                 groups.append(el)
             else:
-                body.append(el)
+                tup = PHP.separate_namespaces(dive(el))
+                if tup[0] or tup[1]:
+                    groups += tup[0]
+                    nodes += tup[1]
+                    body += tup[2]
+                else:
+                    body.append(el)
+            # else:
+            #     body.append(el)
         return groups, nodes, body
 
     @staticmethod
@@ -288,9 +352,12 @@ class PHP(BaseLanguage):
         :param parent Group:
         :rtype: list[Node]
         """
-        assert tree['nodeType'] in ('Stmt_Function', 'Stmt_ClassMethod')
+        assert tree['nodeType'] in ('Stmt_Function', 'Stmt_ClassMethod', 'Expr_Closure')
 
-        token = tree['name']['name']
+        if tree['nodeType'] == 'Expr_Closure':
+            token = '(Closure)'
+        else:
+            token = tree['name']['name']
         print("processing node", token, parent)
         is_constructor = token == '__construct' and parent.group_type == GROUP_TYPE.CLASS
 
@@ -347,8 +414,6 @@ class PHP(BaseLanguage):
         inherits = get_inherits(tree)
 
         print("processing group", token)
-        # if tree['nodeType'] == 'Stmt_Namespace':
-        #     print('\a'); import ipdb; ipdb.set_trace()
         class_group = Group(token, GROUP_TYPE.CLASS, display_name,
                             inherits=inherits, parent=parent, line_number=lineno(tree))
 

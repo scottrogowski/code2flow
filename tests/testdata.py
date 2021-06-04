@@ -1674,6 +1674,53 @@ testdata = {
                                "traits::message2.msg2",
                                "traits::welcome2",
                                "traits::welcome1"]
+        },
+        {
+            "test_name": "static",
+            "directory": "static",
+            "expected_edges": [["static::(global)", "static::Greeting.__construct"],
+                               ["static::(global)", "static::Greeting.welcome"],
+                               ["static::Greeting.__construct",
+                                "static::Greeting.say_name"],
+                               ["static::Greeting.__construct",
+                                "static::Greeting.welcome"]],
+            "expected_nodes": ["static::Greeting.__construct",
+                               "static::(global)",
+                               "static::Greeting.welcome",
+                               "static::Greeting.say_name"]
+        },
+        {
+            "test_name": "anon",
+            "directory": "anon",
+            "comment": "skip closure methods",
+            "expected_edges": [["anonymous_function::(global)", "anonymous_function::a"]],
+            "expected_nodes": ["anonymous_function::(global)", "anonymous_function::a"]
+        },
+        {
+            "test_name": "anon2",
+            "directory": "anon2",
+            "expected_edges": [["anonymous_function2::(Closure)",
+                                "anonymous_function2::func_a"]],
+            "expected_nodes": ["anonymous_function2::(Closure)",
+                               "anonymous_function2::func_a"]
+        },
+        {
+            "test_name": "branch",
+            "directory": "branch",
+            "comment": "just a simple sub-block",
+            "expected_edges": [["branch::(global)", "branch::a"]],
+            "expected_nodes": ["branch::a", "branch::(global)"]
+        },
+        {
+            "test_name": "factory",
+            "directory": "factory",
+            "expected_edges": [["factory::(global)", "currency::Money.contains"],
+                               ["factory::(global)", "currency::Currency.getCode"],
+                               ["factory::(global)", "currency::Currency.__construct"]],
+            "expected_nodes": ["currency::Currency.__construct",
+                               "factory::(global)",
+                               "currency::Money.contains",
+                               "currency::Currency.getCode"]
         }
     ]
 }
