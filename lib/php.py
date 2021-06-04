@@ -363,9 +363,8 @@ class PHP(BaseLanguage):
 
         if tree['nodeType'] == 'Stmt_Namespace':
             class_group.add_node(PHP.make_root_node(body_trees, class_group))
-
-        # TODO
-        # for node in class_group.nodes:
-        #     node.variables += [Variable(n.token, n) for n in class_group.nodes]
+            for node in class_group.nodes:
+                node.variables += [Variable(n.token, n, line_number=n.line_number)
+                                   for n in class_group.nodes]
 
         return class_group
