@@ -582,6 +582,14 @@ testdata = {
                                "inheritance::(global)"]
         },
         {
+            "test_name": "bad_parse",
+            "directory": "bad_parse",
+            "comments": "One file is bad. Test bad parse line",
+            "kwargs": {"skip_parse_errors": True},
+            "expected_edges": [["file_a_good::(global)", "file_a_good::a"]],
+            "expected_nodes": ["file_a_good::(global)", "file_a_good::a"]
+        },
+        {
             "test_name": "moment.js",
             "directory": "moment",
             "expected_edges": [["moment::getWeeksInWeekYear", "moment::weeksInYear"],
