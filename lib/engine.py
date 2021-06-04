@@ -305,7 +305,7 @@ def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_function
     file_ast_trees = []
     for source in sources:
         try:
-            file_ast_trees.append(language.get_tree(source, lang_params))
+            file_ast_trees.append((source, language.get_tree(source, lang_params)))
         except Exception as ex:
             if skip_parse_errors:
                 logging.warning("Could not parse %r. (%r) Skipping...", source, ex)
@@ -314,7 +314,7 @@ def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_function
 
     # 2. Find all groups (classes/modules) and nodes (functions) (a lot happens here)
     file_groups = []
-    for file_ast_tree in file_ast_trees:
+    for source, file_ast_tree in file_ast_trees:
         file_group = make_file_group(file_ast_tree, source, extension)
         file_groups.append(file_group)
 
