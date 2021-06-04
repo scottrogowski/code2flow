@@ -221,8 +221,8 @@ def _find_link_for_call(call, node_a, all_nodes):
 
     all_vars = node_a.get_variables(call.line_number)
 
-    # if call.token == 'func_2':
-    #     print('\a'); import ipdb; ipdb.set_trace()
+    if call.token == 'namespaced_func':
+        print('\a'); import ipdb; ipdb.set_trace()
 
     for var in all_vars:
         var_match = call.matches_variable(var)
@@ -318,7 +318,7 @@ def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_function
         file_groups = _exclude_functions(file_groups, exclude_functions)
 
     # 3. Consolidate structure for inheritance
-    all_subgroups = flatten(g.subgroups for g in file_groups)
+    all_subgroups = flatten(g.all_groups() for g in file_groups)
 
     nodes_by_subgroup_token = collections.defaultdict(list)
     for subgroup in all_subgroups:
@@ -343,7 +343,7 @@ def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_function
         node.resolve_variables(file_groups)
 
     # Not a step. Just log what we know so far
-    logging.info("Found groups %r." % sorted(g.label() for g in list(file_groups) + all_subgroups))
+    logging.info("Found groups %r." % [g.label() for g in all_subgroups])
     logging.info("Found nodes %r." % sorted(n.token_with_ownership() for n in all_nodes))
     logging.info("Found calls %r." % sorted(list(set(c.to_string() for c in flatten(n.calls for n in all_nodes)))))
     logging.info("Found variables %r." % sorted(list(set(v.to_string() for v in flatten(n.variables for n in all_nodes)))))

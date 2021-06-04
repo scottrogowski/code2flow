@@ -1610,6 +1610,24 @@ testdata = {
                                "chains::b",
                                "chains::Cls.a"]
         },
+        {
+            "test_name": "publicprivateprotected",
+            "directory": "publicprivateprotected",
+            "comment": "Just ensuring that access modifiers don't confuse code2flow",
+            "expected_edges": [["publicprivateprotected::set_color_weight",
+                                "publicprivateprotected::Fruit.set_weight"],
+                               ["publicprivateprotected::(global)",
+                                "publicprivateprotected::set_color_weight"],
+                               ["publicprivateprotected::(global)",
+                                "publicprivateprotected::Fruit.set_name"],
+                               ["publicprivateprotected::set_color_weight",
+                                "publicprivateprotected::Fruit.set_color"]],
+            "expected_nodes": ["publicprivateprotected::Fruit.set_color",
+                               "publicprivateprotected::set_color_weight",
+                               "publicprivateprotected::Fruit.set_weight",
+                               "publicprivateprotected::Fruit.set_name",
+                               "publicprivateprotected::(global)"]
+        }
 
     ]
 }

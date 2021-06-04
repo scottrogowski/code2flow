@@ -36,6 +36,13 @@ from .model import (Group, Node, Call, Variable, BaseLanguage,
 
 #     return OWNER_CONST.UNKNOWN_VAR
 
+def get_name(tree):
+    try:
+        return tree['name']['name']
+    except:
+        assert len(tree['name']['parts']) == 1
+        return tree['name']['parts'][0]
+
 
 def get_call_from_expr(func_expr):
     """
@@ -48,19 +55,22 @@ def get_call_from_expr(func_expr):
     """
     try:
         if func_expr['nodeType'] == 'Expr_FuncCall':
-            token = func_expr['name']['parts'][0]
+            # token = func_expr['name']['parts'][0]
+            token = get_name(func_expr)
             owner_token = None
         elif func_expr['nodeType'] == 'Expr_New' and func_expr['class'].get('parts'):
             token = '__construct'
             owner_token = func_expr['class']['parts'][0]
         elif func_expr['nodeType'] == 'Expr_MethodCall':
-            token = func_expr['name']['name']
+            # token = func_expr['name']['name']
+            token = get_name(func_expr)
             if 'var' in func_expr['var']:
                 owner_token = OWNER_CONST.UNKNOWN_VAR
             else:
                 owner_token = func_expr['var']['name']
         elif func_expr['nodeType'] == 'Expr_BinaryOp_Concat':
-            token = func_expr['right']['name']['parts'][0]
+            token = get_name(func_expr['right'])
+            # token = func_expr['right']['name']['parts'][0]
             owner_token = func_expr['left']['name']
         else:
             return None
@@ -118,9 +128,9 @@ def make_calls(body_el):
     for expr in walk(body_el):
         # print("walk expre", expr)
         calls.append(get_call_from_expr(expr))
+    ret = list(filter(None, calls))
     # print('\a'); import ipdb; ipdb.set_trace()
-    return list(filter(None, calls))
-
+    return ret
 
 def process_assign(assignment_el):
     """
@@ -279,7 +289,7 @@ class PHP(BaseLanguage):
         for el in tree:
             if el['nodeType'] in ('Stmt_Function', 'Stmt_ClassMethod'):
                 nodes.append(el)
-            elif el['nodeType'] in ('Stmt_Class',):
+            elif el['nodeType'] in ('Stmt_Class', 'Stmt_Namespace'):
                 groups.append(el)
             else:
                 body.append(el)
@@ -310,8 +320,7 @@ class PHP(BaseLanguage):
         node = Node(token, calls, variables, parent=parent,
                     is_constructor=is_constructor)
 
-        # This is a little different from the other languages in that
-        # the node is now on the parent
+        # TODO
         # subnodes = flatten([PHP.make_nodes(t, parent) for t in subnode_trees])
         subnodes = []
         return [node] + subnodes
@@ -343,25 +352,35 @@ class PHP(BaseLanguage):
         :param parent Group:
         :rtype: Group
         """
-        assert tree['nodeType'] in ('Stmt_Class',)
+        assert tree['nodeType'] in ('Stmt_Class', 'Stmt_Namespace')
         subgroup_trees, node_trees, body_trees = PHP.separate_namespaces(tree['stmts'])
 
-        token = tree['name']['name']
+        token = get_name(tree)
+        # token = tree['name']['name']
+
+        display_name = tree['nodeType'][5:]
 
         # inherits = get_inherits(tree, body_trees)
+        print('\a'); import ipdb; ipdb.set_trace()
         inherits = [] # TODO
 
-        class_group = Group(token, GROUP_TYPE.CLASS, 'Class',
+        print("processing group", token)
+        # if tree['nodeType'] == 'Stmt_Namespace':
+        #     print('\a'); import ipdb; ipdb.set_trace()
+        class_group = Group(token, GROUP_TYPE.CLASS, display_name,
                             inherits=inherits, parent=parent)
 
         # TODO
-        assert not subgroup_trees
-        # for subgroup_tree in subgroup_trees:
-        #     class_group.add_subgroup(PHP.make_class_group(subgroup_tree, class_group))
+        # assert not subgroup_trees
+        for subgroup_tree in subgroup_trees:
+            class_group.add_subgroup(PHP.make_class_group(subgroup_tree, class_group))
 
         for node_tree in node_trees:
             for new_node in PHP.make_nodes(node_tree, parent=class_group):
                 class_group.add_node(new_node)
+
+        if tree['nodeType'] == 'Stmt_Namespace':
+            class_group.add_node(PHP.make_root_node(body_trees, class_group))
 
         # TODO
         # for node in class_group.nodes:
