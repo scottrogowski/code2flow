@@ -221,6 +221,9 @@ def _find_link_for_call(call, node_a, all_nodes):
 
     all_vars = node_a.get_variables(call.line_number)
 
+    # if call.token == 'says':
+    #     print('\a'); import ipdb; ipdb.set_trace()
+
     for var in all_vars:
         var_match = call.matches_variable(var)
         if var_match:
@@ -317,6 +320,7 @@ def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_function
     for source, file_ast_tree in file_ast_trees:
         file_group = make_file_group(file_ast_tree, source, extension)
         file_groups.append(file_group)
+    # print('\a'); import ipdb; ipdb.set_trace()
 
     # 3. Trim namespaces / functions that we don't want
     if exclude_namespaces:

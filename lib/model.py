@@ -43,6 +43,8 @@ def is_installed(executable_cmd):
 
 def djoin(*tup):
     """Convenience method to join strings with dots"""
+    if len(tup) == 1 and isinstance(tup[0], list):
+        return '.'.join(tup[0])
     return '.'.join(tup)
 
 
@@ -67,6 +69,9 @@ def _resolve_str_variable(variable, file_groups):
     """
     has_known = False
 
+    # if variable.token == 'foo':
+    #     print('\a'); import ipdb; ipdb.set_trace()
+
     for file_group in file_groups:
         # Check if any top level node in the other file matches the import
         for node in file_group.nodes:
@@ -77,6 +82,15 @@ def _resolve_str_variable(variable, file_groups):
             if djoin(file_group.token, group.token) == variable.points_to \
                and group.get_constructor():
                 return group.get_constructor()
+
+        # TODO make this work for ruby modules too
+        # This section just ensures that we are returning all of the namespaces
+        # This could probably be cleaned up against the other ways of resolving
+        # string variables
+        for group in file_group.all_groups():
+            if group.token == variable.points_to and group.display_type == 'Namespace':
+                return group
+
         if file_group.token == variable.points_to.split('.', 1)[0]:
             has_known = True
     if has_known:
@@ -223,6 +237,22 @@ class Call():
                             return node
                 if variable.points_to in OWNER_CONST:
                     return variable.points_to
+
+            # TODO clean up and make work for ruby modules
+            # 1. check if variable is namespace
+            # 2. split the owner_token. The first part will be the namespace token
+            # 3. For every node in the namespace node, check if it matches
+            # 4. If it does, return the node
+            # I think apart from being too specific to PHP, this is actually
+            # okay logic here
+            if isinstance(variable.points_to, Group) and variable.points_to.display_type == 'Namespace':
+                parts = self.owner_token.split('.')
+                if len(parts) == 2 and parts[0] == variable.token:
+                    for node in variable.points_to.all_nodes():
+                        print("MATCH CHECK", parts[1], node.namespace_ownership())
+                        print("TOKEN CHECK", self.token, node.token)
+                        if parts[1] == node.namespace_ownership() and self.token == node.token:
+                            return node
             return None
         if self.token == variable.token:
             if isinstance(variable.points_to, Node):
@@ -285,6 +315,14 @@ class Node():
         if self.is_method():
             return djoin(self.parent.token, self.token)
         return self.token
+
+    def namespace_ownership(self):
+        parent = self.parent
+        ret = []
+        while parent and parent.group_type == 'CLASS' and parent.display_type != 'Namespace':
+            ret = [parent.token] + ret
+            parent = parent.parent
+        return djoin(ret)
 
     def label(self):
         """
@@ -476,10 +514,22 @@ class Group():
             ret += subgroup.all_nodes()
         return ret
 
+    def token_with_ownership(self):
+        """
+        # TODO is this being used? If so, test it
+        """
+        parent = self.parent
+        ret = [self.token]
+        while parent and parent.group_type != GROUP_TYPE.MODULE:
+            ret = [parent.token] + ret
+            parent = parent.parent
+        return '.'.join(ret)
+
     def get_constructor(self):
         """
         Return the first constructor for this group - if any
-        TODO, this excludes the possibility of multiple constructors
+        TODO, this excludes the possibility of multiple constructors like
+        __init__ vs __new__
         :rtype: Node|None
         """
         assert self.group_type == GROUP_TYPE.CLASS

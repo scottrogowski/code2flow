@@ -3,7 +3,7 @@ import os
 import subprocess
 
 from .model import (Group, Node, Call, Variable, BaseLanguage,
-                    OWNER_CONST, GROUP_TYPE, is_installed, flatten)
+                    OWNER_CONST, GROUP_TYPE, is_installed, flatten, djoin)
 
 
 def lineno(tree):
@@ -16,16 +16,12 @@ def get_name(tree):
     except KeyError:
         pass
     try:
-        assert len(tree['name']['parts']) == 1
-        return tree['name']['parts'][0]
+        return djoin(tree['name']['parts'])
     except KeyError:
         pass
     if tree['name']['nodeType'] == 'Expr_Closure':
         return None
     assert False
-
-
-# STOP_TYPES = ('Expr_FuncCall', 'Expr_New', 'Expr_MethodCall', 'Expr_BinaryOp_Concat', 'Expr_StaticCall' )
 
 
 def get_call_from_expr(func_expr):
@@ -38,12 +34,11 @@ def get_call_from_expr(func_expr):
     :rtype: Call|None
     """
     if func_expr['nodeType'] == 'Expr_FuncCall':
-        # token = func_expr['name']['parts'][0]
         token = get_name(func_expr)
         owner_token = None
     elif func_expr['nodeType'] == 'Expr_New' and func_expr['class'].get('parts'):
         token = '__construct'
-        owner_token = func_expr['class']['parts'][0]
+        owner_token = djoin(func_expr['class']['parts'])
     elif func_expr['nodeType'] == 'Expr_MethodCall':
         # token = func_expr['name']['name']
         token = get_name(func_expr)
@@ -53,12 +48,10 @@ def get_call_from_expr(func_expr):
             owner_token = func_expr['var']['name']
     elif func_expr['nodeType'] == 'Expr_BinaryOp_Concat' and func_expr['right']['nodeType'] == 'Expr_FuncCall':
         token = get_name(func_expr['right'])
-        # token = func_expr['right']['name']['parts'][0]
         owner_token = func_expr['left']['name']
     elif func_expr['nodeType'] == 'Expr_StaticCall':
         token = get_name(func_expr)
-        assert len(func_expr['class']['parts']) == 1
-        owner_token = func_expr['class']['parts'][0]
+        owner_token = djoin(func_expr['class']['parts'])
     else:
         return None
 
@@ -168,6 +161,13 @@ def make_local_variables(tree_el, parent):
     for el in walk(tree_el):
         if el['nodeType'] == 'Expr_Assign':
             variables.append(process_assign(el))
+        if el['nodeType'] == 'Stmt_Use':
+            for use in el['uses']:
+                owner_token = djoin(use['name']['parts'])
+                token = use['alias']['name'] if use['alias'] else owner_token
+                print("APPENDING LOCAL VARIABLE", token, owner_token)
+                variables.append(Variable(token, points_to=owner_token,
+                                          line_number=lineno(el)))
 
     # Make a 'this' variable for use anywhere we need it that points to the class
     if isinstance(parent, Group) and parent.group_type == GROUP_TYPE.CLASS:
@@ -188,13 +188,12 @@ def get_inherits(tree):
     ret = []
 
     if tree.get('extends', {}):
-        assert len(tree['extends']['parts']) == 1
-        ret.append(tree['extends']['parts'][0])
+        ret.append(djoin(tree['extends']['parts']))
 
     for stmt in tree.get('stmts', []):
         if stmt['nodeType'] == 'Stmt_TraitUse':
             for trait in stmt['traits']:
-                ret.append(trait['parts'][0])
+                ret.append(djoin(trait['parts']))
     return ret
 
 

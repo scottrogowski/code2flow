@@ -1728,6 +1728,31 @@ testdata = {
             "expected_edges": [["nested::(global)", "nested::outer"],
                                ["nested::(global)", "nested::inner"]],
             "expected_nodes": ["nested::outer", "nested::inner", "nested::(global)"]
+        },
+        {
+            "test_name": "namespace_a",
+            "directory": "namespace_a",
+            "expected_edges": [["namespace_a::NS.(global)",
+                                "namespace_a::Namespaced_cls.__construct"],
+                               ["namespace_a::NS.(global)",
+                                "namespace_a::NS.namespaced_func"],
+                               ["namespace_a::NS.(global)",
+                                "namespace_a::Namespaced_cls.instance_method"]],
+            "expected_nodes": ["namespace_a::NS.namespaced_func",
+                               "namespace_a::Namespaced_cls.__construct",
+                               "namespace_a::Namespaced_cls.instance_method",
+                               "namespace_a::NS.(global)"]
+        },
+        {
+            "test_name": "namespace_b",
+            "directory": "namespace_b",
+            "expected_edges": [["namespace_b1::(global)", "namespace_b2::Cat.says"],
+                               ["namespace_b1::(global)", "namespace_b2::Animal.meows"],
+                               ["namespace_b1::(global)", "namespace_b2::Cat.meows"]],
+            "expected_nodes": ["namespace_b2::Cat.says",
+                               "namespace_b1::(global)",
+                               "namespace_b2::Animal.meows",
+                               "namespace_b2::Cat.meows"]
         }
     ]
 }
