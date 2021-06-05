@@ -16,6 +16,7 @@ if os.path.exists("/tmp/code2flow"):
     shutil.rmtree('/tmp/code2flow')
 os.mkdir('/tmp/code2flow')
 
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 def test_generate_image():
     if os.path.exists(IMG_PATH):
@@ -119,6 +120,18 @@ def test_bad_ruby_parse(mocker):
     with pytest.raises(AssertionError) as ex:
         code2flow("test_code/rb/simple_b", "/tmp/code2flow/out.json")
         assert "ruby-parse" in ex and "syntax" in ex
+
+
+def test_bad_php_parse_a():
+    with pytest.raises(AssertionError) as ex:
+        code2flow("test_code/php/bad_php/bad_php_a.php", "/tmp/code2flow/out.json")
+        assert "parse" in ex and "syntax" in ex
+
+
+def test_bad_php_parse_b():
+    with pytest.raises(AssertionError) as ex:
+        code2flow("test_code/php/bad_php/bad_php_b.php", "/tmp/code2flow/out.json")
+        assert "parse" in ex and "php" in ex.lower()
 
 
 def test_no_source_type():

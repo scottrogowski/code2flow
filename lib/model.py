@@ -514,16 +514,16 @@ class Group():
             ret += subgroup.all_nodes()
         return ret
 
-    def token_with_ownership(self):
-        """
-        # TODO is this being used? If so, test it
-        """
-        parent = self.parent
-        ret = [self.token]
-        while parent and parent.group_type != GROUP_TYPE.MODULE:
-            ret = [parent.token] + ret
-            parent = parent.parent
-        return '.'.join(ret)
+    # def token_with_ownership(self):
+    #     """
+    #     # TODO is this being used? If so, test it
+    #     """
+    #     parent = self.parent
+    #     ret = [self.token]
+    #     while parent and parent.group_type != GROUP_TYPE.MODULE:
+    #         ret = [parent.token] + ret
+    #         parent = parent.parent
+    #     return '.'.join(ret)
 
     def get_constructor(self):
         """

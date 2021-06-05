@@ -15,13 +15,16 @@ def get_name(tree):
         return tree['name']['name']
     except KeyError:
         pass
-    try:
-        return djoin(tree['name']['parts'])
-    except KeyError:
-        pass
-    if tree['name']['nodeType'] == 'Expr_Closure':
-        return None
-    assert False
+    # try:
+    return djoin(tree['name']['parts'])
+
+    # TODO I wrote this probably to fix an issue but the test cases are not
+    # catching it
+    # except KeyError:
+        # pass
+    # if tree['name']['nodeType'] == 'Expr_Closure':
+        # return None
+    # assert False
 
 
 def get_call_from_expr(func_expr):
@@ -216,10 +219,10 @@ class PHP(BaseLanguage):
                                   "get_ast.php")
 
         cmd = ["php", script_loc, filename]
-        output = subprocess.check_output(cmd, stderr=subprocess.PIPE)
         try:
+            output = subprocess.check_output(cmd, stderr=subprocess.PIPE)
             tree = json.loads(output)
-        except json.decoder.JSONDecodeError:
+        except (subprocess.CalledProcessError, json.decoder.JSONDecodeError):
             raise AssertionError(
                 "Could not parse file %r. You may have a syntax error. "
                 "For more detail, try running with `php %s`. " %
