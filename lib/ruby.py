@@ -192,8 +192,6 @@ def get_inherits(tree, body_tree):
 
 
 class Ruby(BaseLanguage):
-    FILE_IN_OWNERSHIP = False
-
     @staticmethod
     def assert_dependencies():
         assert is_installed('ruby-parse'), "The ruby-parse gem is requred to " \
@@ -274,9 +272,8 @@ class Ruby(BaseLanguage):
         assert not subgroup_trees
         calls = make_calls(this_scope_body)
         variables = make_local_variables(this_scope_body, parent)
-
-        node = Node(token, calls, variables, parent=parent,
-                    is_constructor=is_constructor)
+        node = Node(token, calls, variables,
+                    parent=parent, is_constructor=is_constructor)
 
         # This is a little different from the other languages in that
         # the node is now on the parent
@@ -320,7 +317,8 @@ class Ruby(BaseLanguage):
         token = tree[1][2]
 
         inherits = get_inherits(tree, body_trees)
-        class_group = Group(token, group_type, display_type, inherits=inherits, parent=parent)
+        class_group = Group(token, group_type, display_type,
+                            inherits=inherits, parent=parent)
 
         for subgroup_tree in subgroup_trees:
             class_group.add_subgroup(Ruby.make_class_group(subgroup_tree, class_group))

@@ -57,44 +57,71 @@ def flatten(list_of_lists):
     return [el for sublist in list_of_lists for el in sublist]
 
 
+# TODO
+# def _resolve_str_variable(variable, file_groups):
+#     """
+#     String variables are when variable.points_to is a string
+#     This happens ONLY when we have imports that we delayed processing for
+
+#     This function looks through all files to see if any particular node matches
+#     the variable.points_to string
+
+#     TODO I think this can also return a group but only if that group is a namespace
+
+#     :param Variable variable:
+#     :param list[Group] file_groups:
+#     :rtype: Node|Group|str
+#     """
+#     has_known = False
+
+#     for file_group in file_groups:
+#         # Check if any top level node in the other file matches the import
+#         for node in file_group.nodes:
+#             # TODO owner tokens
+#             if djoin(file_group.token, node.token) == variable.points_to:
+#                 return node
+#         # Check if any top level class in the other file matches the import
+#         for group in file_group.subgroups:
+#             if djoin(file_group.token, group.token) == variable.points_to \
+#                and group.get_constructor():
+#                 return group.get_constructor()
+
+#         # TODO make this work for ruby modules too
+#         # This section just ensures that we are returning all of the namespaces
+#         # This could probably be cleaned up against the other ways of resolving
+#         # string variables
+#         for group in file_group.all_groups():
+#             if group.token == variable.points_to and group.display_type == 'Namespace':
+#                 return group
+
+#         if file_group.token == variable.points_to.split('.', 1)[0]:
+#             has_known = True
+#     if has_known:
+#         return OWNER_CONST.KNOWN_MODULE
+
+#     return OWNER_CONST.UNKNOWN_MODULE  # Default indicates we must skip
+
 def _resolve_str_variable(variable, file_groups):
     """
     String variables are when variable.points_to is a string
     This happens ONLY when we have imports that we delayed processing for
-    This function looks through all processed files to see if we can find a match
+
+    This function looks through all files to see if any particular node matches
+    the variable.points_to string
 
     :param Variable variable:
     :param list[Group] file_groups:
-    :rtype: Node|str
+    :rtype: Node|Group|str
     """
-    has_known = False
 
     for file_group in file_groups:
-        # Check if any top level node in the other file matches the import
-        for node in file_group.nodes:
-            # TODO owner tokens
-            if djoin(file_group.token, node.token) == variable.points_to:
+        for node in file_group.all_nodes():
+            if any(ot == variable.points_to for ot in node.import_tokens):
                 return node
-        # Check if any top level class in the other file matches the import
-        for group in file_group.subgroups:
-            if djoin(file_group.token, group.token) == variable.points_to \
-               and group.get_constructor():
-                return group.get_constructor()
-
-        # TODO make this work for ruby modules too
-        # This section just ensures that we are returning all of the namespaces
-        # This could probably be cleaned up against the other ways of resolving
-        # string variables
         for group in file_group.all_groups():
-            if group.token == variable.points_to and group.display_type == 'Namespace':
+            if any(ot == variable.points_to for ot in group.import_tokens):
                 return group
-
-        if file_group.token == variable.points_to.split('.', 1)[0]:
-            has_known = True
-    if has_known:
-        return OWNER_CONST.KNOWN_MODULE
-
-    return OWNER_CONST.UNKNOWN_MODULE  # Default indicates we must skip
+    return OWNER_CONST.UNKNOWN_MODULE
 
 
 class BaseLanguage(abc.ABC):
@@ -163,6 +190,13 @@ class Variable():
     Not all variables can be resolved
     """
     def __init__(self, token, points_to, line_number=None):
+        """
+        :param str token:
+        :param str|Call|Node|Group points_to: (str/Call is eventually resolved to Nodes|Groups)
+        :param int|None line_number:
+        """
+        assert token
+        assert points_to
         self.token = token
         self.points_to = points_to
         self.line_number = line_number
@@ -171,11 +205,9 @@ class Variable():
         return f"<Variable token={self.token} points_to={repr(self.points_to)}"
 
     def to_string(self):
-        if self.points_to and isinstance(self.points_to, Group):
+        if self.points_to and isinstance(self.points_to, (Group, Node)):
             return f'{self.token}->{self.points_to.token}'
-        if self.points_to:
-            return f'{self.token}->{self.points_to}'
-        return self.token
+        return f'{self.token}->{self.points_to}'
 
 
 class Call():
@@ -259,18 +291,20 @@ class Call():
                and variable.points_to.group_type == GROUP_TYPE.CLASS \
                and variable.points_to.get_constructor():
                 return variable.points_to.get_constructor()
-        if variable.points_to == OWNER_CONST.KNOWN_MODULE:
-            return OWNER_CONST.KNOWN_MODULE
+        # if variable.points_to == OWNER_CONST.KNOWN_MODULE:
+        #     return OWNER_CONST.KNOWN_MODULE
 
         return None
 
 
 class Node():
-    def __init__(self, token, calls, variables, parent, line_number=None, is_constructor=False):
+    def __init__(self, token, calls, variables, parent, import_tokens=None,
+                 line_number=None, is_constructor=False):
         self.token = token
         self.line_number = line_number
         self.calls = calls
         self.variables = variables
+        self.import_tokens = import_tokens or []
         self.parent = parent
         self.is_constructor = is_constructor
 
@@ -365,17 +399,22 @@ class Node():
         """
         for variable in self.variables:
             if isinstance(variable.points_to, str):
-                if variable.token == 'sp':
-                    print('\a'); import ipdb; ipdb.set_trace()
-                variable.points_to = _resolve_str_variable(variable, file_groups)
+                resolved_var = _resolve_str_variable(variable, file_groups)
+                variable.points_to = resolved_var
             elif isinstance(variable.points_to, Call):
-                if variable.points_to.is_attr() and not variable.points_to.definite_constructor:
-                    # Only process Class(); Not a.Class()
+                # else, this is a call variable
+                call = variable.points_to
+                # Only process Class(); Not a.Class()
+                if call.is_attr() and not call.definite_constructor:
                     continue
+                # Else, assume the call is a constructor.
+                # iterate through to find the right group
                 for file_group in file_groups:
                     for group in file_group.all_groups():
-                        if group.token == variable.points_to.token:
+                        if group.token == call.token:
                             variable.points_to = group
+            else:
+                assert isinstance(variable.points_to, (Node, Group))
 
     def to_dot(self):
         """
@@ -455,8 +494,8 @@ class Group():
     """
     Groups represent namespaces (classes and modules/files)
     """
-    def __init__(self, token, group_type, display_type, line_number=None, parent=None,
-                 inherits=None):
+    def __init__(self, token, group_type, display_type, import_tokens=None,
+                 line_number=None, parent=None, inherits=None):
         self.token = token
         self.line_number = line_number
         self.nodes = []
@@ -465,6 +504,7 @@ class Group():
         self.parent = parent
         self.group_type = group_type
         self.display_type = display_type
+        self.import_tokens = import_tokens or []
         self.inherits = inherits or []
         assert group_type in GROUP_TYPE
 
@@ -513,17 +553,6 @@ class Group():
         for subgroup in self.subgroups:
             ret += subgroup.all_nodes()
         return ret
-
-    # def token_with_ownership(self):
-    #     """
-    #     # TODO is this being used? If so, test it
-    #     """
-    #     parent = self.parent
-    #     ret = [self.token]
-    #     while parent and parent.group_type != GROUP_TYPE.MODULE:
-    #         ret = [parent.token] + ret
-    #         parent = parent.parent
-    #     return '.'.join(ret)
 
     def get_constructor(self):
         """

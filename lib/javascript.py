@@ -130,7 +130,8 @@ def process_assign(element):
     if target['init']['type'] == 'NewExpression':
         token = target['id']['name']
         call = get_call_from_func_element(target['init'])
-        return [Variable(token, call, lineno(element))]
+        if call:
+            return [Variable(token, call, lineno(element))]
 
     # this block is for require (as in: import) expressions
     if target['init']['type'] == 'CallExpression' \
@@ -158,7 +159,8 @@ def process_assign(element):
         if 'name' not in target['id']:
             return []
         call = get_call_from_func_element(target['init'])
-        return [Variable(target['id']['name'], call, lineno(element))]
+        if call:
+            return [Variable(target['id']['name'], call, lineno(element))]
 
     if target['init']['type'] == 'ThisExpression':
         assert set(target['init'].keys()) == {'start', 'end', 'loc', 'type'}
@@ -333,8 +335,8 @@ class Javascript(BaseLanguage):
         line_number = lineno(tree)
         calls = make_calls(this_scope_body)
         variables = make_local_variables(this_scope_body, parent)
-        node = Node(token, calls, variables, parent=parent, line_number=line_number,
-                    is_constructor=is_constructor)
+        node = Node(token, calls, variables, parent,
+                    line_number=line_number, is_constructor=is_constructor)
 
         subnodes = flatten([Javascript.make_nodes(t, node) for t in subnode_trees])
 
@@ -353,7 +355,8 @@ class Javascript(BaseLanguage):
         token = "(global)"
         calls = make_calls(lines)
         variables = make_local_variables(lines, parent)
-        root_node = Node(token, calls, variables, line_number=0, parent=parent)
+        root_node = Node(token, calls, variables,
+                         line_number=0, parent=parent)
         return root_node
 
     @staticmethod
@@ -373,11 +376,11 @@ class Javascript(BaseLanguage):
 
         group_type = GROUP_TYPE.CLASS
         token = tree['id']['name']
+        display_name = 'Class'
         line_number = lineno(tree)
         inherits = get_inherits(tree)
-
-        class_group = Group(token, group_type, 'Class', inherits=inherits,
-                            line_number=line_number, parent=parent)
+        class_group = Group(token, group_type, display_name,
+                            inherits=inherits, line_number=line_number, parent=parent)
 
         for node_tree in node_trees:
             for new_node in Javascript.make_nodes(node_tree, parent=class_group):

@@ -92,12 +92,12 @@ def test_json():
 
 
 def test_repr():
-    module = model.Group('my_file', 'MODULE', 0)
-    group = model.Group('Obj', 'CLASS', 0)
+    module = model.Group('my_file', 'MODULE', [], 0)
+    group = model.Group('Obj', 'CLASS', [], 0)
     call = model.Call('tostring', 'obj', 42)
     variable = model.Variable('the_string', call, 42)
-    node_a = model.Node('tostring', [], [], 13, group)
-    node_b = model.Node('main', [call], [], 59, module)
+    node_a = model.Node('tostring', [], [], [], 13, group)
+    node_b = model.Node('main', [call], [], [], 59, module)
     edge = model.Edge(node_b, node_a)
     print(module)
     print(group)

@@ -192,9 +192,11 @@ def make_file_group(tree, filename, extension):
     group_type = GROUP_TYPE.MODULE
     token = os.path.split(filename)[-1].rsplit('.' + extension, 1)[0]
     line_number = 0
+    display_name = 'File'
+    import_tokens = []
 
-    file_group = Group(token, group_type, 'File', line_number, parent=None)
-    print(filename, "node_trees", len(node_trees))
+    file_group = Group(token, group_type, display_name, import_tokens,
+                       line_number, parent=None)
     for node_tree in node_trees:
         for new_node in language.make_nodes(node_tree, parent=file_group):
             file_group.add_node(new_node)
@@ -221,15 +223,12 @@ def _find_link_for_call(call, node_a, all_nodes):
 
     all_vars = node_a.get_variables(call.line_number)
 
-    # if call.token == 'says':
-    #     print('\a'); import ipdb; ipdb.set_trace()
-
     for var in all_vars:
         var_match = call.matches_variable(var)
         if var_match:
             # Known modules (e.g. in the same directory) we want to check through possible_nodes
-            if var_match == 'KNOWN_MODULE':
-                continue
+            # if var_match == 'KNOWN_MODULE':
+            #     continue
 
             # Unknown modules (e.g. third party) we don't want to match)
             if var_match == 'UNKNOWN_MODULE':
@@ -267,10 +266,10 @@ def _find_links(node_a, all_nodes):
     :param list[Node] all_nodes:
     :param BaseLanguage language:
     """
+
     links = []
     for call in node_a.calls:
         lfc = _find_link_for_call(call, node_a, all_nodes)
-        assert not isinstance(lfc, Group)
         links.append(lfc)
     return list(filter(None, links))
 
@@ -320,7 +319,6 @@ def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_function
     for source, file_ast_tree in file_ast_trees:
         file_group = make_file_group(file_ast_tree, source, extension)
         file_groups.append(file_group)
-    # print('\a'); import ipdb; ipdb.set_trace()
 
     # 3. Trim namespaces / functions that we don't want
     if exclude_namespaces:
@@ -328,8 +326,9 @@ def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_function
     if exclude_functions:
         file_groups = _exclude_functions(file_groups, exclude_functions)
 
-    # 4. Consolidate structure for inheritance
+    # 4. Consolidate structures
     all_subgroups = flatten(g.all_groups() for g in file_groups)
+    all_nodes = flatten(g.all_nodes() for g in file_groups)
 
     nodes_by_subgroup_token = collections.defaultdict(list)
     for subgroup in all_subgroups:
@@ -347,9 +346,6 @@ def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_function
                     node.variables += [Variable(n.token, n, n.line_number) for n in inherit_nodes]
 
     # 5. Attempt to resolve the variables (point them to a node or group)
-    all_nodes = []
-    for group in file_groups:
-        all_nodes += group.all_nodes()
     for node in all_nodes:
         node.resolve_variables(file_groups)
 

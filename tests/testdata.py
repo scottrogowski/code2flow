@@ -1757,15 +1757,25 @@ testdata = {
         {
             "test_name": "nested_calls",
             "directory": "nested_calls",
-            "expected_edges": [["nested_calls::(global)", "nested_calls::Cls.func"],
+            "expected_edges": [["nested_calls::Cls.func2", "nested_calls::z_"],
+                               ["nested_calls::Cls.func", "nested_calls::Cls.b"],
+                               ["nested_calls::(global)", "nested_calls::Cls.func"],
+                               ["nested_calls::Cls.func2", "nested_calls::y_"],
+                               ["nested_calls::x_", "nested_calls::Cls.func2"],
                                ["nested_calls::Cls.func", "nested_calls::Cls.c"],
-                               ["nested_calls::Cls.func", "nested_calls::Cls.a"],
-                               ["nested_calls::Cls.func", "nested_calls::Cls.b"]],
-            "expected_nodes": ["nested_calls::Cls.func",
+                               ["nested_calls::(global)", "nested_calls::func2"],
+                               ["nested_calls::Cls.func2", "nested_calls::x_"],
+                               ["nested_calls::Cls.func", "nested_calls::Cls.a"]],
+            "expected_nodes": ["nested_calls::z_",
+                               "nested_calls::Cls.func2",
+                               "nested_calls::y_",
                                "nested_calls::Cls.c",
                                "nested_calls::Cls.b",
+                               "nested_calls::Cls.func",
                                "nested_calls::Cls.a",
+                               "nested_calls::x_",
+                               "nested_calls::func2",
                                "nested_calls::(global)"]
-        }
+        },
     ]
 }

@@ -1,10 +1,13 @@
 <?php
 
-function x() {}
-
-function y() {}
-
-function z() {}
+function x_() {
+    (new Cls()).func2();
+}
+function y_() {}
+function z_() {}
+// TODO
+function func() {}
+function func2() {}
 
 
 class Cls {
@@ -18,18 +21,17 @@ class Cls {
         echo $ret;
     }
 
-
     function func() {
         self::a(self::b(self::c()));
     }
 
     function func2() {
-        $amount = x(y(z($amount), z('1' . str_pad('', $decimalPlaces, '0'))));
+        $amount = x_(y_(z_($amount), z_('1' . str_pad('', $decimalPlaces, '0'))));
     }
 }
 
 (new Cls()).func();
 
-$a.func2()
+func2()
 
 ?>

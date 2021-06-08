@@ -11,20 +11,22 @@ def lineno(tree):
 
 
 def get_name(tree):
+    if 'name' in tree and isinstance(tree['name'], str):
+        return tree['name']
+
     try:
         return tree['name']['name']
-    except KeyError:
+    except (KeyError, TypeError):
         pass
     try:
         return djoin(tree['name']['parts'])
-    except KeyError:
+    except (KeyError, TypeError):
         pass
     try:
         return djoin(tree['class']['parts'])
-    except KeyError:
+    except (KeyError, TypeError):
         pass
-    # if tree['name']['nodeType'] == 'Expr_Closure':
-    print('\a'); import ipdb; ipdb.set_trace()
+
     return None
 
 
@@ -169,7 +171,6 @@ def make_local_variables(tree_el, parent):
             for use in el['uses']:
                 owner_token = djoin(use['name']['parts'])
                 token = use['alias']['name'] if use['alias'] else owner_token
-                print("APPENDING LOCAL VARIABLE", token, owner_token)
                 variables.append(Variable(token, points_to=owner_token,
                                           line_number=lineno(el)))
 
@@ -196,16 +197,12 @@ def get_inherits(tree):
 
     for stmt in tree.get('stmts', []):
         if stmt['nodeType'] == 'Stmt_TraitUse':
-            print('\a'); import ipdb; ipdb.set_trace()
             for trait in stmt['traits']:
                 ret.append(djoin(trait['parts']))
     return ret
 
 
 class PHP(BaseLanguage):
-    # TODO
-    FILE_IN_OWNERSHIP = False
-
     @staticmethod
     def assert_dependencies():
         assert is_installed('php'), "No php installation could be found"
@@ -286,7 +283,6 @@ class PHP(BaseLanguage):
             token = '(Closure)'
         else:
             token = tree['name']['name']
-        print("processing node", token, parent)
         is_constructor = token == '__construct' and parent.group_type == GROUP_TYPE.CLASS
 
         tree_body = tree['stmts']
@@ -294,7 +290,15 @@ class PHP(BaseLanguage):
         assert not subgroup_trees
         calls = make_calls(this_scope_body)
         variables = make_local_variables(this_scope_body, parent)
-        node = Node(token, calls, variables, parent=parent,
+
+        if parent.group_type == 'CLASS' and parent.parent.display_type == 'Namespace':
+            import_tokens = [djoin(parent.parent.token, parent.token, token)]
+        if parent.display_type == 'Namespace' or parent.group_type == 'CLASS':
+            import_tokens = [djoin(parent.token, token)]
+        else:
+            import_tokens = [token]
+
+        node = Node(token, calls, variables, parent, import_tokens=import_tokens,
                     is_constructor=is_constructor, line_number=lineno(tree))
 
         subnodes = flatten([PHP.make_nodes(t, parent) for t in subnode_trees])
@@ -314,7 +318,7 @@ class PHP(BaseLanguage):
         line_number = lines and lineno(lines[0]) or 0
         calls = make_calls(lines)
         variables = make_local_variables(lines, parent)
-        root_node = Node(token, calls, variables, parent=parent,
+        root_node = Node(token, calls, variables, parent,
                          line_number=line_number)
         return root_node
 
@@ -333,13 +337,17 @@ class PHP(BaseLanguage):
         subgroup_trees, node_trees, body_trees = PHP.separate_namespaces(tree['stmts'])
 
         token = get_name(tree)
-        display_name = tree['nodeType'][5:]
+        display_type = tree['nodeType'][5:]
 
         inherits = get_inherits(tree)
 
-        print("processing group", token)
-        class_group = Group(token, GROUP_TYPE.CLASS, display_name,
-                            inherits=inherits, parent=parent, line_number=lineno(tree))
+        if display_type == 'Class' and parent.display_type == 'Namespace':
+            import_tokens = [djoin(parent.token, token)]
+        else:
+            import_tokens = [token]
+
+        class_group = Group(token, GROUP_TYPE.CLASS, display_type, import_tokens=import_tokens,
+                            parent=parent, inherits=inherits, line_number=lineno(tree))
 
         for subgroup_tree in subgroup_trees:
             class_group.add_subgroup(PHP.make_class_group(subgroup_tree, class_group))
