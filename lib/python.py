@@ -139,6 +139,8 @@ def get_inherits(tree):
 
 
 class Python(BaseLanguage):
+    FILE_IN_OWNERSHIP = True
+
     @staticmethod
     def assert_dependencies():
         pass

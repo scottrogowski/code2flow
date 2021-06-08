@@ -1753,6 +1753,19 @@ testdata = {
                                "namespace_b1::(global)",
                                "namespace_b2::Animal.meows",
                                "namespace_b2::Cat.meows"]
+        },
+        {
+            "test_name": "nested_calls",
+            "directory": "nested_calls",
+            "expected_edges": [["nested_calls::(global)", "nested_calls::Cls.func"],
+                               ["nested_calls::Cls.func", "nested_calls::Cls.c"],
+                               ["nested_calls::Cls.func", "nested_calls::Cls.a"],
+                               ["nested_calls::Cls.func", "nested_calls::Cls.b"]],
+            "expected_nodes": ["nested_calls::Cls.func",
+                               "nested_calls::Cls.c",
+                               "nested_calls::Cls.b",
+                               "nested_calls::Cls.a",
+                               "nested_calls::(global)"]
         }
     ]
 }

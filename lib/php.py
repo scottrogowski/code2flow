@@ -15,16 +15,17 @@ def get_name(tree):
         return tree['name']['name']
     except KeyError:
         pass
-    # try:
-    return djoin(tree['name']['parts'])
-
-    # TODO I wrote this probably to fix an issue but the test cases are not
-    # catching it
-    # except KeyError:
-        # pass
+    try:
+        return djoin(tree['name']['parts'])
+    except KeyError:
+        pass
+    try:
+        return djoin(tree['class']['parts'])
+    except KeyError:
+        pass
     # if tree['name']['nodeType'] == 'Expr_Closure':
-        # return None
-    # assert False
+    print('\a'); import ipdb; ipdb.set_trace()
+    return None
 
 
 def get_call_from_expr(func_expr):
@@ -51,7 +52,7 @@ def get_call_from_expr(func_expr):
             owner_token = func_expr['var']['name']
     elif func_expr['nodeType'] == 'Expr_BinaryOp_Concat' and func_expr['right']['nodeType'] == 'Expr_FuncCall':
         token = get_name(func_expr['right'])
-        owner_token = func_expr['left']['name']
+        owner_token = get_name(func_expr['left'])
     elif func_expr['nodeType'] == 'Expr_StaticCall':
         token = get_name(func_expr)
         owner_token = djoin(func_expr['class']['parts'])
@@ -195,12 +196,15 @@ def get_inherits(tree):
 
     for stmt in tree.get('stmts', []):
         if stmt['nodeType'] == 'Stmt_TraitUse':
+            print('\a'); import ipdb; ipdb.set_trace()
             for trait in stmt['traits']:
                 ret.append(djoin(trait['parts']))
     return ret
 
 
 class PHP(BaseLanguage):
+    # TODO
+    FILE_IN_OWNERSHIP = False
 
     @staticmethod
     def assert_dependencies():

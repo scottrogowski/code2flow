@@ -192,6 +192,7 @@ def get_inherits(tree, body_tree):
 
 
 class Ruby(BaseLanguage):
+    FILE_IN_OWNERSHIP = False
 
     @staticmethod
     def assert_dependencies():

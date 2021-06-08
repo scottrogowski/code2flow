@@ -231,6 +231,7 @@ def get_acorn_version():
 
 
 class Javascript(BaseLanguage):
+    FILE_IN_OWNERSHIP = False
 
     @staticmethod
     def assert_dependencies():

@@ -69,12 +69,10 @@ def _resolve_str_variable(variable, file_groups):
     """
     has_known = False
 
-    # if variable.token == 'foo':
-    #     print('\a'); import ipdb; ipdb.set_trace()
-
     for file_group in file_groups:
         # Check if any top level node in the other file matches the import
         for node in file_group.nodes:
+            # TODO owner tokens
             if djoin(file_group.token, node.token) == variable.points_to:
                 return node
         # Check if any top level class in the other file matches the import
@@ -367,6 +365,8 @@ class Node():
         """
         for variable in self.variables:
             if isinstance(variable.points_to, str):
+                if variable.token == 'sp':
+                    print('\a'); import ipdb; ipdb.set_trace()
                 variable.points_to = _resolve_str_variable(variable, file_groups)
             elif isinstance(variable.points_to, Call):
                 if variable.points_to.is_attr() and not variable.points_to.definite_constructor:
