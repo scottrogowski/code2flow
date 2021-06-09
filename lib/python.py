@@ -212,7 +212,7 @@ class Python(BaseLanguage):
     @staticmethod
     def make_root_node(lines, parent):
         """
-        The "root_node" are is an implict node of lines which are executed in the global
+        The "root_node" is an implict node of lines which are executed in the global
         scope on the file itself and not otherwise part of any function.
 
         :param lines list[ast]:

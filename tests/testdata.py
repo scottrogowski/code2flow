@@ -1758,7 +1758,7 @@ testdata = {
             "test_name": "nested_calls",
             "directory": "nested_calls",
             "expected_edges": [["nested_calls::Cls.func2", "nested_calls::z_"],
-                               ["nested_calls::Cls.func", "nested_calls::Cls.b"],
+
                                ["nested_calls::(global)", "nested_calls::Cls.func"],
                                ["nested_calls::Cls.func2", "nested_calls::y_"],
                                ["nested_calls::x_", "nested_calls::Cls.func2"],
@@ -1777,5 +1777,14 @@ testdata = {
                                "nested_calls::func2",
                                "nested_calls::(global)"]
         },
+        {
+
+            "test_name": "weird_assign.php",
+            "directory": "weird_assign.php",
+            "comment": "Not a complicated test but an unusual usecase",
+            "expected_edges": [["weird_assign::c", "weird_assign::b"],
+                               ["weird_assign::c", "weird_assign::a"]],
+            "expected_nodes": ["weird_assign::c", "weird_assign::a", "weird_assign::b"]
+        }
     ]
 }

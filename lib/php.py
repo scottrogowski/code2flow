@@ -7,25 +7,29 @@ from .model import (Group, Node, Call, Variable, BaseLanguage,
 
 
 def lineno(tree):
+    """
+    Return the line number of the AST
+    :param tree ast:
+    :rtype: int
+    """
     return tree['attributes']['startLine']
 
 
-def get_name(tree):
+def get_name(tree, from_='name'):
+    """
+    Get the name (token) of the AST node.
+    :param tree ast:
+    :rtype: str|None
+    """
+    # return tree['name']['name']
     if 'name' in tree and isinstance(tree['name'], str):
         return tree['name']
 
-    try:
-        return tree['name']['name']
-    except (KeyError, TypeError):
-        pass
-    try:
-        return djoin(tree['name']['parts'])
-    except (KeyError, TypeError):
-        pass
-    try:
-        return djoin(tree['class']['parts'])
-    except (KeyError, TypeError):
-        pass
+    if 'parts' in tree:
+        return djoin(tree['parts'])
+
+    if from_ in tree:
+        return get_name(tree[from_])
 
     return None
 
@@ -57,8 +61,16 @@ def get_call_from_expr(func_expr):
         owner_token = get_name(func_expr['left'])
     elif func_expr['nodeType'] == 'Expr_StaticCall':
         token = get_name(func_expr)
-        owner_token = djoin(func_expr['class']['parts'])
+        try:
+            owner_token = get_name(func_expr['class'])
+        except:
+            print('\a'); import ipdb; ipdb.set_trace()
+    # elif func_expr['nodeType'] == 'Name':
+    #     return djoin(func_expr['parts'])
     else:
+        if 'name' in func_expr or 'parts' in func_expr:
+            print(func_expr)
+            print('\a'); import ipdb; ipdb.set_trace()
         return None
 
     if owner_token and token == '__construct':
@@ -73,7 +85,9 @@ def get_call_from_expr(func_expr):
 
 def walk(tree):
     """
-    Given an ast tree walk it to get every node
+    Given an ast tree walk it to get every node. For PHP, the exception
+    is that we return Expr_BinaryOp_Concat which has internal nodes but
+    is important to process as a whole.
 
     :param tree_el ast:
     :rtype: list[ast]
@@ -101,7 +115,8 @@ def walk(tree):
 
 def children(tree):
     """
-    Given an ast tree get all children
+    Given an ast tree get all children. For PHP, children are anything
+    with a nodeType.
 
     :param tree_el ast:
     :rtype: list[ast]
@@ -136,14 +151,15 @@ def make_calls(body_el):
 def process_assign(assignment_el):
     """
     Given an assignment statement, return a
-    Variable that points_to the type of object being assigned. The
-    points_to is often a string but that is resolved later.
+    Variable that points_to the type of object being assigned.
 
     :param assignment_el ast:
     :rtype: Variable
     """
-
     assert assignment_el['nodeType'] == 'Expr_Assign'
+    if 'name' not in assignment_el['var']:
+        return None
+
     varname = assignment_el['var']['name']
     call = get_call_from_expr(assignment_el['expr'])
     if call:
@@ -156,8 +172,6 @@ def make_local_variables(tree_el, parent):
     """
     Given an ast of all the lines in a function, generate a list of
     variables in that function. Variables are tokens and what they link to.
-    In this case, what it links to is just a string. However, that is resolved
-    later.
 
     :param tree_el ast:
     :param parent Group:
@@ -174,18 +188,17 @@ def make_local_variables(tree_el, parent):
                 variables.append(Variable(token, points_to=owner_token,
                                           line_number=lineno(el)))
 
-    # Make a 'this' variable for use anywhere we need it that points to the class
+    # Make a 'this'/'self' variable for use anywhere we need it that points to the class
     if isinstance(parent, Group) and parent.group_type == GROUP_TYPE.CLASS:
         variables.append(Variable('this', parent, line_number=parent.line_number))
         variables.append(Variable('self', parent, line_number=parent.line_number))
 
-    variables = list(filter(None, variables))
-    return variables
+    return list(filter(None, variables))
 
 
 def get_inherits(tree):
     """
-    Get the various types of inheritances this class/module can have
+    Get the various types of inheritances this class/namespace/trait can have
 
     :param tree ast:
     :rtype: list[str]
@@ -307,7 +320,7 @@ class PHP(BaseLanguage):
     @staticmethod
     def make_root_node(lines, parent):
         """
-        The "root_node" are is an implict node of lines which are executed in the global
+        The "root_node" is an implict node of lines which are executed in the global
         scope on the file itself and not otherwise part of any function.
 
         :param lines list[ast]:
@@ -328,6 +341,8 @@ class PHP(BaseLanguage):
         Given an AST for the subgroup (a class), generate that subgroup.
         In this function, we will also need to generate all of the nodes internal
         to the group.
+
+        Specific to PHP, this can also be a namespace or class.
 
         :param tree ast:
         :param parent Group:
