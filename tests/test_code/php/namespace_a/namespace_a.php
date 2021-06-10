@@ -14,7 +14,7 @@ class Namespaced_cls {
     }
 }
 
-namespaced_func();  # TODO here
+namespaced_func();
 $a = new Namespaced_cls();
 $a->instance_method();
 
