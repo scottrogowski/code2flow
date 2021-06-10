@@ -48,29 +48,24 @@ def get_call_from_expr(func_expr):
         owner_token = None
     elif func_expr['nodeType'] == 'Expr_New' and func_expr['class'].get('parts'):
         token = '__construct'
-        owner_token = djoin(func_expr['class']['parts'])
+        owner_token = get_name(func_expr['class'])
     elif func_expr['nodeType'] == 'Expr_MethodCall':
         # token = func_expr['name']['name']
         token = get_name(func_expr)
         if 'var' in func_expr['var']:
             owner_token = OWNER_CONST.UNKNOWN_VAR
         else:
-            owner_token = func_expr['var']['name']
+            owner_token = get_name(func_expr['var'])
     elif func_expr['nodeType'] == 'Expr_BinaryOp_Concat' and func_expr['right']['nodeType'] == 'Expr_FuncCall':
         token = get_name(func_expr['right'])
-        owner_token = get_name(func_expr['left'])
+        if 'class' in func_expr['left']:
+            owner_token = get_name(func_expr['left']['class'])
+        else:
+            owner_token = get_name(func_expr['left'])
     elif func_expr['nodeType'] == 'Expr_StaticCall':
         token = get_name(func_expr)
-        try:
-            owner_token = get_name(func_expr['class'])
-        except:
-            print('\a'); import ipdb; ipdb.set_trace()
-    # elif func_expr['nodeType'] == 'Name':
-    #     return djoin(func_expr['parts'])
+        owner_token = get_name(func_expr['class'])
     else:
-        if 'name' in func_expr or 'parts' in func_expr:
-            print(func_expr)
-            print('\a'); import ipdb; ipdb.set_trace()
         return None
 
     if owner_token and token == '__construct':
@@ -142,7 +137,10 @@ def make_calls(body_el):
     """
     calls = []
     for expr in walk(body_el):
-        calls.append(get_call_from_expr(expr))
+        call = get_call_from_expr(expr)
+        # if call and call.token == 'func2':
+        #     print('\a'); import ipdb; ipdb.set_trace()
+        calls.append(call)
     ret = list(filter(None, calls))
 
     return ret
@@ -215,10 +213,25 @@ def get_inherits(tree):
     return ret
 
 
+def run_ast_parser(filename):
+    script_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                              "get_ast.php")
+    cmd = ["php", script_loc, filename]
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return proc.communicate()[0], proc.returncode
+
+
 class PHP(BaseLanguage):
     @staticmethod
     def assert_dependencies():
         assert is_installed('php'), "No php installation could be found"
+        self_ref = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                "get_ast.php")
+        outp, returncode = run_ast_parser(self_ref)
+        assert_msg = 'Error running the PHP parser. From the `lib` directory, run ' \
+                     '`composer require nikic/php-parser "^4.10"`.'
+        assert not returncode, assert_msg
+        return outp
 
     @staticmethod
     def get_tree(filename, lang_params):
@@ -229,20 +242,16 @@ class PHP(BaseLanguage):
         :param lang_params LanguageParams:
         :rtype: ast
         """
-        script_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                  "get_ast.php")
 
-        cmd = ["php", script_loc, filename]
-        try:
-            output = subprocess.check_output(cmd, stderr=subprocess.PIPE)
-            tree = json.loads(output)
-        except (subprocess.CalledProcessError, json.decoder.JSONDecodeError):
+        outp, returncode = run_ast_parser(filename)
+        if returncode:
             raise AssertionError(
                 "Could not parse file %r. You may have a syntax error. "
                 "For more detail, try running with `php %s`. " %
-                (filename, filename)) from None
-        assert isinstance(tree, list)
+                (filename, filename))
 
+        tree = json.loads(outp)
+        assert isinstance(tree, list)
         if len(tree) == 1 and tree[0]['nodeType'] == 'Stmt_InlineHTML':
             raise AssertionError("Tried to parse a file that is not likely PHP")
         return tree
@@ -351,7 +360,7 @@ class PHP(BaseLanguage):
         assert tree['nodeType'] in ('Stmt_Class', 'Stmt_Namespace', 'Stmt_Trait')
         subgroup_trees, node_trees, body_trees = PHP.separate_namespaces(tree['stmts'])
 
-        token = get_name(tree)
+        token = get_name(tree['name'])
         display_type = tree['nodeType'][5:]
 
         inherits = get_inherits(tree)

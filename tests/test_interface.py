@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import shutil
+import subprocess
 import sys
 
 import pytest
@@ -9,6 +10,7 @@ import pytest
 sys.path.append(os.getcwd().split('/tests')[0])
 
 from lib.engine import code2flow
+from lib.php import run_ast_parser
 from lib import model
 
 IMG_PATH = '/tmp/code2flow/output.png'
@@ -132,6 +134,14 @@ def test_bad_php_parse_b():
     with pytest.raises(AssertionError) as ex:
         code2flow("test_code/php/bad_php/bad_php_b.php", "/tmp/code2flow/out.json")
         assert "parse" in ex and "php" in ex.lower()
+
+
+# import functools
+# def test_bad_php_parse_c(mocker):
+#     mocker.patch('lib.php.run_ast_parser', return_value=b'', side_effect=subprocess.CalledProcessError)  # functools.partial(subprocess.CalledProcessError, '', ''))
+#     with pytest.raises(AssertionError) as ex:
+#         code2flow("test_code/rb/simple_b", "/tmp/code2flow/out.json")
+#         # assert "composer" in ex
 
 
 def test_no_source_type():

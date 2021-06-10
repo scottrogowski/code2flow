@@ -12,7 +12,7 @@ from .php import PHP
 from .model import (TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, NODE_COLOR, GROUP_TYPE,
                     Edge, Group, Node, Variable, is_installed, flatten)
 
-VERSION = '2.2.0'
+VERSION = '2.3.0'
 
 VALID_EXTENSIONS = {'png', 'svg', 'dot', 'gv', 'json'}
 

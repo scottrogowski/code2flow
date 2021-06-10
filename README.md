@@ -1,12 +1,11 @@
 ![code2flow logo](assets/code2flowlogo.png)
 
-![Version 2.2.0](https://img.shields.io/badge/version-2.2.0-brightgreen) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage 100%](https://img.shields.io/badge/coverage-100%25-brightgreen) ![License MIT](https://img.shields.io/badge/license-MIT-green])
+![Version 2.3.0](https://img.shields.io/badge/version-2.3.0-brightgreen) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage 100%](https://img.shields.io/badge/coverage-100%25-brightgreen) ![License MIT](https://img.shields.io/badge/license-MIT-green])
 
-> #### Updates from May 2021
-> - I've entered into a contract with a generous sponsor, the [Sider Corporation](https://siderlabs.com), to update code2flow.
-> - Currently, Code2flow supports Python JS, and Ruby. Expect PHP in the coming weeks.
+> #### Updates from June 2021
 > - The domain, code2flow.com is unrelated to this project and as far as I can tell through the internet archive, they launched their service after this repository was created. I've never heard anything from them and it doesn't appear like they use anything from here.
 > - The pip install, code2flow, has been claimed by a different unrelated project. For now, *don't install* code2flow from pip. Instead, scroll to the installation section for instructions.
+> - The new version of code2flow has not been tested on Windows and probably doesn't work given that it relies on third-party non-Python AST parsers. If anyone could contribute the necessary patch(s), that would be greatly appreciated.
 
 Code2flow generates [call graphs](https://en.wikipedia.org/wiki/Call_graph) for dynamic programming language. Currently, code2flow supports Python and Javascript.
 
@@ -25,7 +24,7 @@ Code2flow will provide a *pretty good estimate* of your project's structure. No 
 
 *(Below: Code2flow running on itself (excl javascript, PHP, & Ruby for clarity))*
 
-![code2flow running against itself](https://raw.githubusercontent.com/scottrogowski/code2flow/master/assets/code2flow_output.png)
+![code2flow running against itself TODO update](https://raw.githubusercontent.com/scottrogowski/code2flow/master/assets/code2flow_output.png)
 
 Installation
 ------------
@@ -94,8 +93,8 @@ Why is it impossible to generate a perfect call graph?
 
 Consider this toy example in Python
 ```
-def func_factory(inp_float):
-    if inp_float < .5:
+def func_factory(param):
+    if param < .5:
         return func_a
     else:
         return func_b
@@ -113,9 +112,17 @@ Code2flow is internally powered by ASTs. Most limitations stem from a token not 
 
 * All functions without definitions are skipped. This most often happens when a file is not included.
 * Functions with identical names in different namespaces are (loudly) skipped. E.g. If you have two classes with identically named methods, code2flow cannot distinguish between these and skips them.
-* Imported functions from outside of your project directory (including from the standard library) which share names with your defined functions may not be handled correctly. Instead when you call the imported function, code2flow will link to your local functions. E.g. if you have a function "search()" and call, "import searcher; searcher.search()", code2flow may link (incorrectly) to your defined function.
+* Imported functions from outside of your project directory (including from standard libraries) which share names with your defined functions may not be handled correctly. Instead when you call the imported function, code2flow will link to your local functions. E.g. if you have a function "search()" and call, "import searcher; searcher.search()", code2flow may link (incorrectly) to your defined function.
 * Anonymous or generated functions are skipped. This includes lambdas and factories.
 * If a function is renamed, either explicitly or by being passed around as a parameter, it will be skipped.
+
+
+How to contribute
+-----------------------
+
+1. **Open an issue**: Code2flow is not perfect and there is a lot that can be improved. If you find a problem parsing your source that you can identify with a simplified example, please open an issue.
+2. **Create a PR**: Even better, if you have a fix for the issue you identified that passes unit tests, please open a PR. 
+3. **Add a language**: While dense, each language implementation is between 250-400 lines of code including comments. If you want to implement another language, the existing implementations can be your guide.
 
 
 License
@@ -132,18 +139,12 @@ Acknowledgements
 Code2flow development is partially supported by the [Sider Corporation](https://siderlabs.com/)
 
 
-Feedback / Bugs / Contact
+
+Feedback / Contact
 -----------------------------
 
 Please do email!
 scottmrogowski@gmail.com
-
-
-How to contribute
------------------------
-
-1. You can contribute code! Code2flow has limitations. There is room for improvement in adding heuristics to resolve these limitation. Pull requests which address these improvements will be helpful and accepted. Separately, new languages will be especially appreciated!
-2. You can spread the word! A simple way to help is to share this project with others. If you have a blog, mention code2flow! Linking from relevant questions on StackOverflow or other forums also helps quite a bit.
 
 
 Feature Requests
