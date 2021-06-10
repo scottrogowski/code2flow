@@ -12,9 +12,9 @@ from tests.testdata import testdata
 
 LANGUAGES = (
     'py',
-    'js',
-    'mjs',
-    'rb',
+    # 'js',
+    # 'mjs',
+    # 'rb',
     'php',
 )
 

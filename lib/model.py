@@ -23,7 +23,9 @@ class Namespace(dict):
 
 
 OWNER_CONST = Namespace("UNKNOWN_VAR", "UNKNOWN_MODULE", "KNOWN_MODULE")
-GROUP_TYPE = Namespace("MODULE", "CLASS")
+GROUP_TYPE = Namespace("MODULE", "CLASS", "NAMESPACE")  # TODO group_type is file??
+# TODO these constants are now floating around
+# TODO I don't think KnOWN_MODULE IS WORKING ANYMORE
 
 
 def is_installed(executable_cmd):
@@ -56,50 +58,6 @@ def flatten(list_of_lists):
     """
     return [el for sublist in list_of_lists for el in sublist]
 
-
-# TODO
-# def _resolve_str_variable(variable, file_groups):
-#     """
-#     String variables are when variable.points_to is a string
-#     This happens ONLY when we have imports that we delayed processing for
-
-#     This function looks through all files to see if any particular node matches
-#     the variable.points_to string
-
-#     TODO I think this can also return a group but only if that group is a namespace
-
-#     :param Variable variable:
-#     :param list[Group] file_groups:
-#     :rtype: Node|Group|str
-#     """
-#     has_known = False
-
-#     for file_group in file_groups:
-#         # Check if any top level node in the other file matches the import
-#         for node in file_group.nodes:
-#             # TODO owner tokens
-#             if djoin(file_group.token, node.token) == variable.points_to:
-#                 return node
-#         # Check if any top level class in the other file matches the import
-#         for group in file_group.subgroups:
-#             if djoin(file_group.token, group.token) == variable.points_to \
-#                and group.get_constructor():
-#                 return group.get_constructor()
-
-#         # TODO make this work for ruby modules too
-#         # This section just ensures that we are returning all of the namespaces
-#         # This could probably be cleaned up against the other ways of resolving
-#         # string variables
-#         for group in file_group.all_groups():
-#             if group.token == variable.points_to and group.display_type == 'Namespace':
-#                 return group
-
-#         if file_group.token == variable.points_to.split('.', 1)[0]:
-#             has_known = True
-#     if has_known:
-#         return OWNER_CONST.KNOWN_MODULE
-
-#     return OWNER_CONST.UNKNOWN_MODULE  # Default indicates we must skip
 
 def _resolve_str_variable(variable, file_groups):
     """
@@ -275,14 +233,17 @@ class Call():
             # 4. If it does, return the node
             # I think apart from being too specific to PHP, this is actually
             # okay logic here
-            if isinstance(variable.points_to, Group) and variable.points_to.display_type == 'Namespace':
+            if isinstance(variable.points_to, Group) \
+               and variable.points_to.group_type == GROUP_TYPE.NAMESPACE:
                 parts = self.owner_token.split('.')
-                if len(parts) == 2 and parts[0] == variable.token:
-                    for node in variable.points_to.all_nodes():
-                        print("MATCH CHECK", parts[1], node.namespace_ownership())
-                        print("TOKEN CHECK", self.token, node.token)
-                        if parts[1] == node.namespace_ownership() and self.token == node.token:
-                            return node
+                if len(parts) != 2:
+                    return None
+                if parts[0] != variable.token:
+                    return None
+                for node in variable.points_to.all_nodes():
+                    if parts[1] == node.namespace_ownership() \
+                       and self.token == node.token:
+                        return node
             return None
         if self.token == variable.token:
             if isinstance(variable.points_to, Node):
@@ -351,9 +312,10 @@ class Node():
     def namespace_ownership(self):
         parent = self.parent
         ret = []
-        while parent and parent.group_type == 'CLASS' and parent.display_type != 'Namespace':
+        while parent and parent.group_type == GROUP_TYPE.CLASS:
             ret = [parent.token] + ret
             parent = parent.parent
+        print("namespace_ownership", self, ret)
         return djoin(ret)
 
     def label(self):

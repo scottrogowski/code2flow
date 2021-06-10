@@ -319,9 +319,9 @@ class PHP(BaseLanguage):
         calls = make_calls(this_scope_body)
         variables = make_local_variables(this_scope_body, parent)
 
-        if parent.group_type == 'CLASS' and parent.parent.display_type == 'Namespace':
+        if parent.group_type == GROUP_TYPE.CLASS and parent.parent.group_type == GROUP_TYPE.NAMESPACE:
             import_tokens = [djoin(parent.parent.token, parent.token, token)]
-        if parent.display_type == 'Namespace' or parent.group_type == 'CLASS':
+        if parent.group_type in (GROUP_TYPE.NAMESPACE, GROUP_TYPE.CLASS):
             import_tokens = [djoin(parent.token, token)]
         else:
             import_tokens = [token]
@@ -371,12 +371,15 @@ class PHP(BaseLanguage):
 
         inherits = get_inherits(tree)
 
-        if display_type == 'Class' and parent.display_type == 'Namespace':
-            import_tokens = [djoin(parent.token, token)]
-        else:
-            import_tokens = [token]
+        group_type = GROUP_TYPE.CLASS
+        if display_type == 'Namespace':
+            group_type = GROUP_TYPE.NAMESPACE
 
-        class_group = Group(token, GROUP_TYPE.CLASS, display_type, import_tokens=import_tokens,
+        import_tokens = [token]
+        if display_type == 'Class' and parent.group_type == GROUP_TYPE.NAMESPACE:
+            import_tokens = [djoin(parent.token, token)]
+
+        class_group = Group(token, group_type, display_type, import_tokens=import_tokens,
                             parent=parent, inherits=inherits, line_number=lineno(tree))
 
         for subgroup_tree in subgroup_trees:
@@ -386,7 +389,7 @@ class PHP(BaseLanguage):
             for new_node in PHP.make_nodes(node_tree, parent=class_group):
                 class_group.add_node(new_node)
 
-        if tree['nodeType'] == 'Stmt_Namespace':
+        if display_type == 'Namespace':
             class_group.add_node(PHP.make_root_node(body_trees, class_group))
             for node in class_group.nodes:
                 node.variables += [Variable(n.token, n, line_number=n.line_number)
