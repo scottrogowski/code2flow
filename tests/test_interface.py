@@ -2,7 +2,6 @@ import json
 import logging
 import os
 import shutil
-import subprocess
 import sys
 
 import pytest
@@ -10,7 +9,6 @@ import pytest
 sys.path.append(os.getcwd().split('/tests')[0])
 
 from lib.engine import code2flow
-from lib.php import run_ast_parser
 from lib import model
 
 IMG_PATH = '/tmp/code2flow/output.png'
@@ -94,8 +92,8 @@ def test_json():
 
 
 def test_repr():
-    module = model.Group('my_file', 'MODULE', [], 0)
-    group = model.Group('Obj', 'CLASS', [], 0)
+    module = model.Group('my_file', model.GROUP_TYPE.MODULE, [], 0)
+    group = model.Group('Obj', model.GROUP_TYPE.CLASS, [], 0)
     call = model.Call('tostring', 'obj', 42)
     variable = model.Variable('the_string', call, 42)
     node_a = model.Node('tostring', [], [], [], 13, group)

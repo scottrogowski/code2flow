@@ -199,7 +199,7 @@ class Python(BaseLanguage):
         calls = make_calls(tree.body)
         variables = make_local_variables(tree.body, parent)
         is_constructor = False
-        if parent.group_type == "CLASS" and token in ['__init__', '__new__']:
+        if parent.group_type == GROUP_TYPE.CLASS and token in ['__init__', '__new__']:
             is_constructor = True
 
         import_tokens = []

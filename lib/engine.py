@@ -9,7 +9,7 @@ from .python import Python
 from .javascript import Javascript
 from .ruby import Ruby
 from .php import PHP
-from .model import (TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, NODE_COLOR, GROUP_TYPE,
+from .model import (TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, NODE_COLOR, GROUP_TYPE, OWNER_CONST,
                     Edge, Group, Node, Variable, is_installed, flatten)
 
 VERSION = '2.3.0'
@@ -226,12 +226,8 @@ def _find_link_for_call(call, node_a, all_nodes):
     for var in all_vars:
         var_match = call.matches_variable(var)
         if var_match:
-            # Known modules (e.g. in the same directory) we want to check through possible_nodes
-            # if var_match == 'KNOWN_MODULE':
-            #     continue
-
             # Unknown modules (e.g. third party) we don't want to match)
-            if var_match == 'UNKNOWN_MODULE':
+            if var_match == OWNER_CONST.UNKNOWN_MODULE:
                 return None, None
             assert isinstance(var_match, Node)
             return var_match, None

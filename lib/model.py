@@ -22,10 +22,9 @@ class Namespace(dict):
         return self[item]
 
 
-OWNER_CONST = Namespace("UNKNOWN_VAR", "UNKNOWN_MODULE", "KNOWN_MODULE")
+OWNER_CONST = Namespace("UNKNOWN_VAR", "UNKNOWN_MODULE")
 GROUP_TYPE = Namespace("MODULE", "CLASS", "NAMESPACE")  # TODO group_type is file??
 # TODO these constants are now floating around
-# TODO I don't think KnOWN_MODULE IS WORKING ANYMORE
 
 
 def is_installed(executable_cmd):
@@ -252,9 +251,6 @@ class Call():
                and variable.points_to.group_type == GROUP_TYPE.CLASS \
                and variable.points_to.get_constructor():
                 return variable.points_to.get_constructor()
-        # if variable.points_to == OWNER_CONST.KNOWN_MODULE:
-        #     return OWNER_CONST.KNOWN_MODULE
-
         return None
 
 
