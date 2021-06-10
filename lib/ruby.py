@@ -313,6 +313,8 @@ class Ruby(BaseLanguage):
         subgroup_trees, node_trees, body_trees = Ruby.separate_namespaces(tree_body)
 
         group_type = GROUP_TYPE.CLASS
+        if tree[0] == 'module':
+            group_type = GROUP_TYPE.NAMESPACE
         display_type = tree[0].capitalize()
         assert tree[1][0] == 'const'
         token = tree[1][2]
