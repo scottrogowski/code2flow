@@ -1755,6 +1755,16 @@ testdata = {
                                "namespace_b2::Cat.meows"]
         },
         {
+            "test_name": "namespace_c",
+            "directory": "namespace_c",
+            "expected_edges": [["namespace_c1::(global)",
+                                "namespace_c2::Outer.Inner.speak"],
+                               ["namespace_c1::(global)", "namespace_c2::Cat.meow"]],
+            "expected_nodes": ["namespace_c2::Outer.Inner.speak",
+                               "namespace_c2::Cat.meow",
+                               "namespace_c1::(global)"]
+        },
+        {
             "test_name": "nested_calls",
             "directory": "nested_calls",
             "test_name": "nested_calls",

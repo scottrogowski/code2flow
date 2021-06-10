@@ -138,8 +138,6 @@ def make_calls(body_el):
     calls = []
     for expr in walk(body_el):
         call = get_call_from_expr(expr)
-        # if call and call.token == 'func2':
-        #     print('\a'); import ipdb; ipdb.set_trace()
         calls.append(call)
     ret = list(filter(None, calls))
 
@@ -214,6 +212,13 @@ def get_inherits(tree):
 
 
 def run_ast_parser(filename):
+    """
+    Parse the php file and return the output + the returncode
+    Separate function b/c unittesting and asserting php-parser installation.
+    :param filename str:
+    :type: str, int
+    """
+
     script_loc = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                               "get_ast.php")
     cmd = ["php", script_loc, filename]
@@ -224,6 +229,7 @@ def run_ast_parser(filename):
 class PHP(BaseLanguage):
     @staticmethod
     def assert_dependencies():
+        """Assert that php and php-parser are installed"""
         assert is_installed('php'), "No php installation could be found"
         self_ref = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                 "get_ast.php")

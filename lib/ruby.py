@@ -194,6 +194,7 @@ def get_inherits(tree, body_tree):
 class Ruby(BaseLanguage):
     @staticmethod
     def assert_dependencies():
+        """Assert that ruby-parse is installed"""
         assert is_installed('ruby-parse'), "The ruby-parse gem is requred to " \
                                            "parse ruby files but was not found " \
                                            "on the path. Install it from gem " \

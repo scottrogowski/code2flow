@@ -237,6 +237,7 @@ class Javascript(BaseLanguage):
 
     @staticmethod
     def assert_dependencies():
+        """Assert that acorn is installed and the corrent version"""
         assert is_installed('acorn'), "Acorn is required to parse javascript files " \
                                       "but was not found on the path. Install it " \
                                       "from npm and try again."
