@@ -42,7 +42,10 @@ def is_installed(executable_cmd):
 
 
 def djoin(*tup):
-    """Convenience method to join strings with dots"""
+    """
+    Convenience method to join strings with dots
+    :rtype: str
+    """
     if len(tup) == 1 and isinstance(tup[0], list):
         return '.'.join(tup[0])
     return '.'.join(tup)
@@ -93,7 +96,9 @@ class BaseLanguage(abc.ABC):
     @staticmethod
     @abc.abstractmethod
     def assert_dependencies():
-        """"""
+        """
+        :rtype: None
+        """
 
     @staticmethod
     @abc.abstractmethod
@@ -161,6 +166,10 @@ class Variable():
         return f"<Variable token={self.token} points_to={repr(self.points_to)}"
 
     def to_string(self):
+        """
+        For logging
+        :rtype: str
+        """
         if self.points_to and isinstance(self.points_to, (Group, Node)):
             return f'{self.token}->{self.points_to.token}'
         return f'{self.token}->{self.points_to}'
@@ -188,6 +197,7 @@ class Call():
         """
         Returns a representation of this call to be printed by the engine
         in logging.
+        :rtype: str
         """
         if self.owner_token:
             return f"{self.owner_token}.{self.token}()"
@@ -196,6 +206,7 @@ class Call():
     def is_attr(self):
         """
         Attribute calls are like `a.do_something()` rather than `do_something()`
+        :rtype: bool
         """
         return self.owner_token is not None
 

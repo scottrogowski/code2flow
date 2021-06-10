@@ -263,6 +263,7 @@ def _find_links(node_a, all_nodes):
     :param Node node_a:
     :param list[Node] all_nodes:
     :param BaseLanguage language:
+    :rtype: list[(Node, Call)]
     """
 
     links = []
