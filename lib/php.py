@@ -138,8 +138,6 @@ def make_calls(body_el):
     calls = []
     for expr in walk(body_el):
         call = get_call_from_expr(expr)
-        # if call and call.token == 'contains':
-        #     print('\a'); import ipdb; ipdb.set_trace()
         calls.append(call)
     ret = list(filter(None, calls))
 
@@ -160,8 +158,6 @@ def process_assign(assignment_el):
 
     varname = assignment_el['var']['name']
     call = get_call_from_expr(assignment_el['expr'])
-    # if call and call.token == 'contains':
-    #     print('\a'); import ipdb; ipdb.set_trace()
     if call:
         return Variable(varname, call, line_number=lineno(assignment_el))
     # else is something like `varname = num`

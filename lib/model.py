@@ -231,25 +231,17 @@ class Call():
             # 4. If it does, return the node
             # I think apart from being too specific to PHP, this is actually
             # okay logic here
-            # if isinstance(variable.points_to, Group) \
-            #    and variable.points_to.group_type == GROUP_TYPE.NAMESPACE:
-            #     parts = self.owner_token.split('.')
-            #     if len(parts) != 2:
-            #         return None
-            #     if parts[0] != variable.token:
-            #         return None
-            #     for node in variable.points_to.all_nodes():
-            #         if parts[1] == node.namespace_ownership() \
-            #            and self.token == node.token:
-            #             return node
-            if isinstance(variable.points_to, Group) and variable.points_to.display_type == 'Namespace':
+            if isinstance(variable.points_to, Group) \
+               and variable.points_to.group_type == GROUP_TYPE.NAMESPACE:
                 parts = self.owner_token.split('.')
-                if len(parts) == 2 and parts[0] == variable.token:
-                    for node in variable.points_to.all_nodes():
-                        print("MATCH CHECK", parts[1], node.namespace_ownership())
-                        print("TOKEN CHECK", self.token, node.token)
-                        if parts[1] == node.namespace_ownership() and self.token == node.token:
-                            return node
+                if len(parts) != 2:
+                    return None
+                if parts[0] != variable.token:
+                    return None
+                for node in variable.points_to.all_nodes():
+                    if parts[1] == node.namespace_ownership() \
+                       and self.token == node.token:
+                        return node
 
             return None
         if self.token == variable.token:
@@ -330,7 +322,6 @@ class Node():
         while parent and parent.group_type == 'CLASS' and parent.display_type != 'Namespace':
             ret = [parent.token] + ret
             parent = parent.parent
-        print("namespace_ownership", self, ret)
         return djoin(ret)
 
     def label(self):
