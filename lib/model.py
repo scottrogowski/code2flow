@@ -224,13 +224,7 @@ class Call():
                 if variable.points_to in OWNER_CONST:
                     return variable.points_to
 
-            # TODO clean up and make work for ruby modules
-            # 1. check if variable is namespace
-            # 2. split the owner_token. The first part will be the namespace token
-            # 3. For every node in the namespace node, check if it matches
-            # 4. If it does, return the node
-            # I think apart from being too specific to PHP, this is actually
-            # okay logic here
+            # This section is specifically for resolving namespace variables
             if isinstance(variable.points_to, Group) \
                and variable.points_to.group_type == GROUP_TYPE.NAMESPACE:
                 parts = self.owner_token.split('.')
@@ -277,12 +271,14 @@ class Node():
     def name(self):
         """
         Names exist largely for unit tests
+        :rtype: str
         """
         return f"{self.first_group().filename()}::{self.token_with_ownership()}"
 
     def first_group(self):
         """
         The first group that contains this node.
+        :rtype: Group
         """
         parent = self.parent
         while not isinstance(parent, Group):
@@ -302,6 +298,7 @@ class Node():
     def is_attr(self):
         """
         Whether this node is attached to something besides the file
+        :rtype: bool
         """
         return (self.parent
                 and isinstance(self.parent, Group)
@@ -310,16 +307,20 @@ class Node():
     def token_with_ownership(self):
         """
         Token which includes what group this is a part of
+        :rtype: str
         """
         if self.is_attr():
             return djoin(self.parent.token, self.token)
         return self.token
 
     def namespace_ownership(self):
+        """
+        Get the ownership excluding namespace
+        :rtype: str
+        """
         parent = self.parent
         ret = []
-        # while parent and parent.group_type == GROUP_TYPE.CLASS:
-        while parent and parent.group_type == 'CLASS' and parent.display_type != 'Namespace':
+        while parent and parent.group_type == GROUP_TYPE.CLASS:
             ret = [parent.token] + ret
             parent = parent.parent
         return djoin(ret)
@@ -327,6 +328,7 @@ class Node():
     def label(self):
         """
         Labels are what you see on the graph
+        :rtype: str
         """
         if self.line_number is not None:
             return f"{self.line_number}: {self.token}()"
@@ -335,6 +337,7 @@ class Node():
     def remove_from_parent(self):
         """
         Remove this node from it's parent. This effectively deletes the node.
+        :rtype: None
         """
         self.first_group().nodes = [n for n in self.first_group().nodes if n != self]
 
@@ -342,6 +345,7 @@ class Node():
         """
         Get variables in-scope on the line number.
         This includes all local variables as-well-as outer-scope variables
+        :rtype: list[Variable]
         """
         if line_number is None:
             ret = list(self.variables)
@@ -387,6 +391,7 @@ class Node():
     def to_dot(self):
         """
         Output for graphviz (.dot) files
+        :rtype: str
         """
         attributes = {
             'label': self.label(),
@@ -409,6 +414,7 @@ class Node():
     def to_dict(self):
         """
         Output for json files (json graph specification)
+        :rtype: dict
         """
         return {
             'uid': self.uid,
@@ -445,12 +451,16 @@ class Edge():
         '''
         Returns string format for embedding in a dotfile. Example output:
         node_uid_a -> node_uid_b [color='#aaa' penwidth='2']
+        :rtype: str
         '''
         ret = self.node0.uid + ' -> ' + self.node1.uid
         ret += f' [color="{EDGE_COLOR}" penwidth="2"]'
         return ret
 
     def to_dict(self):
+        """
+        :rtype: dict
+        """
         return {
             'source': self.node0.uid,
             'target': self.node1.uid,
@@ -484,12 +494,14 @@ class Group():
     def label(self):
         """
         Labels are what you see on the graph
+        :rtype: str
         """
         return f"{self.display_type}: {self.token}"
 
     def filename(self):
         """
         The ultimate filename of this group.
+        :rtype: str
         """
         if self.group_type == GROUP_TYPE.FILE:
             return self.token
@@ -567,6 +579,7 @@ class Group():
     def remove_from_parent(self):
         """
         Remove this group from it's parent. This is effectively a deletion
+        :rtype: None
         """
         if self.parent:
             self.parent.subgroups = [g for g in self.parent.subgroups if g != self]
@@ -583,6 +596,7 @@ class Group():
             }
             ...
         }
+        :rtype: str
         """
 
         ret = 'subgraph ' + self.uid + ' {\n'
