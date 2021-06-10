@@ -23,8 +23,7 @@ class Namespace(dict):
 
 
 OWNER_CONST = Namespace("UNKNOWN_VAR", "UNKNOWN_MODULE")
-GROUP_TYPE = Namespace("MODULE", "CLASS", "NAMESPACE")  # TODO group_type is file??
-# TODO these constants are now floating around
+GROUP_TYPE = Namespace("FILE", "CLASS", "NAMESPACE")
 
 
 def is_installed(executable_cmd):
@@ -232,23 +231,32 @@ class Call():
             # 4. If it does, return the node
             # I think apart from being too specific to PHP, this is actually
             # okay logic here
-            if isinstance(variable.points_to, Group) \
-               and variable.points_to.group_type == GROUP_TYPE.NAMESPACE:
+            # if isinstance(variable.points_to, Group) \
+            #    and variable.points_to.group_type == GROUP_TYPE.NAMESPACE:
+            #     parts = self.owner_token.split('.')
+            #     if len(parts) != 2:
+            #         return None
+            #     if parts[0] != variable.token:
+            #         return None
+            #     for node in variable.points_to.all_nodes():
+            #         if parts[1] == node.namespace_ownership() \
+            #            and self.token == node.token:
+            #             return node
+            if isinstance(variable.points_to, Group) and variable.points_to.display_type == 'Namespace':
                 parts = self.owner_token.split('.')
-                if len(parts) != 2:
-                    return None
-                if parts[0] != variable.token:
-                    return None
-                for node in variable.points_to.all_nodes():
-                    if parts[1] == node.namespace_ownership() \
-                       and self.token == node.token:
-                        return node
+                if len(parts) == 2 and parts[0] == variable.token:
+                    for node in variable.points_to.all_nodes():
+                        print("MATCH CHECK", parts[1], node.namespace_ownership())
+                        print("TOKEN CHECK", self.token, node.token)
+                        if parts[1] == node.namespace_ownership() and self.token == node.token:
+                            return node
+
             return None
         if self.token == variable.token:
             if isinstance(variable.points_to, Node):
                 return variable.points_to
             if isinstance(variable.points_to, Group) \
-               and variable.points_to.group_type == GROUP_TYPE.CLASS \
+               and variable.points_to.group_type in GROUP_TYPE.CLASS \
                and variable.points_to.get_constructor():
                 return variable.points_to.get_constructor()
         return None
@@ -278,37 +286,48 @@ class Node():
         """
         Names exist largely for unit tests
         """
-        return f"{self.group_parent().filename()}::{self.token_with_ownership()}"
+        return f"{self.first_group().filename()}::{self.token_with_ownership()}"
 
-    def group_parent(self):
+    def first_group(self):
+        """
+        The first group that contains this node.
+        """
         parent = self.parent
-        while type(parent) != Group:
+        while not isinstance(parent, Group):
             parent = parent.parent
         return parent
 
-    def root_parent(self):
+    def file_group(self):
+        """
+        Get the file group that this node is in.
+        :rtype: Group
+        """
         parent = self.parent
         while parent.parent:
             parent = parent.parent
         return parent
 
-    def is_method(self):
+    def is_attr(self):
+        """
+        Whether this node is attached to something besides the file
+        """
         return (self.parent
                 and isinstance(self.parent, Group)
-                and self.parent.group_type == GROUP_TYPE.CLASS)
+                and self.parent.group_type in (GROUP_TYPE.CLASS, GROUP_TYPE.NAMESPACE))
 
     def token_with_ownership(self):
         """
         Token which includes what group this is a part of
         """
-        if self.is_method():
+        if self.is_attr():
             return djoin(self.parent.token, self.token)
         return self.token
 
     def namespace_ownership(self):
         parent = self.parent
         ret = []
-        while parent and parent.group_type == GROUP_TYPE.CLASS:
+        # while parent and parent.group_type == GROUP_TYPE.CLASS:
+        while parent and parent.group_type == 'CLASS' and parent.display_type != 'Namespace':
             ret = [parent.token] + ret
             parent = parent.parent
         print("namespace_ownership", self, ret)
@@ -326,7 +345,7 @@ class Node():
         """
         Remove this node from it's parent. This effectively deletes the node.
         """
-        self.group_parent().nodes = [n for n in self.group_parent().nodes if n != self]
+        self.first_group().nodes = [n for n in self.first_group().nodes if n != self]
 
     def get_variables(self, line_number=None):
         """
@@ -481,7 +500,7 @@ class Group():
         """
         The ultimate filename of this group.
         """
-        if self.group_type == GROUP_TYPE.MODULE:
+        if self.group_type == GROUP_TYPE.FILE:
             return self.token
         return self.parent.filename()
 

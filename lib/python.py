@@ -203,7 +203,7 @@ class Python(BaseLanguage):
             is_constructor = True
 
         import_tokens = []
-        if parent.group_type == GROUP_TYPE.MODULE:
+        if parent.group_type == GROUP_TYPE.FILE:
             import_tokens = [djoin(parent.token, token)]
 
         return [Node(token, calls, variables, parent, import_tokens=import_tokens,

@@ -189,7 +189,7 @@ def make_file_group(tree, filename, extension):
     language = LANGUAGES[extension]
 
     subgroup_trees, node_trees, body_trees = language.separate_namespaces(tree)
-    group_type = GROUP_TYPE.MODULE
+    group_type = GROUP_TYPE.FILE
     token = os.path.split(filename)[-1].rsplit('.' + extension, 1)[0]
     line_number = 0
     display_name = 'File'
@@ -235,15 +235,15 @@ def _find_link_for_call(call, node_a, all_nodes):
     possible_nodes = []
     if call.is_attr():
         for node in all_nodes:
-            # checking node.parent != node_a.root_parent() prevents self linkage in cases like
+            # checking node.parent != node_a.file_group() prevents self linkage in cases like
             # function a() {b = Obj(); b.a()}
-            if call.token == node.token and node.parent != node_a.root_parent():
+            if call.token == node.token and node.parent != node_a.file_group():
                 possible_nodes.append(node)
     else:
         for node in all_nodes:
             if call.token == node.token \
                and isinstance(node.parent, Group)  \
-               and node.parent.group_type == GROUP_TYPE.MODULE:
+               and node.parent.group_type == GROUP_TYPE.FILE:
                 possible_nodes.append(node)
             elif call.token == node.parent.token and node.is_constructor:
                 possible_nodes.append(node)

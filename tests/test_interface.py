@@ -92,7 +92,7 @@ def test_json():
 
 
 def test_repr():
-    module = model.Group('my_file', model.GROUP_TYPE.MODULE, [], 0)
+    module = model.Group('my_file', model.GROUP_TYPE.FILE, [], 0)
     group = model.Group('Obj', model.GROUP_TYPE.CLASS, [], 0)
     call = model.Call('tostring', 'obj', 42)
     variable = model.Variable('the_string', call, 42)

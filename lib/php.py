@@ -138,6 +138,8 @@ def make_calls(body_el):
     calls = []
     for expr in walk(body_el):
         call = get_call_from_expr(expr)
+        # if call and call.token == 'contains':
+        #     print('\a'); import ipdb; ipdb.set_trace()
         calls.append(call)
     ret = list(filter(None, calls))
 
@@ -158,6 +160,8 @@ def process_assign(assignment_el):
 
     varname = assignment_el['var']['name']
     call = get_call_from_expr(assignment_el['expr'])
+    # if call and call.token == 'contains':
+    #     print('\a'); import ipdb; ipdb.set_trace()
     if call:
         return Variable(varname, call, line_number=lineno(assignment_el))
     # else is something like `varname = num`
@@ -185,7 +189,7 @@ def make_local_variables(tree_el, parent):
                                           line_number=lineno(el)))
 
     # Make a 'this'/'self' variable for use anywhere we need it that points to the class
-    if isinstance(parent, Group) and parent.group_type == GROUP_TYPE.CLASS:
+    if isinstance(parent, Group) and parent.group_type in GROUP_TYPE.CLASS:
         variables.append(Variable('this', parent, line_number=parent.line_number))
         variables.append(Variable('self', parent, line_number=parent.line_number))
 
@@ -319,9 +323,11 @@ class PHP(BaseLanguage):
         calls = make_calls(this_scope_body)
         variables = make_local_variables(this_scope_body, parent)
 
-        if parent.group_type == GROUP_TYPE.CLASS and parent.parent.group_type == GROUP_TYPE.NAMESPACE:
+        if parent.group_type == 'CLASS' and parent.parent.display_type == 'Namespace':
+        # if parent.group_type == GROUP_TYPE.CLASS and parent.parent.group_type == GROUP_TYPE.NAMESPACE:
             import_tokens = [djoin(parent.parent.token, parent.token, token)]
-        if parent.group_type in (GROUP_TYPE.NAMESPACE, GROUP_TYPE.CLASS):
+        # if parent.group_type in (GROUP_TYPE.NAMESPACE, GROUP_TYPE.CLASS):
+        if parent.display_type == 'Namespace' or parent.group_type == 'CLASS':
             import_tokens = [djoin(parent.token, token)]
         else:
             import_tokens = [token]
