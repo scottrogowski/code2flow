@@ -24,7 +24,7 @@ Code2flow will provide a *pretty good estimate* of your project's structure. No 
 
 *(Below: Code2flow running on itself (excl javascript, PHP, & Ruby for clarity))*
 
-![code2flow running against itself TODO update](https://raw.githubusercontent.com/scottrogowski/code2flow/master/assets/code2flow_output.png)
+![code2flow running against itself](https://raw.githubusercontent.com/scottrogowski/code2flow/master/assets/code2flow_output.png)
 
 Installation
 ------------
