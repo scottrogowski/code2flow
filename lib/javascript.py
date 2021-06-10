@@ -218,7 +218,9 @@ def get_inherits(tree):
     :rtype: list[str]
     """
     if tree['superClass']:
-        return [tree['superClass']['name']]
+        if 'name' in tree['superClass']:
+            return [tree['superClass']['name']]
+        return [djoin(tree['superClass']['object']['name'], tree['superClass']['property']['name'])]
     return []
 
 
