@@ -319,11 +319,9 @@ class PHP(BaseLanguage):
         calls = make_calls(this_scope_body)
         variables = make_local_variables(this_scope_body, parent)
 
-        if parent.group_type == 'CLASS' and parent.parent.display_type == 'Namespace':
-        # if parent.group_type == GROUP_TYPE.CLASS and parent.parent.group_type == GROUP_TYPE.NAMESPACE:
+        if parent.group_type == GROUP_TYPE.CLASS and parent.parent.group_type == GROUP_TYPE.NAMESPACE:
             import_tokens = [djoin(parent.parent.token, parent.token, token)]
-        # if parent.group_type in (GROUP_TYPE.NAMESPACE, GROUP_TYPE.CLASS):
-        if parent.display_type == 'Namespace' or parent.group_type == 'CLASS':
+        if parent.group_type in (GROUP_TYPE.NAMESPACE, GROUP_TYPE.CLASS):
             import_tokens = [djoin(parent.token, token)]
         else:
             import_tokens = [token]
@@ -391,7 +389,7 @@ class PHP(BaseLanguage):
             for new_node in PHP.make_nodes(node_tree, parent=class_group):
                 class_group.add_node(new_node)
 
-        if display_type == 'Namespace':
+        if group_type == GROUP_TYPE.NAMESPACE:
             class_group.add_node(PHP.make_root_node(body_trees, class_group))
             for node in class_group.nodes:
                 node.variables += [Variable(n.token, n, line_number=n.line_number)
