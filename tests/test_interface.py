@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 import shutil
 import sys
@@ -8,8 +7,8 @@ import pytest
 
 sys.path.append(os.getcwd().split('/tests')[0])
 
-from lib.engine import code2flow, _generate_final_img
-from lib import model
+from code2flow.engine import code2flow
+from code2flow import model
 
 IMG_PATH = '/tmp/code2flow/output.png'
 if os.path.exists("/tmp/code2flow"):

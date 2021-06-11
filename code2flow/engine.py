@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+
+import argparse
 import json
 import logging
 import os
@@ -8,7 +11,7 @@ from .python import Python
 # from .javascript import Javascript
 from .model import TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, NODE_COLOR, Edge, Group, is_installed
 
-VERSION = '2.0.1'
+VERSION = '2.0.2'
 
 VALID_EXTENSIONS = {'png', 'svg', 'dot', 'gv', 'json'}
 
@@ -430,3 +433,62 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
     # translate to an image if that was requested
     if final_img_filename:
         _generate_final_img(output_file, extension, final_img_filename, len(edges))
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument(
+        'sources', metavar='sources', nargs='+',
+        help='source code file/directory paths.')
+    parser.add_argument(
+        '--output', '-o', default='out.png',
+        help=f'output file path. Supported types are {VALID_EXTENSIONS}.')
+    parser.add_argument(
+        '--language', choices=['py', 'js'],
+        help='process this language and ignore all other files.'
+             'If omitted, use the suffix of the first source file.')
+    parser.add_argument(
+        '--exclude-functions',
+        help='exclude functions from the output. Comma delimited.')
+    parser.add_argument(
+        '--exclude-namespaces',
+        help='exclude namespaces (Classes, modules, etc) from the output. Comma delimited.')
+    parser.add_argument(
+        '--no-grouping', action='store_true',
+        help='instead of grouping functions into namespaces, let functions float.')
+    parser.add_argument(
+        '--no-trimming', action='store_true',
+        help='show all functions/namespaces whether or not they connect to anything.')
+    parser.add_argument(
+        '--hide-legend', action='store_true',
+        help='by default, Code2flow generates a small legend. This flag hides it.')
+    parser.add_argument(
+        '--quiet', '-q', action='store_true',
+        help='suppress most logging')
+    parser.add_argument(
+        '--verbose', '-v', action='store_true',
+        help='add more logging')
+    parser.add_argument(
+        '--version', action='version', version='%(prog)s ' + VERSION)
+
+    args = parser.parse_args()
+    level = logging.INFO
+    if args.verbose and args.quiet:
+        raise AssertionError("Passed both --verbose and --quiet flags")
+    if args.verbose:
+        level = logging.DEBUG
+    if args.quiet:
+        level = logging.WARNING
+
+    exclude_namespaces = list(filter(None, (args.exclude_namespaces or "").split(',')))
+    exclude_functions = list(filter(None, (args.exclude_functions or "").split(',')))
+
+    code2flow(args.sources, args.output, args.language, args.hide_legend,
+              exclude_namespaces, exclude_functions,
+              args.no_grouping, args.no_trimming, level)
+
+
+if __name__ == "__main__":
+    main()
