@@ -1,5 +1,5 @@
 test:
-	pytest --cov-report=html --cov=lib
+	pytest --cov-report=html --cov=code2flow
 
 clean:
 	rm -rf build
