@@ -8,6 +8,24 @@ EDGE_COLOR = "#cf142b"
 NODE_COLOR = "#cccccc"
 
 
+class Namespace(dict):
+    """
+    Abstract constants class
+    Constants can be accessed via .attribute or [key] and can be iterated over.
+    """
+    def __init__(self, *args, **kwargs):
+        d = {k: k for k in args}
+        d.update(dict(kwargs.items()))
+        super().__init__(d)
+
+    def __getattr__(self, item):
+        return self[item]
+
+
+OWNER_CONST = Namespace("UNKNOWN_VAR", "UNKNOWN_MODULE", "KNOWN_MODULE")
+GROUP_TYPE = Namespace("MODULE", "CLASS")
+
+
 def is_installed(executable_cmd):
     """
     Determine whether a command can be run or not
@@ -23,48 +41,68 @@ def is_installed(executable_cmd):
     return False
 
 
+def djoin(*tup):
+    """Convenience method to join strings with dots"""
+    return '.'.join(tup)
+
+
+def flatten(list_of_lists):
+    """
+    Return a list from a list of lists
+    :param list[list[Value]] list_of_lists:
+    :rtype: list[Value]
+    """
+    return [el for sublist in list_of_lists for el in sublist]
+
+
 def _resolve_str_variable(variable, file_groups):
     """
     String variables are when variable.points_to is a string
-    This indicates imports that we delayed processing for
+    This happens ONLY when we have imports that we delayed processing for
     This function looks through all processed files to see if we can find a match
 
     :param Variable variable:
     :param list[Group] file_groups:
     :rtype: Node|str
     """
+    has_known = False
 
     for file_group in file_groups:
+        # Check if any top level node in the other file matches the import
         for node in file_group.nodes:
-            if file_group.token + '.' + node.token == variable.points_to:
+            if djoin(file_group.token, node.token) == variable.points_to:
                 return node
+        # Check if any top level class in the other file matches the import
         for group in file_group.subgroups:
-            if file_group.token + '.' + group.token == variable.points_to \
+            if djoin(file_group.token, group.token) == variable.points_to \
                and group.get_constructor():
                 return group.get_constructor()
-    return "UNKNOWN_MODULE"  # Default indicates we must skip
+        if file_group.token == variable.points_to.split('.', 1)[0]:
+            has_known = True
+    if has_known:
+        return OWNER_CONST.KNOWN_MODULE
+
+    return OWNER_CONST.UNKNOWN_MODULE  # Default indicates we must skip
 
 
 class BaseLanguage(abc.ABC):
     """
     Languages are individual implementations for different dynamic languages.
-    This will eventually be the superclass of Python, Javascript, PHP, and Ruby.
+    This is the superclass of Python, Javascript, PHP, and Ruby.
     Every implementation must implement all of these methods.
     For more detail, see the individual implementations.
-    (Note that the 'Tree' parameter / rtype is generic and will be a different
-     type for different languages. In Python, it is an ast)
+    Note that the 'Tree' type is generic and will be a different
+    type for different languages. In Python, it is an ast.AST.
     """
-
-    @property
-    @abc.abstractmethod
-    def RESERVED_KEYWORDS(self):
-        """
-        :rtype: list[str]
-        """
 
     @staticmethod
     @abc.abstractmethod
-    def get_tree(filename):
+    def assert_dependencies():
+        """"""
+
+    @staticmethod
+    @abc.abstractmethod
+    def get_tree(filename, lang_params):
         """
         :param filename str:
         :rtype: Tree
@@ -75,31 +113,34 @@ class BaseLanguage(abc.ABC):
     def separate_namespaces(tree):
         """
         :param tree Tree:
-        :returns: tuple of group, node, and body trees. These are processed
-                  downstream into real Groups and Nodes.
-        :rtype: (list[Tree], list[Tree], list[Tree])
+        :rtype: (list[tree], list[tree], list[tree])
         """
 
     @staticmethod
     @abc.abstractmethod
-    def find_link_for_call(call, node_a, all_nodes):
-        """
-        :param call Call:
-        :param node_a Node:
-        :param all_nodes list[Node]:
-
-        :returns: The node it links to and the call if >1 node matched.
-        :rtype: (Node|None, Call|None)
-        """
-
-    @staticmethod
-    @abc.abstractmethod
-    def make_file_group(tree, filename):
+    def make_nodes(tree, parent):
         """
         :param tree Tree:
-        :param filename Str:
+        :param parent Group:
+        :rtype: list[Node]
+        """
 
-        :rtype: (Group)
+    @staticmethod
+    @abc.abstractmethod
+    def make_root_node(lines, parent):
+        """
+        :param lines list[Tree]:
+        :param parent Group:
+        :rtype: Node
+        """
+
+    @staticmethod
+    @abc.abstractmethod
+    def make_class_group(tree, parent):
+        """
+        :param tree Tree:
+        :param parent Group:
+        :rtype: Group
         """
 
 
@@ -109,13 +150,20 @@ class Variable():
     They may either point to a string or, once resolved, a Group/Node.
     Not all variables can be resolved
     """
-    def __init__(self, token, points_to, line_number):
+    def __init__(self, token, points_to, line_number=None):
         self.token = token
         self.points_to = points_to
         self.line_number = line_number
 
     def __repr__(self):
         return f"<Variable token={self.token} points_to={repr(self.points_to)}"
+
+    def to_string(self):
+        if self.points_to and isinstance(self.points_to, Group):
+            return f'{self.token}->{self.points_to.token}'
+        if self.points_to:
+            return f'{self.token}->{self.points_to}'
+        return self.token
 
 
 class Call():
@@ -127,10 +175,11 @@ class Call():
         do_something()
 
     """
-    def __init__(self, token, line_number, owner_token=None):
+    def __init__(self, token, line_number=None, owner_token=None, definite_constructor=False):
         self.token = token
         self.owner_token = owner_token
         self.line_number = line_number
+        self.definite_constructor = definite_constructor
 
     def __repr__(self):
         return f"<Call owner_token={self.owner_token} token={self.token}>"
@@ -148,7 +197,7 @@ class Call():
         """
         Attribute calls are like `a.do_something()` rather than `do_something()`
         """
-        return bool(self.owner_token)
+        return self.owner_token is not None
 
     def matches_variable(self, variable):
         """
@@ -162,27 +211,34 @@ class Call():
         :param variable Variable:
         :rtype: Node
         """
+
         if self.is_attr():
             if self.owner_token == variable.token:
                 for node in getattr(variable.points_to, 'nodes', []):
                     if self.token == node.token:
                         return node
-                if variable.points_to == 'UNKNOWN_MODULE':
-                    return 'UNKNOWN_MODULE'  # TODO
+                for inherit_nodes in getattr(variable.points_to, 'inherits', []):
+                    for node in inherit_nodes:
+                        if self.token == node.token:
+                            return node
+                if variable.points_to in OWNER_CONST:
+                    return variable.points_to
             return None
         if self.token == variable.token:
             if isinstance(variable.points_to, Node):
                 return variable.points_to
             if isinstance(variable.points_to, Group) \
-               and variable.points_to.group_type == 'CLASS' \
+               and variable.points_to.group_type == GROUP_TYPE.CLASS \
                and variable.points_to.get_constructor():
                 return variable.points_to.get_constructor()
+        if variable.points_to == OWNER_CONST.KNOWN_MODULE:
+            return OWNER_CONST.KNOWN_MODULE
 
         return None
 
 
 class Node():
-    def __init__(self, token, line_number, calls, variables, parent, is_constructor=False):
+    def __init__(self, token, calls, variables, parent, line_number=None, is_constructor=False):
         self.token = token
         self.line_number = line_number
         self.calls = calls
@@ -203,7 +259,13 @@ class Node():
         """
         Names exist largely for unit tests
         """
-        return f"{self.parent.filename()}::{self.token_with_ownership()}"
+        return f"{self.group_parent().filename()}::{self.token_with_ownership()}"
+
+    def group_parent(self):
+        parent = self.parent
+        while type(parent) != Group:
+            parent = parent.parent
+        return parent
 
     def root_parent(self):
         parent = self.parent
@@ -212,36 +274,44 @@ class Node():
         return parent
 
     def is_method(self):
-        return self.parent and self.parent.group_type == 'CLASS'
+        return (self.parent
+                and isinstance(self.parent, Group)
+                and self.parent.group_type == GROUP_TYPE.CLASS)
 
     def token_with_ownership(self):
         """
         Token which includes what group this is a part of
         """
         if self.is_method():
-            return self.parent.token + '.' + self.token
+            return djoin(self.parent.token, self.token)
         return self.token
 
     def label(self):
         """
         Labels are what you see on the graph
         """
-        return f"{self.line_number}: {self.token}()"
+        if self.line_number is not None:
+            return f"{self.line_number}: {self.token}()"
+        return f"{self.token}()"
 
     def remove_from_parent(self):
         """
         Remove this node from it's parent. This effectively deletes the node.
         """
-        self.parent.nodes = [n for n in self.parent.nodes if n != self]
+        self.group_parent().nodes = [n for n in self.group_parent().nodes if n != self]
 
-    def get_variables(self, line_number):
+    def get_variables(self, line_number=None):
         """
         Get variables in-scope on the line number.
         This includes all local variables as-well-as outer-scope variables
         """
-        ret = []
-        ret += list([v for v in self.variables if v.line_number <= line_number])
-        ret.sort(key=lambda v: v.line_number, reverse=True)
+        if line_number is None:
+            ret = list(self.variables)
+        else:
+            # TODO variables should be sorted by scope before line_number
+            ret = list([v for v in self.variables if v.line_number <= line_number])
+        if any(v.line_number for v in ret):
+            ret.sort(key=lambda v: v.line_number, reverse=True)
 
         parent = self.parent
         while parent:
@@ -251,7 +321,7 @@ class Node():
 
     def resolve_variables(self, file_groups):
         """
-        For all variables, attempt to resolve the Node/Group type.
+        For all variables, attempt to resolve the Node/Group on points_to.
         There is a good chance this will be unsuccessful.
 
         :param list[Group] file_groups:
@@ -261,7 +331,7 @@ class Node():
             if isinstance(variable.points_to, str):
                 variable.points_to = _resolve_str_variable(variable, file_groups)
             elif isinstance(variable.points_to, Call):
-                if variable.points_to.is_attr():
+                if variable.points_to.is_attr() and not variable.points_to.definite_constructor:
                     # Only process Class(); Not a.Class()
                     continue
                 for file_group in file_groups:
@@ -304,7 +374,9 @@ class Node():
 
 def _wrap_as_variables(sequence):
     """
-    Given a list of either Nodes or Groups, wrap them in variables
+    Given a list of either Nodes or Groups, wrap them in variables.
+    This is used in the get_variables method to allow all defined
+    functions and classes to be defined as variables
     :param list[Group|Node] sequence:
     :rtype: list[Variable]
     """
@@ -345,7 +417,8 @@ class Group():
     """
     Groups represent namespaces (classes and modules/files)
     """
-    def __init__(self, token, line_number, group_type, parent=None):
+    def __init__(self, token, group_type, display_type, line_number=None, parent=None,
+                 inherits=None):
         self.token = token
         self.line_number = line_number
         self.nodes = []
@@ -353,24 +426,26 @@ class Group():
         self.subgroups = []
         self.parent = parent
         self.group_type = group_type
-        assert group_type in ('MODULE', 'SCRIPT', 'CLASS')
+        self.display_type = display_type
+        self.inherits = inherits or []
+        assert group_type in GROUP_TYPE
 
         self.uid = "cluster_" + os.urandom(4).hex()  # group doesn't work by syntax rules
 
     def __repr__(self):
-        return f"<Group token={self.token} type={self.group_type}>"
+        return f"<Group token={self.token} type={self.display_type}>"
 
     def label(self):
         """
         Labels are what you see on the graph
         """
-        return f"{self.group_type}: {self.token}"
+        return f"{self.display_type}: {self.token}"
 
     def filename(self):
         """
         The ultimate filename of this group.
         """
-        if self.group_type in ('MODULE', 'SCRIPT'):
+        if self.group_type == GROUP_TYPE.MODULE:
             return self.token
         return self.parent.filename()
 
@@ -407,7 +482,7 @@ class Group():
         TODO, this excludes the possibility of multiple constructors
         :rtype: Node|None
         """
-        assert self.group_type == 'CLASS'
+        assert self.group_type == GROUP_TYPE.CLASS
         constructors = [n for n in self.nodes if n.is_constructor]
         if constructors:
             return constructors[0]
@@ -422,18 +497,23 @@ class Group():
             ret += subgroup.all_groups()
         return ret
 
-    def get_variables(self):
+    def get_variables(self, line_number=None):
         """
         Get in-scope variables from this group.
         This assumes every variable will be in-scope in nested functions
+        line_number is included for compatibility with Node.get_variables but is not used
 
+        :param int line_number:
         :rtype: list[Variable]
         """
+
         if self.root_node:
             variables = (self.root_node.variables
                          + _wrap_as_variables(self.subgroups)
                          + _wrap_as_variables(n for n in self.nodes if n != self.root_node))
-            return sorted(variables, key=lambda v: v.line_number, reverse=True)
+            if any(v.line_number for v in variables):
+                return sorted(variables, key=lambda v: v.line_number, reverse=True)
+            return variables
         else:
             return []
 

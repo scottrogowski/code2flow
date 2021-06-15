@@ -1,3 +1,4 @@
+import collections
 import json
 import logging
 import os
@@ -5,10 +6,13 @@ import subprocess
 import time
 
 from .python import Python
-# from .javascript import Javascript
-from .model import TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, NODE_COLOR, Edge, Group, is_installed
+from .javascript import Javascript
+# from .ruby import Ruby
+# from .php import PHP
+from .model import (TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, NODE_COLOR, GROUP_TYPE,
+                    Edge, Group, Node, Variable, is_installed, flatten)
 
-VERSION = '2.0.1'
+VERSION = '2.1.0'
 
 VALID_EXTENSIONS = {'png', 'svg', 'dot', 'gv', 'json'}
 
@@ -33,19 +37,20 @@ LEGEND = """subgraph legend{
 
 LANGUAGES = {
     'py': Python,
-    # 'js': Javascript,
-    # 'php': PHP,
+    'js': Javascript,
+    'mjs': Javascript,
     # 'rb': Ruby,
+    # 'php': PHP,
 }
 
 
-def flatten(list_of_lists):
+class LanguageParams():
     """
-    Return a list from a list of lists
-    :param list[list[Value]] list_of_lists:
-    :rtype: list[Value]
+    Shallow structure to make storing language-specific parameters cleaner
     """
-    return [el for sublist in list_of_lists for el in sublist]
+    def __init__(self, source_type='script', ruby_version='27'):
+        self.source_type = source_type
+        self.ruby_version = ruby_version
 
 
 def generate_json(nodes, edges):
@@ -170,7 +175,89 @@ def get_sources_and_language(raw_source_paths, language):
     return sources, language
 
 
-def _find_links(node_a, all_nodes, language):
+def make_file_group(tree, filename, extension):
+    """
+    Given an AST for the entire file, generate a file group complete with
+    subgroups, nodes, etc.
+
+    :param tree ast:
+    :param filename str:
+    :param extension str:
+
+    :rtype: Group
+    """
+    language = LANGUAGES[extension]
+
+    subgroup_trees, node_trees, body_trees = language.separate_namespaces(tree)
+    group_type = GROUP_TYPE.MODULE
+    token = os.path.split(filename)[-1].rsplit('.' + extension, 1)[0]
+    line_number = 0
+
+    file_group = Group(token, group_type, 'File', line_number, parent=None)
+
+    for node_tree in node_trees:
+        for new_node in language.make_nodes(node_tree, parent=file_group):
+            file_group.add_node(new_node)
+
+    file_group.add_node(language.make_root_node(body_trees, parent=file_group), is_root=True)
+
+    for subgroup_tree in subgroup_trees:
+        file_group.add_subgroup(language.make_class_group(subgroup_tree, parent=file_group))
+    return file_group
+
+
+def _find_link_for_call(call, node_a, all_nodes):
+    """
+    Given a call that happened on a node (node_a), return the node
+    that the call links to and the call itself if >1 node matched.
+
+    :param call Call:
+    :param node_a Node:
+    :param all_nodes list[Node]:
+
+    :returns: The node it links to and the call if >1 node matched.
+    :rtype: (Node|None, Call|None)
+    """
+
+    all_vars = node_a.get_variables(call.line_number)
+
+    for var in all_vars:
+        var_match = call.matches_variable(var)
+        if var_match:
+            # Known modules (e.g. in the same directory) we want to check through possible_nodes
+            if var_match == 'KNOWN_MODULE':
+                continue
+
+            # Unknown modules (e.g. third party) we don't want to match)
+            if var_match == 'UNKNOWN_MODULE':
+                return None, None
+            assert isinstance(var_match, Node)
+            return var_match, None
+
+    possible_nodes = []
+    if call.is_attr():
+        for node in all_nodes:
+            # checking node.parent != node_a.root_parent() prevents self linkage in cases like
+            # function a() {b = Obj(); b.a()}
+            if call.token == node.token and node.parent != node_a.root_parent():
+                possible_nodes.append(node)
+    else:
+        for node in all_nodes:
+            if call.token == node.token \
+               and isinstance(node.parent, Group)  \
+               and node.parent.group_type == GROUP_TYPE.MODULE:
+                possible_nodes.append(node)
+            elif call.token == node.parent.token and node.is_constructor:
+                possible_nodes.append(node)
+
+    if len(possible_nodes) == 1:
+        return possible_nodes[0], None
+    if len(possible_nodes) > 1:
+        return None, call
+    return None, None
+
+
+def _find_links(node_a, all_nodes):
     """
     Iterate through the calls on node_a to find everything the node links to.
     This will return a list of tuples of nodes and calls that were ambiguous.
@@ -181,65 +268,100 @@ def _find_links(node_a, all_nodes, language):
     """
     links = []
     for call in node_a.calls:
-        lfc = language.find_link_for_call(call, node_a, all_nodes)
+        lfc = _find_link_for_call(call, node_a, all_nodes)
         assert not isinstance(lfc, Group)
         links.append(lfc)
     return list(filter(None, links))
 
 
-def map_it(sources, language, no_trimming, exclude_namespaces, exclude_functions,
-           source_type):
+def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_functions,
+           skip_parse_errors, lang_params):
     '''
     Given a language implementation and a list of filenames, do these things:
-    1. Read source ASTs & find all groups (classes/modules) and nodes (functions)
-       (a lot happens here)
-    2. Trim namespaces / functions that we don't want
-    3. Attempt to resolve the variables (point them to a node or group)
-    4. Find all calls between all nodes
-    5. Loudly complain about duplicate edges that were skipped
-    6. Trim nodes that didn't connect to anything
+    1. Read/parse source ASTs
+    2. Find all groups (classes/modules) and nodes (functions) (a lot happens here)
+    3. Trim namespaces / functions that we don't want
+    4. Consolidate groups / nodes given all we know so far
+    5. Attempt to resolve the variables (point them to a node or group)
+    6. Find all calls between all nodes
+    7. Loudly complain about duplicate edges that were skipped
+    8. Trim nodes that didn't connect to anything
 
     :param list[str] sources:
-    :param Language lang:
+    :param str extension:
     :param bool no_trimming:
     :param list exclude_namespaces:
     :param list exclude_functions:
+    :param bool skip_parse_errors:
+    :param LanguageParams lang_params:
 
     :rtype: (list[Group], list[Node], list[Edge])
     '''
 
+    language = LANGUAGES[extension]
+
     # 0. Assert dependencies
     language.assert_dependencies()
 
-    # 1. Read sourcs ASTs & find all groups (classes/modules) and nodes (functions)
-    #    (a lot happens here)
-    file_groups = []
+    # 1. Read/parse source ASTs
+    file_ast_trees = []
     for source in sources:
-        mod_tree = language.get_tree(source, source_type)
-        file_group = language.make_file_group(mod_tree, source)
+        try:
+            file_ast_trees.append((source, language.get_tree(source, lang_params)))
+        except Exception as ex:
+            if skip_parse_errors:
+                logging.warning("Could not parse %r. (%r) Skipping...", source, ex)
+            else:
+                raise ex
+
+    # 2. Find all groups (classes/modules) and nodes (functions) (a lot happens here)
+    file_groups = []
+    for source, file_ast_tree in file_ast_trees:
+        file_group = make_file_group(file_ast_tree, source, extension)
         file_groups.append(file_group)
 
-    # 2. Trim namespaces / functions that we don't want
+    # 3. Trim namespaces / functions that we don't want
     if exclude_namespaces:
         file_groups = _exclude_namespaces(file_groups, exclude_namespaces)
     if exclude_functions:
         file_groups = _exclude_functions(file_groups, exclude_functions)
 
-    # 3. Attempt to resolve the variables (point them to a node or group)
+    # 4. Consolidate structure for inheritance
+    all_subgroups = flatten(g.all_groups() for g in file_groups)
+
+    nodes_by_subgroup_token = collections.defaultdict(list)
+    for subgroup in all_subgroups:
+        if subgroup.token in nodes_by_subgroup_token:
+            logging.warning("Duplicate group name %r. Naming collision possible.",
+                            subgroup.token)
+        nodes_by_subgroup_token[subgroup.token] += subgroup.nodes
+
+    for group in file_groups:
+        for subgroup in group.all_groups():
+            subgroup.inherits = [nodes_by_subgroup_token.get(g) for g in subgroup.inherits]
+            subgroup.inherits = list(filter(None, subgroup.inherits))
+            for inherit_nodes in subgroup.inherits:
+                for node in subgroup.nodes:
+                    node.variables += [Variable(n.token, n, n.line_number) for n in inherit_nodes]
+
+    # 5. Attempt to resolve the variables (point them to a node or group)
     all_nodes = []
     for group in file_groups:
         all_nodes += group.all_nodes()
     for node in all_nodes:
         node.resolve_variables(file_groups)
-    logging.info("Found nodes %r." % sorted([n.token_with_ownership() for n in all_nodes]))
-    logging.info("Found calls %r." % sorted(list(set(c.to_string() for c in flatten(n.calls for n in all_nodes)))))
-    logging.info("Found variables %r." % sorted(list(set(v.token for v in flatten(n.variables for n in all_nodes)))))
 
-    # 4. Find all calls between all nodes
+    # Not a step. Just log what we know so far
+    logging.info("Found groups %r." % [g.label() for g in all_subgroups])
+    logging.info("Found nodes %r." % sorted(n.token_with_ownership() for n in all_nodes))
+    logging.info("Found calls %r." % sorted(list(set(c.to_string() for c in flatten(n.calls for n in all_nodes)))))
+    logging.info("Found variables %r." % sorted(list(set(v.to_string() for v in flatten(n.variables for n in all_nodes)))))
+
+    # 6. Find all calls between all nodes
     bad_calls = []
     edges = []
     for node_a in list(all_nodes):
-        links = _find_links(node_a, all_nodes, language)
+        links = _find_links(node_a, all_nodes)
         for node_b, bad_call in links:
             if bad_call:
                 bad_calls.append(bad_call)
@@ -247,7 +369,7 @@ def map_it(sources, language, no_trimming, exclude_namespaces, exclude_functions
                 continue
             edges.append(Edge(node_a, node_b))
 
-    # 5. Loudly complain about duplicate edges that were skipped
+    # 7. Loudly complain about duplicate edges that were skipped
     bad_calls_strings = set()
     for bad_call in bad_calls:
         bad_calls_strings.add(bad_call.to_string())
@@ -259,7 +381,7 @@ def map_it(sources, language, no_trimming, exclude_namespaces, exclude_functions
     if no_trimming:
         return file_groups, all_nodes, edges
 
-    # 6. Trim nodes that didn't connect to anything
+    # 8. Trim nodes that didn't connect to anything
     nodes_with_edges = set()
     for edge in edges:
         nodes_with_edges.add(edge.node0)
@@ -355,8 +477,8 @@ def _generate_final_img(output_file, extension, final_img_filename, num_edges):
 
 def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
               exclude_namespaces=None, exclude_functions=None,
-              no_grouping=False, no_trimming=False, source_type='script',
-              level=logging.INFO):
+              no_grouping=False, no_trimming=False, skip_parse_errors=False,
+              lang_params=None, level=logging.INFO):
     """
     Top-level function. Generate a diagram based on source code.
     Can generate either a dotfile or an image.
@@ -369,6 +491,8 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
     :param list exclude_functions: List of functions to exclude
     :param bool no_grouping: Don't group functions into namespaces in the final output
     :param bool no_trimming: Don't trim orphaned functions / namespaces
+    :param bool skip_parse_errors: If a language parser fails to parse a file, skip it
+    :param lang_params LanguageParams: Object to store lang-specific params
     :param int level: logging level
     :rtype: None
     """
@@ -381,6 +505,7 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
     assert isinstance(exclude_namespaces, list)
     exclude_functions = exclude_functions or []
     assert isinstance(exclude_functions, list)
+    lang_params = lang_params or LanguageParams()
 
     logging.basicConfig(format="Code2Flow: %(message)s", level=level)
 
@@ -399,16 +524,14 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
                 "Can't generate a flowchart image because neither `dot` nor "
                 "`dot.exe` was found. Either install graphviz (see the README) "
                 "or set your --output argument to a 'dot' filename like out.dot "
-                "or out.gz.")
+                "or out.gv.")
         final_img_filename = output_file
         output_file, extension = output_file.rsplit('.', 1)
         output_file += '.gv'
 
-    language = LANGUAGES[language]
-
     file_groups, all_nodes, edges = map_it(sources, language, no_trimming,
                                            exclude_namespaces, exclude_functions,
-                                           source_type)
+                                           skip_parse_errors, lang_params)
 
     logging.info("Generating output file...")
 
@@ -425,6 +548,8 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
 
     logging.info("Wrote output file %r with %d nodes and %d edges.",
                  output_file, len(all_nodes), len(edges))
+    if not output_ext == 'json':
+        logging.info("For better machine readability, you can also try outputting in a json format.")
     logging.info("Code2flow finished processing in %.2f seconds." % (time.time() - start_time))
 
     # translate to an image if that was requested
