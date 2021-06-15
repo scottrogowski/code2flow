@@ -271,6 +271,7 @@ def _find_links(node_a, all_nodes):
     links = []
     for call in node_a.calls:
         lfc = _find_link_for_call(call, node_a, all_nodes)
+        assert not isinstance(lfc, Group)
         links.append(lfc)
     return list(filter(None, links))
 

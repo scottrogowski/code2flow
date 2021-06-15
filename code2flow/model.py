@@ -383,8 +383,7 @@ class Node():
         """
         for variable in self.variables:
             if isinstance(variable.points_to, str):
-                resolved_var = _resolve_str_variable(variable, file_groups)
-                variable.points_to = resolved_var
+                variable.points_to = _resolve_str_variable(variable, file_groups)
             elif isinstance(variable.points_to, Call):
                 # else, this is a call variable
                 call = variable.points_to

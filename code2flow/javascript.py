@@ -336,9 +336,8 @@ class Javascript(BaseLanguage):
         line_number = lineno(tree)
         calls = make_calls(this_scope_body)
         variables = make_local_variables(this_scope_body, parent)
-        node = Node(token, calls, variables, parent,
-                    line_number=line_number, is_constructor=is_constructor)
-
+        node = Node(token, calls, variables, parent=parent, line_number=line_number,
+                    is_constructor=is_constructor)
         subnodes = flatten([Javascript.make_nodes(t, node) for t in subnode_trees])
 
         return [node] + subnodes
