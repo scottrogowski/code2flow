@@ -1,8 +1,10 @@
+import argparse
 import collections
 import json
 import logging
 import os
 import subprocess
+import sys
 import time
 
 from .python import Python
@@ -12,7 +14,7 @@ from .javascript import Javascript
 from .model import (TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, NODE_COLOR, GROUP_TYPE,
                     Edge, Group, Node, Variable, is_installed, flatten)
 
-VERSION = '2.1.0'
+VERSION = '2.1.1'
 
 VALID_EXTENSIONS = {'png', 'svg', 'dot', 'gv', 'json'}
 
@@ -496,7 +498,6 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
     :param int level: logging level
     :rtype: None
     """
-
     start_time = time.time()
 
     if not isinstance(raw_source_paths, list):
@@ -555,3 +556,84 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
     # translate to an image if that was requested
     if final_img_filename:
         _generate_final_img(output_file, extension, final_img_filename, len(edges))
+
+
+def main(sys_argv=None):
+    """
+    CLI interface. Sys_argv is a parameter for the sake of unittest coverage.
+    :param sys_argv list:
+    :rtype: None
+    """
+    parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument(
+        'sources', metavar='sources', nargs='+',
+        help='source code file/directory paths.')
+    parser.add_argument(
+        '--output', '-o', default='out.png',
+        help=f'output file path. Supported types are {VALID_EXTENSIONS}.')
+    parser.add_argument(
+        '--language', choices=['py', 'js'],
+        help='process this language and ignore all other files.'
+             'If omitted, use the suffix of the first source file.')
+    parser.add_argument(
+        '--exclude-functions',
+        help='exclude functions from the output. Comma delimited.')
+    parser.add_argument(
+        '--exclude-namespaces',
+        help='exclude namespaces (Classes, modules, etc) from the output. Comma delimited.')
+    parser.add_argument(
+        '--no-grouping', action='store_true',
+        help='instead of grouping functions into namespaces, let functions float.')
+    parser.add_argument(
+        '--no-trimming', action='store_true',
+        help='show all functions/namespaces whether or not they connect to anything.')
+    parser.add_argument(
+        '--hide-legend', action='store_true',
+        help='by default, Code2flow generates a small legend. This flag hides it.')
+    parser.add_argument(
+        '--skip-parse-errors', action='store_true',
+        help='skip files that the language parser fails on.')
+    parser.add_argument(
+        '--source-type', choices=['script', 'module'], default='script',
+        help='js only. Parse the source as scripts (commonJS) or modules (es6)')
+    parser.add_argument(
+        '--ruby-version', default='27',
+        help='ruby only. Which ruby version to parse? This is passed directly into ruby-parse. Use numbers like 25, 27, or 31.')
+    parser.add_argument(
+        '--quiet', '-q', action='store_true',
+        help='suppress most logging')
+    parser.add_argument(
+        '--verbose', '-v', action='store_true',
+        help='add more logging')
+    parser.add_argument(
+        '--version', action='version', version='%(prog)s ' + VERSION)
+
+    sys_argv = sys_argv or sys.argv[1:]
+    args = parser.parse_args(sys_argv)
+    level = logging.INFO
+    if args.verbose and args.quiet:
+        raise AssertionError("Passed both --verbose and --quiet flags")
+    if args.verbose:
+        level = logging.DEBUG
+    if args.quiet:
+        level = logging.WARNING
+
+    exclude_namespaces = list(filter(None, (args.exclude_namespaces or "").split(',')))
+    exclude_functions = list(filter(None, (args.exclude_functions or "").split(',')))
+    lang_params = LanguageParams(args.source_type, args.ruby_version)
+
+    code2flow(
+        raw_source_paths=args.sources,
+        output_file=args.output,
+        language=args.language,
+        hide_legend=args.hide_legend,
+        exclude_namespaces=exclude_namespaces,
+        exclude_functions=exclude_functions,
+        no_grouping=args.no_grouping,
+        no_trimming=args.no_trimming,
+        skip_parse_errors=args.skip_parse_errors,
+        lang_params=lang_params,
+        level=level,
+    )

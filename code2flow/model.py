@@ -289,10 +289,13 @@ class Node():
     def label(self):
         """
         Labels are what you see on the graph
+
+        TODO ruby branch
         """
-        if self.line_number is not None:
-            return f"{self.line_number}: {self.token}()"
-        return f"{self.token}()"
+        # if self.line_number is not None:
+        assert self.line_number is not None
+        return f"{self.line_number}: {self.token}()"
+        # return f"{self.token}()"
 
     def remove_from_parent(self):
         """
@@ -511,9 +514,11 @@ class Group():
             variables = (self.root_node.variables
                          + _wrap_as_variables(self.subgroups)
                          + _wrap_as_variables(n for n in self.nodes if n != self.root_node))
-            if any(v.line_number for v in variables):
-                return sorted(variables, key=lambda v: v.line_number, reverse=True)
-            return variables
+            # TODO ruby branch
+            assert any(v.line_number for v in variables)
+            # if any(v.line_number for v in variables):
+            return sorted(variables, key=lambda v: v.line_number, reverse=True)
+            # return variables
         else:
             return []
 

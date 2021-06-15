@@ -7,7 +7,7 @@ import pytest
 
 sys.path.append(os.getcwd().split('/tests')[0])
 
-from lib.engine import code2flow, LanguageParams
+from code2flow.engine import code2flow, LanguageParams
 from tests.testdata import testdata
 
 LANGUAGES = (
