@@ -1,5 +1,8 @@
 # Code2flow CHANGELOG
 
+## [2.1.1] - 2021-06-15
+Updates to the CLI that allow code2flow to hypothetically run in Windows
+
 ## [2.1.0] - 2021-06-15
 Javascript support
 

@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import subprocess
+import sys
 import time
 
 from .python import Python
@@ -557,7 +558,7 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
         _generate_final_img(output_file, extension, final_img_filename, len(edges))
 
 
-def main(sys_argv):
+def main(sys_argv=None):
     """
     CLI interface. Sys_argv is a parameter for the sake of unittest coverage.
     :param sys_argv list:
@@ -609,6 +610,7 @@ def main(sys_argv):
     parser.add_argument(
         '--version', action='version', version='%(prog)s ' + VERSION)
 
+    sys_argv = sys_argv or sys.argv[1:]
     args = parser.parse_args(sys_argv)
     level = logging.INFO
     if args.verbose and args.quiet:
