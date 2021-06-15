@@ -1,9 +1,12 @@
 # Code2flow CHANGELOG
 
-## [2.2.0] - 2021-06-03
-Ruby support
+## [2.2.0] - 2021-06-21
+Ruby + PHP support
 
-## [2.1.0] - 2021-05-31
+## [2.1.1] - 2021-06-15
+Updates to the CLI that allow code2flow to hypothetically run in Windows
+
+## [2.1.0] - 2021-06-15
 Javascript support
 
 ## [2.0.1] - 2021-05-30

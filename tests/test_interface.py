@@ -8,8 +8,8 @@ import pytest
 
 sys.path.append(os.getcwd().split('/tests')[0])
 
-from lib.engine import code2flow
-from lib import model
+from code2flow.engine import code2flow, main
+from code2flow import model
 
 IMG_PATH = '/tmp/code2flow/output.png'
 if os.path.exists("/tmp/code2flow"):
@@ -17,6 +17,7 @@ if os.path.exists("/tmp/code2flow"):
 os.mkdir('/tmp/code2flow')
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
+
 
 def test_generate_image():
     if os.path.exists(IMG_PATH):
@@ -110,10 +111,9 @@ def test_repr():
 
 def test_bad_acorn(mocker, caplog):
     caplog.set_level(logging.DEBUG)
-    mocker.patch('lib.javascript.get_acorn_version', return_value=b'7.6.9')
+    mocker.patch('code2flow.javascript.get_acorn_version', return_value=b'7.6.9')
     code2flow("test_code/js/simple_a_js", "/tmp/code2flow/out.json")
     assert "Acorn" in caplog.text and "8.*" in caplog.text
-
 
 def test_bad_ruby_parse(mocker):
     mocker.patch('subprocess.check_output', return_value=b'blah blah')
@@ -134,16 +134,41 @@ def test_bad_php_parse_b():
         assert "parse" in ex and "php" in ex.lower()
 
 
-# import functools
-# def test_bad_php_parse_c(mocker):
-#     mocker.patch('lib.php.run_ast_parser', return_value=b'', side_effect=subprocess.CalledProcessError)  # functools.partial(subprocess.CalledProcessError, '', ''))
-#     with pytest.raises(AssertionError) as ex:
-#         code2flow("test_code/rb/simple_b", "/tmp/code2flow/out.json")
-#         # assert "composer" in ex
-
-
 def test_no_source_type():
     with pytest.raises(AssertionError):
         code2flow('test_code/js/exclude_modules_es6',
                   output_file='/tmp/code2flow/out.json',
                   hide_legend=False)
+
+
+def test_cli_no_args(capsys):
+    with pytest.raises(SystemExit):
+        main([])
+    assert 'the following arguments are required' in capsys.readouterr().err
+
+
+def test_cli_verbose_quiet(capsys):
+    with pytest.raises(AssertionError):
+        main(['test_code/py/simple_a', '--verbose', '--quiet'])
+
+
+def test_cli_log_default(mocker):
+    logging.basicConfig = mocker.MagicMock()
+    main(['test_code/py/simple_a'])
+    logging.basicConfig.assert_called_once_with(format="Code2Flow: %(message)s",
+                                                level=logging.INFO)
+
+
+def test_cli_log_verbose(mocker):
+    logging.basicConfig = mocker.MagicMock()
+    main(['test_code/py/simple_a', '--verbose'])
+    logging.basicConfig.assert_called_once_with(format="Code2Flow: %(message)s",
+                                                level=logging.DEBUG)
+
+
+def test_cli_log_quiet(mocker):
+    logging.basicConfig = mocker.MagicMock()
+    main(['test_code/py/simple_a', '--quiet'])
+    logging.basicConfig.assert_called_once_with(format="Code2Flow: %(message)s",
+                                                level=logging.WARNING)
+

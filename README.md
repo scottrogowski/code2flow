@@ -1,8 +1,9 @@
 ![code2flow logo](assets/code2flowlogo.png)
 
-![Version 2.3.0](https://img.shields.io/badge/version-2.3.0-brightgreen) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage 100%](https://img.shields.io/badge/coverage-100%25-brightgreen) ![License MIT](https://img.shields.io/badge/license-MIT-green])
+![Version 2.2.0](https://img.shields.io/badge/version-2.2.0-brightgreen) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage 100%](https://img.shields.io/badge/coverage-100%25-brightgreen) ![License MIT](https://img.shields.io/badge/license-MIT-green])
 
 > #### Updates from June 2021
+> - I've entered into a contract with a generous sponsor, the [Sider Corporation](https://siderlabs.com), to update code2flow.
 > - The domain, code2flow.com is unrelated to this project and as far as I can tell through the internet archive, they launched their service after this repository was created. I've never heard anything from them and it doesn't appear like they use anything from here.
 > - The pip install, code2flow, has been claimed by a different unrelated project. For now, *don't install* code2flow from pip. Instead, scroll to the installation section for instructions.
 > - The new version of code2flow has not been tested on Windows and probably doesn't work given that it relies on third-party non-Python AST parsers. If anyone could contribute the necessary patch(s), that would be greatly appreciated.
