@@ -8,13 +8,15 @@ import pytest
 
 sys.path.append(os.getcwd().split('/tests')[0])
 
-from code2flow.engine import code2flow
+from code2flow.engine import code2flow, main
 from code2flow import model
 
 IMG_PATH = '/tmp/code2flow/output.png'
 if os.path.exists("/tmp/code2flow"):
     shutil.rmtree('/tmp/code2flow')
 os.mkdir('/tmp/code2flow')
+
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 
 def test_generate_image():
@@ -119,3 +121,36 @@ def test_no_source_type():
         code2flow('test_code/js/exclude_modules_es6',
                   output_file='/tmp/code2flow/out.json',
                   hide_legend=False)
+
+
+def test_cli_no_args(capsys):
+    with pytest.raises(SystemExit):
+        main([])
+    assert 'the following arguments are required' in capsys.readouterr().err
+
+
+def test_cli_verbose_quiet(capsys):
+    with pytest.raises(AssertionError):
+        main(['test_code/py/simple_a', '--verbose', '--quiet'])
+
+
+def test_cli_log_default(mocker):
+    logging.basicConfig = mocker.MagicMock()
+    main(['test_code/py/simple_a'])
+    logging.basicConfig.assert_called_once_with(format="Code2Flow: %(message)s",
+                                                level=logging.INFO)
+
+
+def test_cli_log_verbose(mocker):
+    logging.basicConfig = mocker.MagicMock()
+    main(['test_code/py/simple_a', '--verbose'])
+    logging.basicConfig.assert_called_once_with(format="Code2Flow: %(message)s",
+                                                level=logging.DEBUG)
+
+
+def test_cli_log_quiet(mocker):
+    logging.basicConfig = mocker.MagicMock()
+    main(['test_code/py/simple_a', '--quiet'])
+    logging.basicConfig.assert_called_once_with(format="Code2Flow: %(message)s",
+                                                level=logging.WARNING)
+

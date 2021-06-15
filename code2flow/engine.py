@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import argparse
 import collections
 import json
@@ -499,7 +497,6 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
     :param int level: logging level
     :rtype: None
     """
-
     start_time = time.time()
 
     if not isinstance(raw_source_paths, list):
@@ -560,7 +557,12 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
         _generate_final_img(output_file, extension, final_img_filename, len(edges))
 
 
-def main():
+def main(sys_argv):
+    """
+    CLI interface. Sys_argv is a parameter for the sake of unittest coverage.
+    :param sys_argv list:
+    :rtype: None
+    """
     parser = argparse.ArgumentParser(
         description=DESCRIPTION,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -590,6 +592,15 @@ def main():
         '--hide-legend', action='store_true',
         help='by default, Code2flow generates a small legend. This flag hides it.')
     parser.add_argument(
+        '--skip-parse-errors', action='store_true',
+        help='skip files that the language parser fails on.')
+    parser.add_argument(
+        '--source-type', choices=['script', 'module'], default='script',
+        help='js only. Parse the source as scripts (commonJS) or modules (es6)')
+    parser.add_argument(
+        '--ruby-version', default='27',
+        help='ruby only. Which ruby version to parse? This is passed directly into ruby-parse. Use numbers like 25, 27, or 31.')
+    parser.add_argument(
         '--quiet', '-q', action='store_true',
         help='suppress most logging')
     parser.add_argument(
@@ -598,7 +609,7 @@ def main():
     parser.add_argument(
         '--version', action='version', version='%(prog)s ' + VERSION)
 
-    args = parser.parse_args()
+    args = parser.parse_args(sys_argv)
     level = logging.INFO
     if args.verbose and args.quiet:
         raise AssertionError("Passed both --verbose and --quiet flags")
@@ -609,11 +620,18 @@ def main():
 
     exclude_namespaces = list(filter(None, (args.exclude_namespaces or "").split(',')))
     exclude_functions = list(filter(None, (args.exclude_functions or "").split(',')))
+    lang_params = LanguageParams(args.source_type, args.ruby_version)
 
-    code2flow(args.sources, args.output, args.language, args.hide_legend,
-              exclude_namespaces, exclude_functions,
-              args.no_grouping, args.no_trimming, level)
-
-
-if __name__ == "__main__":
-    main()
+    code2flow(
+        raw_source_paths=args.sources,
+        output_file=args.output,
+        language=args.language,
+        hide_legend=args.hide_legend,
+        exclude_namespaces=exclude_namespaces,
+        exclude_functions=exclude_functions,
+        no_grouping=args.no_grouping,
+        no_trimming=args.no_trimming,
+        skip_parse_errors=args.skip_parse_errors,
+        lang_params=lang_params,
+        level=level,
+    )
