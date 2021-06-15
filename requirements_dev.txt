@@ -1,6 +1,6 @@
 # Testing
 pytest>=6.0.2,<6.1
-coverage>=4.5,<4.6
+coverage>=4.5,<4.6  # downgraded for --concurrency flag
 pygraphviz>=1.6,<2.0
 pytest-cov>=2.0,<2.11
 pytest-catchlog>=1.2.2,<2.0

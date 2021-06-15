@@ -1,5 +1,8 @@
 # Code2flow CHANGELOG
 
+## [2.1.0] - 2021-06-15
+Javascript support
+
 ## [2.0.1] - 2021-05-30
 Add support for constructors to Python
 

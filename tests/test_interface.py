@@ -78,7 +78,7 @@ def test_json():
         jobj = json.loads(f.read())
     assert set(jobj.keys()) == {'graph'}
     assert set(jobj['graph'].keys()) == {'nodes', 'edges', 'directed'}
-    assert jobj['graph']['directed'] == True
+    assert jobj['graph']['directed'] is True
     assert isinstance(jobj['graph']['nodes'], dict)
     assert len(jobj['graph']['nodes']) == 4
     assert set(n['name'] for n in jobj['graph']['nodes'].values()) == {'simple_b::a', 'simple_b::(global)', 'simple_b::c.d', 'simple_b::b'}
@@ -90,12 +90,12 @@ def test_json():
 
 
 def test_repr():
-    module = model.Group('my_file', 0, 'MODULE')
-    group = model.Group('Obj', 7, 'CLASS')
+    module = model.Group('my_file', 'MODULE', 0)
+    group = model.Group('Obj', 'CLASS', 0)
     call = model.Call('tostring', 'obj', 42)
     variable = model.Variable('the_string', call, 42)
-    node_a = model.Node('tostring', 13, [], [], group)
-    node_b = model.Node('main', 59, [call], [], module)
+    node_a = model.Node('tostring', [], [], 13, group)
+    node_b = model.Node('main', [call], [], 59, module)
     edge = model.Edge(node_b, node_a)
     print(module)
     print(group)
@@ -104,3 +104,17 @@ def test_repr():
     print(node_a)
     print(node_b)
     print(edge)
+
+
+def test_bad_acorn(mocker, caplog):
+    caplog.set_level(logging.DEBUG)
+    mocker.patch('lib.javascript.get_acorn_version', return_value=b'7.6.9')
+    code2flow("test_code/js/simple_a_js", "/tmp/code2flow/out.json")
+    assert "Acorn" in caplog.text and "8.*" in caplog.text
+
+
+def test_no_source_type():
+    with pytest.raises(AssertionError):
+        code2flow('test_code/js/exclude_modules_es6',
+                  output_file='/tmp/code2flow/out.json',
+                  hide_legend=False)
