@@ -582,6 +582,15 @@ testdata = {
                                "inheritance::(global)"]
         },
         {
+            "test_name": "inheritance_attr",
+            "directory": "inheritance_attr",
+            "comment": "This is rare but it happened while testing chart.js. Extends was done on an attr.",
+            "expected_edges": [["inheritance_attr::(global)",
+                                "inheritance_attr::ClsB.meow"]],
+            "expected_nodes": ["inheritance_attr::(global)",
+                               "inheritance_attr::ClsB.meow"]
+        },
+        {
             "test_name": "bad_parse",
             "directory": "bad_parse",
             "comments": "One file is bad. Test bad parse line",
