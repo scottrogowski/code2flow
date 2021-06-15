@@ -220,7 +220,9 @@ def get_inherits(tree):
     :rtype: list[str]
     """
     if tree['superClass']:
-        return [tree['superClass']['name']]
+        if 'name' in tree['superClass']:
+            return [tree['superClass']['name']]
+        return [djoin(tree['superClass']['object']['name'], tree['superClass']['property']['name'])]
     return []
 
 
@@ -233,8 +235,6 @@ def get_acorn_version():
 
 
 class Javascript(BaseLanguage):
-    FILE_IN_OWNERSHIP = False
-
     @staticmethod
     def assert_dependencies():
         """Assert that acorn is installed and the corrent version"""

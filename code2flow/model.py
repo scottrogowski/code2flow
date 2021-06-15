@@ -254,7 +254,7 @@ class Call():
             if isinstance(variable.points_to, Node):
                 return variable.points_to
             if isinstance(variable.points_to, Group) \
-               and variable.points_to.group_type in GROUP_TYPE.CLASS \
+               and variable.points_to.group_type == GROUP_TYPE.CLASS \
                and variable.points_to.get_constructor():
                 return variable.points_to.get_constructor()
         return None

@@ -234,8 +234,9 @@ class PHP(BaseLanguage):
         self_ref = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                 "get_ast.php")
         outp, returncode = run_ast_parser(self_ref)
-        assert_msg = 'Error running the PHP parser. From the `lib` directory, run ' \
-                     '`composer require nikic/php-parser "^4.10"`.'
+        path = os.path.dirname(os.path.realpath(__file__))
+        assert_msg = 'Error running the PHP parser. From the `%s` directory, run ' \
+                     '`composer require nikic/php-parser "^4.10"`.' % path
         assert not returncode, assert_msg
         return outp
 
