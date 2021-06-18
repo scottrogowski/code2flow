@@ -72,8 +72,6 @@ def _resolve_str_variable(variable, file_groups):
     :param list[Group] file_groups:
     :rtype: Node|Group|str
     """
-    has_known = False
-
     for file_group in file_groups:
         for node in file_group.all_nodes():
             if any(ot == variable.points_to for ot in node.import_tokens):

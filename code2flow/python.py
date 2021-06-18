@@ -1,4 +1,4 @@
-import ast as ast
+import ast
 import logging
 
 from .model import (OWNER_CONST, GROUP_TYPE, Group, Node, Call, Variable,
