@@ -572,7 +572,7 @@ def main(sys_argv=None):
         '--output', '-o', default='out.png',
         help=f'output file path. Supported types are {VALID_EXTENSIONS}.')
     parser.add_argument(
-        '--language', choices=['py', 'js'],
+        '--language', choices=['py', 'js', 'rb', 'php'],
         help='process this language and ignore all other files.'
              'If omitted, use the suffix of the first source file.')
     parser.add_argument(
