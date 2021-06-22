@@ -344,7 +344,7 @@ class PHP(BaseLanguage):
         :rtype: Node
         """
         token = "(global)"
-        line_number = lines and lineno(lines[0]) or 0
+        line_number = lineno(lines[0]) if lines else 0
         calls = make_calls(lines)
         variables = make_local_variables(lines, parent)
         root_node = Node(token, calls, variables, parent,
