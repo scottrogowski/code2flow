@@ -9,12 +9,12 @@ import time
 
 from .python import Python
 from .javascript import Javascript
-# from .ruby import Ruby
-# from .php import PHP
-from .model import (TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, NODE_COLOR, GROUP_TYPE,
+from .ruby import Ruby
+from .php import PHP
+from .model import (TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, NODE_COLOR, GROUP_TYPE, OWNER_CONST,
                     Edge, Group, Node, Variable, is_installed, flatten)
 
-VERSION = '2.1.1'
+VERSION = '2.2.0'
 
 VALID_EXTENSIONS = {'png', 'svg', 'dot', 'gv', 'json'}
 
@@ -41,8 +41,8 @@ LANGUAGES = {
     'py': Python,
     'js': Javascript,
     'mjs': Javascript,
-    # 'rb': Ruby,
-    # 'php': PHP,
+    'rb': Ruby,
+    'php': PHP,
 }
 
 
@@ -191,12 +191,14 @@ def make_file_group(tree, filename, extension):
     language = LANGUAGES[extension]
 
     subgroup_trees, node_trees, body_trees = language.separate_namespaces(tree)
-    group_type = GROUP_TYPE.MODULE
+    group_type = GROUP_TYPE.FILE
     token = os.path.split(filename)[-1].rsplit('.' + extension, 1)[0]
     line_number = 0
+    display_name = 'File'
+    import_tokens = []
 
-    file_group = Group(token, group_type, 'File', line_number, parent=None)
-
+    file_group = Group(token, group_type, display_name, import_tokens,
+                       line_number, parent=None)
     for node_tree in node_trees:
         for new_node in language.make_nodes(node_tree, parent=file_group):
             file_group.add_node(new_node)
@@ -226,12 +228,8 @@ def _find_link_for_call(call, node_a, all_nodes):
     for var in all_vars:
         var_match = call.matches_variable(var)
         if var_match:
-            # Known modules (e.g. in the same directory) we want to check through possible_nodes
-            if var_match == 'KNOWN_MODULE':
-                continue
-
             # Unknown modules (e.g. third party) we don't want to match)
-            if var_match == 'UNKNOWN_MODULE':
+            if var_match == OWNER_CONST.UNKNOWN_MODULE:
                 return None, None
             assert isinstance(var_match, Node)
             return var_match, None
@@ -239,15 +237,15 @@ def _find_link_for_call(call, node_a, all_nodes):
     possible_nodes = []
     if call.is_attr():
         for node in all_nodes:
-            # checking node.parent != node_a.root_parent() prevents self linkage in cases like
+            # checking node.parent != node_a.file_group() prevents self linkage in cases like
             # function a() {b = Obj(); b.a()}
-            if call.token == node.token and node.parent != node_a.root_parent():
+            if call.token == node.token and node.parent != node_a.file_group():
                 possible_nodes.append(node)
     else:
         for node in all_nodes:
             if call.token == node.token \
                and isinstance(node.parent, Group)  \
-               and node.parent.group_type == GROUP_TYPE.MODULE:
+               and node.parent.group_type == GROUP_TYPE.FILE:
                 possible_nodes.append(node)
             elif call.token == node.parent.token and node.is_constructor:
                 possible_nodes.append(node)
@@ -267,7 +265,9 @@ def _find_links(node_a, all_nodes):
     :param Node node_a:
     :param list[Node] all_nodes:
     :param BaseLanguage language:
+    :rtype: list[(Node, Call)]
     """
+
     links = []
     for call in node_a.calls:
         lfc = _find_link_for_call(call, node_a, all_nodes)
@@ -328,8 +328,9 @@ def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_function
     if exclude_functions:
         file_groups = _exclude_functions(file_groups, exclude_functions)
 
-    # 4. Consolidate structure for inheritance
+    # 4. Consolidate structures
     all_subgroups = flatten(g.all_groups() for g in file_groups)
+    all_nodes = flatten(g.all_nodes() for g in file_groups)
 
     nodes_by_subgroup_token = collections.defaultdict(list)
     for subgroup in all_subgroups:
@@ -347,9 +348,6 @@ def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_function
                     node.variables += [Variable(n.token, n, n.line_number) for n in inherit_nodes]
 
     # 5. Attempt to resolve the variables (point them to a node or group)
-    all_nodes = []
-    for group in file_groups:
-        all_nodes += group.all_nodes()
     for node in all_nodes:
         node.resolve_variables(file_groups)
 
@@ -574,7 +572,7 @@ def main(sys_argv=None):
         '--output', '-o', default='out.png',
         help=f'output file path. Supported types are {VALID_EXTENSIONS}.')
     parser.add_argument(
-        '--language', choices=['py', 'js'],
+        '--language', choices=['py', 'js', 'rb', 'php'],
         help='process this language and ignore all other files.'
              'If omitted, use the suffix of the first source file.')
     parser.add_argument(

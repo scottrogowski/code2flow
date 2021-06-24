@@ -14,8 +14,8 @@ LANGUAGES = (
     'py',
     'js',
     'mjs',
-    # 'rb',
-    # 'php',
+    'rb',
+    'php',
 )
 
 flattened_tests = {}

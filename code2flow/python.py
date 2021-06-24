@@ -1,4 +1,4 @@
-import ast as ast
+import ast
 import logging
 
 from .model import (OWNER_CONST, GROUP_TYPE, Group, Node, Call, Variable,
@@ -199,14 +199,20 @@ class Python(BaseLanguage):
         calls = make_calls(tree.body)
         variables = make_local_variables(tree.body, parent)
         is_constructor = False
-        if parent.group_type == "CLASS" and token in ['__init__', '__new__']:
+        if parent.group_type == GROUP_TYPE.CLASS and token in ['__init__', '__new__']:
             is_constructor = True
-        return [Node(token, calls, variables, parent=parent, line_number=line_number, is_constructor=is_constructor)]
+
+        import_tokens = []
+        if parent.group_type == GROUP_TYPE.FILE:
+            import_tokens = [djoin(parent.token, token)]
+
+        return [Node(token, calls, variables, parent, import_tokens=import_tokens,
+                     line_number=line_number, is_constructor=is_constructor)]
 
     @staticmethod
     def make_root_node(lines, parent):
         """
-        The "root_node" are is an implict node of lines which are executed in the global
+        The "root_node" is an implict node of lines which are executed in the global
         scope on the file itself and not otherwise part of any function.
 
         :param lines list[ast]:
@@ -235,11 +241,14 @@ class Python(BaseLanguage):
 
         group_type = GROUP_TYPE.CLASS
         token = tree.name
+        display_name = 'Class'
         line_number = tree.lineno
 
+        import_tokens = [djoin(parent.token, token)]
         inherits = get_inherits(tree)
 
-        class_group = Group(token, group_type, 'Class', inherits=inherits, line_number=line_number, parent=parent)
+        class_group = Group(token, group_type, display_name, import_tokens=import_tokens,
+                            inherits=inherits, line_number=line_number, parent=parent)
 
         for node_tree in node_trees:
             class_group.add_node(Python.make_nodes(node_tree, parent=class_group)[0])

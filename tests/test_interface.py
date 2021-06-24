@@ -93,12 +93,12 @@ def test_json():
 
 
 def test_repr():
-    module = model.Group('my_file', 'MODULE', 0)
-    group = model.Group('Obj', 'CLASS', 0)
+    module = model.Group('my_file', model.GROUP_TYPE.FILE, [], 0)
+    group = model.Group('Obj', model.GROUP_TYPE.CLASS, [], 0)
     call = model.Call('tostring', 'obj', 42)
     variable = model.Variable('the_string', call, 42)
-    node_a = model.Node('tostring', [], [], 13, group)
-    node_b = model.Node('main', [call], [], 59, module)
+    node_a = model.Node('tostring', [], [], [], 13, group)
+    node_b = model.Node('main', [call], [], [], 59, module)
     edge = model.Edge(node_b, node_a)
     print(module)
     print(group)
@@ -114,6 +114,24 @@ def test_bad_acorn(mocker, caplog):
     mocker.patch('code2flow.javascript.get_acorn_version', return_value=b'7.6.9')
     code2flow("test_code/js/simple_a_js", "/tmp/code2flow/out.json")
     assert "Acorn" in caplog.text and "8.*" in caplog.text
+
+def test_bad_ruby_parse(mocker):
+    mocker.patch('subprocess.check_output', return_value=b'blah blah')
+    with pytest.raises(AssertionError) as ex:
+        code2flow("test_code/rb/simple_b", "/tmp/code2flow/out.json")
+        assert "ruby-parse" in ex and "syntax" in ex
+
+
+def test_bad_php_parse_a():
+    with pytest.raises(AssertionError) as ex:
+        code2flow("test_code/php/bad_php/bad_php_a.php", "/tmp/code2flow/out.json")
+        assert "parse" in ex and "syntax" in ex
+
+
+def test_bad_php_parse_b():
+    with pytest.raises(AssertionError) as ex:
+        code2flow("test_code/php/bad_php/bad_php_b.php", "/tmp/code2flow/out.json")
+        assert "parse" in ex and "php" in ex.lower()
 
 
 def test_no_source_type():

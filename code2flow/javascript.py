@@ -130,7 +130,8 @@ def process_assign(element):
     if target['init']['type'] == 'NewExpression':
         token = target['id']['name']
         call = get_call_from_func_element(target['init'])
-        return [Variable(token, call, lineno(element))]
+        if call:
+            return [Variable(token, call, lineno(element))]
 
     # this block is for require (as in: import) expressions
     if target['init']['type'] == 'CallExpression' \
@@ -158,7 +159,8 @@ def process_assign(element):
         if 'name' not in target['id']:
             return []
         call = get_call_from_func_element(target['init'])
-        return [Variable(target['id']['name'], call, lineno(element))]
+        if call:
+            return [Variable(target['id']['name'], call, lineno(element))]
 
     if target['init']['type'] == 'ThisExpression':
         assert set(target['init'].keys()) == {'start', 'end', 'loc', 'type'}
@@ -233,9 +235,9 @@ def get_acorn_version():
 
 
 class Javascript(BaseLanguage):
-
     @staticmethod
     def assert_dependencies():
+        """Assert that acorn is installed and the corrent version"""
         assert is_installed('acorn'), "Acorn is required to parse javascript files " \
                                       "but was not found on the path. Install it " \
                                       "from npm and try again."
@@ -336,7 +338,6 @@ class Javascript(BaseLanguage):
         variables = make_local_variables(this_scope_body, parent)
         node = Node(token, calls, variables, parent=parent, line_number=line_number,
                     is_constructor=is_constructor)
-
         subnodes = flatten([Javascript.make_nodes(t, node) for t in subnode_trees])
 
         return [node] + subnodes
@@ -344,7 +345,7 @@ class Javascript(BaseLanguage):
     @staticmethod
     def make_root_node(lines, parent):
         """
-        The "root_node" are is an implict node of lines which are executed in the global
+        The "root_node" is an implict node of lines which are executed in the global
         scope on the file itself and not otherwise part of any function.
 
         :param lines list[ast]:
@@ -354,7 +355,8 @@ class Javascript(BaseLanguage):
         token = "(global)"
         calls = make_calls(lines)
         variables = make_local_variables(lines, parent)
-        root_node = Node(token, calls, variables, line_number=0, parent=parent)
+        root_node = Node(token, calls, variables,
+                         line_number=0, parent=parent)
         return root_node
 
     @staticmethod
@@ -374,11 +376,11 @@ class Javascript(BaseLanguage):
 
         group_type = GROUP_TYPE.CLASS
         token = tree['id']['name']
+        display_name = 'Class'
         line_number = lineno(tree)
         inherits = get_inherits(tree)
-
-        class_group = Group(token, group_type, 'Class', inherits=inherits,
-                            line_number=line_number, parent=parent)
+        class_group = Group(token, group_type, display_name,
+                            inherits=inherits, line_number=line_number, parent=parent)
 
         for node_tree in node_trees:
             for new_node in Javascript.make_nodes(node_tree, parent=class_group):
