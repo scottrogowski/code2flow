@@ -1,20 +1,15 @@
-![code2flow logo](assets/code2flowlogo.png)
+![code2flow logo](https://raw.githubusercontent.com/scottrogowski/code2flow/master/assets/code2flowlogo.png)
 
 ![Version 2.2.0](https://img.shields.io/badge/version-2.2.0-brightgreen) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage 100%](https://img.shields.io/badge/coverage-100%25-brightgreen) ![License MIT](https://img.shields.io/badge/license-MIT-green])
 
-> #### Updates from June 2021
-> - I've entered into a contract with a generous sponsor, the [Sider Corporation](https://siderlabs.com), to update code2flow.
-> - The domain, code2flow.com is unrelated to this project and as far as I can tell through the internet archive, they launched their service after this repository was created. I've never heard anything from them and it doesn't appear like they use anything from here.
-> - The pip install, code2flow, has been claimed by a different unrelated project. For now, *don't install* code2flow from pip. Instead, scroll to the installation section for instructions.
-> - The new version of code2flow has not been tested on Windows and probably doesn't work given that it relies on third-party non-Python AST parsers. If anyone could contribute the necessary patch(s), that would be greatly appreciated.
-
-Code2flow generates [call graphs](https://en.wikipedia.org/wiki/Call_graph) for dynamic programming language. Currently, code2flow supports Python and Javascript.
+Code2flow generates [call graphs](https://en.wikipedia.org/wiki/Call_graph) for dynamic programming language. Code2flow supports Python, Javascript, Ruby, and PHP.
 
 The basic algorithm is simple:
 
-1. Find function definitions in your project's source code.
-2. Determine where those functions are called.
-3. Connect the dots. 
+1. Translate your source files into ASTs.
+2. Find all function definitions.
+3. Determine where those functions are called.
+4. Connect the dots. 
 
 Code2flow is useful for:
 - Untangling spaghetti code.
@@ -30,10 +25,8 @@ Code2flow will provide a *pretty good estimate* of your project's structure. No 
 Installation
 ------------
 
-For now, _do not pip install_. The *code2flow* name is held by a different project. Instead, run:
-
 ```bash
-python setup.py install
+pip3 install code2flow
 ```
 
 If you don't have it already, you will also need to install graphviz. Installation instructions can be found [here](https://graphviz.org/download/).
@@ -137,8 +130,16 @@ The April 2021 rewrite was substantial so it's probably reasonable to treat code
 Acknowledgements
 -----------------------------
 
-Code2flow development is partially supported by the [Sider Corporation](https://siderlabs.com/)
 
+* In mid-2021, Code2flow was rewritten and two new languages were added. This was prompted and financially supported by the [Sider Corporation](https://siderlabs.com/). 
+* The code2flow pip name was graciouly transferred to this project from [Dheeraj Nair](https://github.com/Dheeraj1998). He was using it for his own (unrelated) [code2flow](https://github.com/Dheeraj1998/code2flow) project. 
+* Many others have contributed through bug fixes, cleanups, and identifying issues. Thank you!!!
+
+
+Unrelated projects
+-----------------------
+
+The name, "code2flow", has been used for several unrelated projects. Specifically, the domain, code2flow.com, has no association with this project. I've never heard anything from them and it doesn't appear like they use anything from here.
 
 
 Feedback / Contact
@@ -151,4 +152,4 @@ scottmrogowski@gmail.com
 Feature Requests
 ----------------
 
-Email me. At any time, I'm spread thin across a lot of projects so I will, unfortunately, turn down most requests. However, I am open to contracting for compelling features.
+Email me. At any time, I'm spread thin across a lot of projects so I will, unfortunately, turn down most requests. However, I am open to paid development for compelling features.

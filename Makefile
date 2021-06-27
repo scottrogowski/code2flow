@@ -1,3 +1,7 @@
+build:
+	rm -rf dist
+	python3 setup.py sdist
+
 test:
 	pytest --cov-report=html --cov=code2flow -x
 
