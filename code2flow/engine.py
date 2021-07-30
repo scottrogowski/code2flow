@@ -512,9 +512,9 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
 
     output_ext = None
     if isinstance(output_file, str):
+        assert '.' in output_file, "Output filename must end in one of: %r." % VALID_EXTENSIONS
         output_ext = output_file.rsplit('.', 1)[1] or ''
-        if output_ext not in VALID_EXTENSIONS:
-            raise AssertionError("Output filename must end in one of: %r." % VALID_EXTENSIONS)
+        assert output_ext in VALID_EXTENSIONS, "Output filename must end in one of: %r." % VALID_EXTENSIONS
 
     final_img_filename = None
     if output_ext and output_ext in ('png', 'svg'):
