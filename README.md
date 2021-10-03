@@ -86,7 +86,7 @@ Why is it impossible to generate a perfect call graph?
 ----------------
 
 Consider this toy example in Python
-```
+```python
 def func_factory(param):
     if param < .5:
         return func_a
