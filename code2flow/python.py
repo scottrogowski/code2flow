@@ -151,9 +151,13 @@ class Python(BaseLanguage):
         :param filename str:
         :rtype: ast
         """
-        with open(filename) as f:
-            tree = ast.parse(f.read())
-        return tree
+        try:
+            with open(filename) as f:
+                raw = f.read()
+        except ValueError:
+            with open(filename, encoding='UTF-8') as f:
+                raw = f.read()
+        return ast.parse(raw)
 
     @staticmethod
     def separate_namespaces(tree):
