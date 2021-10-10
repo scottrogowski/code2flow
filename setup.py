@@ -21,6 +21,7 @@ setup(
     download_url=download_url,
     packages=['code2flow'],
     python_requires='>=3.6',
+    include_package_data=True,
     classifiers=[
         'Natural Language :: English',
         "Programming Language :: Python :: 3",

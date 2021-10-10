@@ -458,8 +458,11 @@ def _generate_graphviz(output_file, extension, final_img_filename):
     logging.info("Running graphviz to make the image...")
     command = ["dot", "-T" + extension, output_file]
     with open(final_img_filename, 'w') as f:
-        subprocess.run(command, stdout=f, check=True)
-    logging.info("Graphviz finished in %.2f seconds." % (time.time() - start_time))
+        try:
+            subprocess.run(command, stdout=f, check=True)
+            logging.info("Graphviz finished in %.2f seconds." % (time.time() - start_time))
+        except subprocess.CalledProcessError:
+            logging.warning("*** Graphviz returned non-zero exit code! Try running %r for more detail ***", ' '.join(command + ['-v', '-O']))
 
 
 def _generate_final_img(output_file, extension, final_img_filename, num_edges):

@@ -111,7 +111,7 @@ def test_repr():
 
 def test_bad_acorn(mocker, caplog):
     caplog.set_level(logging.DEBUG)
-    mocker.patch('code2flow.javascript.get_acorn_version', return_value=b'7.6.9')
+    mocker.patch('code2flow.javascript.get_acorn_version', return_value='7.6.9')
     code2flow("test_code/js/simple_a_js", "/tmp/code2flow/out.json")
     assert "Acorn" in caplog.text and "8.*" in caplog.text
 

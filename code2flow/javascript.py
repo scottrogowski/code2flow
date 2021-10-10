@@ -66,7 +66,10 @@ def resolve_owner(callee):
         return OWNER_CONST.UNKNOWN_VAR
 
     if callee['object']['type'] == 'NewExpression':
-        return callee['object']['callee']['name']
+        if 'name' in callee['object']['callee']:
+            return callee['object']['callee']['name']
+        return djoin(callee['object']['callee']['object']['name'],
+                     callee['object']['callee']['property']['name'])
 
     return OWNER_CONST.UNKNOWN_VAR
 
@@ -231,7 +234,8 @@ def get_acorn_version():
     Get the version of installed acorn
     :rtype: str
     """
-    return subprocess.check_output(['node', '-p', 'require(\'acorn/package.json\').version'])
+    outp = subprocess.check_output(['node', '-p', 'require(\'acorn/package.json\').version'])
+    return outp.decode().strip()
 
 
 class Javascript(BaseLanguage):
@@ -241,11 +245,12 @@ class Javascript(BaseLanguage):
         assert is_installed('acorn'), "Acorn is required to parse javascript files " \
                                       "but was not found on the path. Install it " \
                                       "from npm and try again."
-
-        if not get_acorn_version().startswith(b'8.'):
+        version = get_acorn_version()
+        if not version.startswith('8.'):
             logging.warning("Acorn is required to parse javascript files. "
                             "Version %r was found but code2flow has only been "
-                            "tested on 8.*", get_acorn_version())
+                            "tested on 8.*", version)
+        logging.info("Using Acorn %s" % version)
 
     @staticmethod
     def get_tree(filename, lang_params):
@@ -266,7 +271,8 @@ class Javascript(BaseLanguage):
                 "Acorn could not parse file %r. You may have a JS syntax error or "
                 "if this is an es6-style source, you may need to run code2flow "
                 "with --source-type=module. "
-                "For more detail, try running the command `acorn %s`. "
+                "For more detail, try running the command "
+                "\n  acorn %s\n"
                 "Warning: Acorn CANNOT parse all javascript files. See their docs. " %
                 (filename, filename)) from None
         tree = json.loads(output)
@@ -291,6 +297,8 @@ class Javascript(BaseLanguage):
         nodes = []
         body = []
         for el in children(tree):
+            if not el:
+                continue
             if el['type'] in ('MethodDefinition', 'FunctionDeclaration'):
                 nodes.append(el)
             elif el['type'] == 'ClassDeclaration':
@@ -331,7 +339,8 @@ class Javascript(BaseLanguage):
             full_node_body = tree['value']
 
         subgroup_trees, subnode_trees, this_scope_body = Javascript.separate_namespaces(full_node_body)
-        assert not subgroup_trees
+        if subgroup_trees:
+            logging.warning("Unexpected subgroup trees! Some calls may be missed")
 
         line_number = lineno(tree)
         calls = make_calls(this_scope_body)
@@ -372,7 +381,8 @@ class Javascript(BaseLanguage):
         """
         assert tree['type'] == 'ClassDeclaration'
         subgroup_trees, node_trees, body_trees = Javascript.separate_namespaces(tree)
-        assert not subgroup_trees
+        if subgroup_trees:
+            logging.warning("Unexpected subgroup trees! Some calls may be missed")
 
         group_type = GROUP_TYPE.CLASS
         token = tree['id']['name']
