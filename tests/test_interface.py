@@ -1,4 +1,5 @@
 import json
+import locale
 import logging
 import os
 import shutil
@@ -92,6 +93,24 @@ def test_json():
     assert len(set(n['target'] for n in jobj['graph']['edges'])) == 3
 
 
+def test_weird_encoding():
+    """
+    To address https://github.com/scottrogowski/code2flow/issues/28
+    The windows user had an error b/c their default encoding was cp1252
+    and they were trying to read a unicode file with emojis
+    I don't have that installed but was able to reproduce by changing to
+    US-ASCII which I assume is a little more universal anyway.
+    """
+
+    locale.setlocale(locale.LC_ALL, 'en_US.US-ASCII')
+    code2flow('test_code/py/weird_encoding',
+              output_file='/tmp/code2flow/out.json',
+              hide_legend=False)
+    with open('/tmp/code2flow/out.json') as f:
+        jobj = json.loads(f.read())
+    assert set(jobj.keys()) == {'graph'}
+
+
 def test_repr():
     module = model.Group('my_file', model.GROUP_TYPE.FILE, [], 0)
     group = model.Group('Obj', model.GROUP_TYPE.CLASS, [], 0)
@@ -114,6 +133,7 @@ def test_bad_acorn(mocker, caplog):
     mocker.patch('code2flow.javascript.get_acorn_version', return_value='7.6.9')
     code2flow("test_code/js/simple_a_js", "/tmp/code2flow/out.json")
     assert "Acorn" in caplog.text and "8.*" in caplog.text
+
 
 def test_bad_ruby_parse(mocker):
     mocker.patch('subprocess.check_output', return_value=b'blah blah')
