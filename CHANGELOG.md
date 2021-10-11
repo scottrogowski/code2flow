@@ -1,5 +1,8 @@
 # Code2flow CHANGELOG
 
+## [2.3.0] - 2021-10-11
+Fix a few rare javascript bugs. Fix non-UTF8 encoding issue for Python. Better debugging.
+
 ## [2.2.0] - 2021-06-21
 Ruby + PHP support
 
