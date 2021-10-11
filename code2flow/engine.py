@@ -16,7 +16,9 @@ from .model import (TRUNK_COLOR, LEAF_COLOR, EDGE_COLOR, NODE_COLOR, GROUP_TYPE,
 
 VERSION = '2.2.0'
 
-VALID_EXTENSIONS = {'png', 'svg', 'dot', 'gv', 'json'}
+IMAGE_EXTENSIONS = ('png', 'svg')
+TEXT_EXTENSIONS = ('dot', 'gv', 'json')
+VALID_EXTENSIONS = IMAGE_EXTENSIONS + TEXT_EXTENSIONS
 
 DESCRIPTION = "Generate flow charts from your source code. " \
               "See the README at https://github.com/scottrogowski/code2flow."
@@ -458,8 +460,11 @@ def _generate_graphviz(output_file, extension, final_img_filename):
     logging.info("Running graphviz to make the image...")
     command = ["dot", "-T" + extension, output_file]
     with open(final_img_filename, 'w') as f:
-        subprocess.run(command, stdout=f, check=True)
-    logging.info("Graphviz finished in %.2f seconds." % (time.time() - start_time))
+        try:
+            subprocess.run(command, stdout=f, check=True)
+            logging.info("Graphviz finished in %.2f seconds." % (time.time() - start_time))
+        except subprocess.CalledProcessError:
+            logging.warning("*** Graphviz returned non-zero exit code! Try running %r for more detail ***", ' '.join(command + ['-v', '-O']))
 
 
 def _generate_final_img(output_file, extension, final_img_filename, num_edges):
@@ -512,18 +517,18 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
 
     output_ext = None
     if isinstance(output_file, str):
-        assert '.' in output_file, "Output filename must end in one of: %r." % VALID_EXTENSIONS
+        assert '.' in output_file, "Output filename must end in one of: %r." % set(VALID_EXTENSIONS)
         output_ext = output_file.rsplit('.', 1)[1] or ''
-        assert output_ext in VALID_EXTENSIONS, "Output filename must end in one of: %r." % VALID_EXTENSIONS
+        assert output_ext in VALID_EXTENSIONS, "Output filename must end in one of: %r." % set(VALID_EXTENSIONS)
 
     final_img_filename = None
-    if output_ext and output_ext in ('png', 'svg'):
+    if output_ext and output_ext in IMAGE_EXTENSIONS:
         if not is_installed('dot') and not is_installed('dot.exe'):
             raise AssertionError(
                 "Can't generate a flowchart image because neither `dot` nor "
                 "`dot.exe` was found. Either install graphviz (see the README) "
-                "or set your --output argument to a 'dot' filename like out.dot "
-                "or out.gv.")
+                "or, if you just want an intermediate text file, set your --output "
+                "file to use a supported text extension: %r" % set(TEXT_EXTENSIONS))
         final_img_filename = output_file
         output_file, extension = output_file.rsplit('.', 1)
         output_file += '.gv'

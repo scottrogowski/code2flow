@@ -9,7 +9,7 @@ import pytest
 
 sys.path.append(os.getcwd().split('/tests')[0])
 
-from code2flow.engine import code2flow, main
+from code2flow.engine import code2flow, main, _generate_graphviz
 from code2flow import model
 
 IMG_PATH = '/tmp/code2flow/output.png'
@@ -55,6 +55,13 @@ def test_no_files():
     with pytest.raises(AssertionError):
         code2flow(os.path.abspath(__file__) + "fakefile",
                   output_file=IMG_PATH)
+
+
+def test_graphviz_error(caplog):
+    caplog.set_level(logging.DEBUG)
+    _generate_graphviz("/tmp/code2flow/nothing", "/tmp/code2flow/nothing",
+                       "/tmp/code2flow/nothing")
+    assert "non-zero exit" in caplog.text
 
 
 def test_no_files_2():
@@ -130,7 +137,7 @@ def test_repr():
 
 def test_bad_acorn(mocker, caplog):
     caplog.set_level(logging.DEBUG)
-    mocker.patch('code2flow.javascript.get_acorn_version', return_value=b'7.6.9')
+    mocker.patch('code2flow.javascript.get_acorn_version', return_value='7.6.9')
     code2flow("test_code/js/simple_a_js", "/tmp/code2flow/out.json")
     assert "Acorn" in caplog.text and "8.*" in caplog.text
 
