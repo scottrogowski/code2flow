@@ -599,6 +599,27 @@ testdata = {
             "expected_nodes": ["file_a_good::(global)", "file_a_good::a"]
         },
         {
+            "test_name": "class_in_function",
+            "directory": "class_in_function",
+            "comments": "when a function defines a class within it",
+            "expected_edges": [["class_in_function::(global)",
+                                "class_in_function::rectangleClassFactory"]],
+            "expected_nodes": ["class_in_function::rectangleClassFactory",
+                               "class_in_function::(global)"]
+        },
+        {
+            "test_name": "ternary_new",
+            "directory": "ternary_new",
+            "comments": "Ignore the name. This is for complex multi-layered object instantiation.",
+            "expected_edges": [["ternary_new::Cadabra.init", "ternary_new::Cadabra.init"],
+                               ["ternary_new::Abra.init", "ternary_new::Abra.init"],
+                               ["ternary_new::(global)", "ternary_new::ClassMap.fact"]],
+            "expected_nodes": ["ternary_new::Cadabra.init",
+                               "ternary_new::ClassMap.fact",
+                               "ternary_new::(global)",
+                               "ternary_new::Abra.init"]
+        },
+        {
             "test_name": "moment.js",
             "directory": "moment",
             "expected_edges": [["moment::getWeeksInWeekYear", "moment::weeksInYear"],

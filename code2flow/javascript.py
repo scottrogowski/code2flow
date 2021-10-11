@@ -212,7 +212,7 @@ def children(tree):
         if type(v) == dict and v.get('type'):
             ret.append(v)
         if type(v) == list:
-            ret += v
+            ret += filter(None, v)
     return ret
 
 
@@ -297,8 +297,6 @@ class Javascript(BaseLanguage):
         nodes = []
         body = []
         for el in children(tree):
-            if not el:
-                continue
             if el['type'] in ('MethodDefinition', 'FunctionDeclaration'):
                 nodes.append(el)
             elif el['type'] == 'ClassDeclaration':
@@ -340,7 +338,11 @@ class Javascript(BaseLanguage):
 
         subgroup_trees, subnode_trees, this_scope_body = Javascript.separate_namespaces(full_node_body)
         if subgroup_trees:
-            logging.warning("Unexpected subgroup trees! Some calls may be missed")
+            # TODO - this is when a class is defined within a function
+            # It's unusual but should probably be handled in the future.
+            # Handling this use case would require some code reorganziation.
+            # Take a look at class_in_function.js to better understand.
+            logging.warning("Skipping class defined within a function!")
 
         line_number = lineno(tree)
         calls = make_calls(this_scope_body)
@@ -381,8 +383,7 @@ class Javascript(BaseLanguage):
         """
         assert tree['type'] == 'ClassDeclaration'
         subgroup_trees, node_trees, body_trees = Javascript.separate_namespaces(tree)
-        if subgroup_trees:
-            logging.warning("Unexpected subgroup trees! Some calls may be missed")
+        assert not subgroup_trees
 
         group_type = GROUP_TYPE.CLASS
         token = tree['id']['name']

@@ -9,7 +9,7 @@ import pytest
 
 sys.path.append(os.getcwd().split('/tests')[0])
 
-from code2flow.engine import code2flow, main
+from code2flow.engine import code2flow, main, _generate_graphviz
 from code2flow import model
 
 IMG_PATH = '/tmp/code2flow/output.png'
@@ -55,6 +55,13 @@ def test_no_files():
     with pytest.raises(AssertionError):
         code2flow(os.path.abspath(__file__) + "fakefile",
                   output_file=IMG_PATH)
+
+
+def test_graphviz_error(caplog):
+    caplog.set_level(logging.DEBUG)
+    _generate_graphviz("/tmp/code2flow/nothing", "/tmp/code2flow/nothing",
+                       "/tmp/code2flow/nothing")
+    assert "non-zero exit" in caplog.text
 
 
 def test_no_files_2():
