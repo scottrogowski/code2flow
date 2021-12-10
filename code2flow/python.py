@@ -1,5 +1,6 @@
 import ast
 import logging
+import os
 
 from .model import (OWNER_CONST, GROUP_TYPE, Group, Node, Call, Variable,
                     BaseLanguage, djoin)
@@ -95,9 +96,8 @@ def process_import(element):
         token = single_import.asname or single_import.name
         rhs = single_import.name
 
-        if hasattr(element, 'module'):
+        if hasattr(element, 'module') and element.module:
             rhs = djoin(element.module, rhs)
-
         ret.append(Variable(token, points_to=rhs, line_number=element.lineno))
     return ret
 
@@ -261,3 +261,13 @@ class Python(BaseLanguage):
             logging.warning("Code2flow does not support nested classes. Skipping %r in %r.",
                             subgroup_tree.name, parent.token)
         return class_group
+
+    @staticmethod
+    def file_import_tokens(filename):
+        """
+        Returns the token(s) we would use if importing this file from another.
+
+        :param filename str:
+        :rtype: list[str]
+        """
+        return [os.path.split(filename)[-1].rsplit('.py', 1)[0]]

@@ -234,8 +234,13 @@ def get_acorn_version():
     Get the version of installed acorn
     :rtype: str
     """
-    outp = subprocess.check_output(['node', '-p', 'require(\'acorn/package.json\').version'])
-    return outp.decode().strip()
+    proc = subprocess.Popen(['node', '-p', 'require(\'acorn/package.json\').version'],
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            cwd=os.path.dirname(os.path.realpath(__file__)))
+    assert proc.wait() == 0, "Acorn is required to parse javascript files. " \
+                             "It was found on the path but could not be imported " \
+                             "in node.\n" + proc.stderr.read().decode()
+    return proc.stdout.read().decode().strip()
 
 
 class Javascript(BaseLanguage):
@@ -398,3 +403,13 @@ class Javascript(BaseLanguage):
                 class_group.add_node(new_node)
 
         return class_group
+
+    @staticmethod
+    def file_import_tokens(filename):
+        """
+        Returns the token(s) we would use if importing this file from another.
+
+        :param filename str:
+        :rtype: list[str]
+        """
+        return []

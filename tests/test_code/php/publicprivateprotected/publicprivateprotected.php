@@ -1,4 +1,4 @@
-<?
+<?php
 // From https://www.w3schools.com/php/php_oop_access_modifiers.asp
 class Fruit {
   public $name;
