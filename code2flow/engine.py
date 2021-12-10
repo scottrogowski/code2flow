@@ -197,7 +197,7 @@ def make_file_group(tree, filename, extension):
     token = os.path.split(filename)[-1].rsplit('.' + extension, 1)[0]
     line_number = 0
     display_name = 'File'
-    import_tokens = []
+    import_tokens = language.file_import_tokens(filename)
 
     file_group = Group(token, group_type, display_name, import_tokens,
                        line_number, parent=None)

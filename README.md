@@ -31,6 +31,12 @@ pip3 install code2flow
 
 If you don't have it already, you will also need to install graphviz. Installation instructions can be found [here](https://graphviz.org/download/).
 
+Additionally, depending on the language you want to parse, you may need to install additional dependencies:
+- Javascript: [Acorn](https://www.npmjs.com/package/acorn)
+- Ruby: [Parser](https://github.com/whitequark/parser)
+- PHP: [PHP-Parser](https://github.com/nikic/PHP-Parser)
+- Python: No extra dependencies needed
+
 Usage
 -----
 
@@ -140,6 +146,15 @@ Unrelated projects
 -----------------------
 
 The name, "code2flow", has been used for several unrelated projects. Specifically, the domain, code2flow.com, has no association with this project. I've never heard anything from them and it doesn't appear like they use anything from here.
+
+
+Unit tests
+------------------
+
+Test coverage is 100%. To run:
+
+    pip install -r requirements_dev.txt
+    make test
 
 
 Feedback / Contact

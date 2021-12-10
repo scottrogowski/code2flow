@@ -397,3 +397,13 @@ class PHP(BaseLanguage):
                                    for n in class_group.nodes]
 
         return class_group
+
+    @staticmethod
+    def file_import_tokens(filename):
+        """
+        Returns the token(s) we would use if importing this file from another.
+
+        :param filename str:
+        :rtype: list[str]
+        """
+        return []

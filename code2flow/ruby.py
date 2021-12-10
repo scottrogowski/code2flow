@@ -195,7 +195,7 @@ class Ruby(BaseLanguage):
     @staticmethod
     def assert_dependencies():
         """Assert that ruby-parse is installed"""
-        assert is_installed('ruby-parse'), "The ruby-parse gem is requred to " \
+        assert is_installed('ruby-parse'), "The 'parser' gem is requred to " \
                                            "parse ruby files but was not found " \
                                            "on the path. Install it from gem " \
                                            "and try again."
@@ -333,3 +333,13 @@ class Ruby(BaseLanguage):
             node.variables += [Variable(n.token, n) for n in class_group.nodes]
 
         return class_group
+
+    @staticmethod
+    def file_import_tokens(filename):
+        """
+        Returns the token(s) we would use if importing this file from another.
+
+        :param filename str:
+        :rtype: list[str]
+        """
+        return []
