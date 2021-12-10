@@ -260,6 +260,21 @@ testdata = {
                                "inherits::ScaleDemo.__init__"]
         },
         {
+            "test_name": "import_paths",
+            "directory": "import_paths",
+            "comment": "relative and absolute imports",
+            "expected_edges": [["import_paths::main", "abra::abra2"],
+                               ["import_paths::main", "cadabra::cadabra2"],
+                               ["import_paths::main2", "abra::abra2"],
+                               ["import_paths::main", "import_paths::main2"],
+                               ["import_paths::(global)", "import_paths::main"]],
+            "expected_nodes": ["abra::abra2",
+                               "import_paths::main2",
+                               "import_paths::main",
+                               "cadabra::cadabra2",
+                               "import_paths::(global)"]
+        },
+        {
             "test_name": "pytz",
             "directory": "pytz",
             "kwargs": {"exclude_namespaces": ["test_tzinfo"]},
