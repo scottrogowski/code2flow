@@ -275,6 +275,13 @@ testdata = {
                                "import_paths::(global)"]
         },
         {
+            "test_name": "nested_calls",
+            "directory": "nested_calls",
+            "comment": "Something like func(a)(b)",
+            "expected_edges": [["nested_calls::(global)", "nested_calls::trace"]],
+            "expected_nodes": ["nested_calls::trace", "nested_calls::(global)"]
+        },
+        {
             "test_name": "pytz",
             "directory": "pytz",
             "kwargs": {"exclude_namespaces": ["test_tzinfo"]},
