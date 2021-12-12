@@ -4,7 +4,8 @@ import os
 
 TRUNK_COLOR = '#966F33'
 LEAF_COLOR = '#6db33f'
-EDGE_COLOR = "#cf142b"
+EDGE_COLOR = "#000000"
+EDGE_COLORS = ["#cf142b", "#00008b", "#871282", "#066600", "#0c343d", "#8fce00", "ffc300"]
 NODE_COLOR = "#cccccc"
 
 
@@ -463,7 +464,8 @@ class Edge():
         :rtype: str
         '''
         ret = self.node0.uid + ' -> ' + self.node1.uid
-        ret += f' [color="{EDGE_COLOR}" penwidth="2"]'
+        source_color = int(self.node0.uid.split("_")[-1], 16) % len(EDGE_COLORS)
+        ret += f' [color="{EDGE_COLORS[source_color]}" penwidth="2"]'
         return ret
 
     def to_dict(self):
