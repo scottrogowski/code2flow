@@ -48,7 +48,7 @@ def djoin(*tup):
     """
     if len(tup) == 1 and isinstance(tup[0], list):
         return '.'.join(tup[0])
-    return '.'.join(tup)
+    return '.'.join(filter(None, tup))
 
 
 def flatten(list_of_lists):
