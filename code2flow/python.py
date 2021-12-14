@@ -70,6 +70,8 @@ def process_assign(element):
     if type(element.value) != ast.Call:
         return []
     call = get_call_from_func_element(element.value.func)
+    if not call:
+        return []
 
     ret = []
     for target in element.targets:
