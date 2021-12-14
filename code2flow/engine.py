@@ -14,7 +14,7 @@ from .php import PHP
 from .model import (TRUNK_COLOR, LEAF_COLOR, NODE_COLOR, GROUP_TYPE, OWNER_CONST,
                     Edge, Group, Node, Variable, is_installed, flatten)
 
-VERSION = '2.3.0'
+VERSION = '2.3.1'
 
 IMAGE_EXTENSIONS = ('png', 'svg')
 TEXT_EXTENSIONS = ('dot', 'gv', 'json')

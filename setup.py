@@ -3,7 +3,7 @@ from setuptools import setup
 from code2flow.engine import VERSION
 
 url_base = 'https://github.com/scottrogowski/code2flow'
-download_url = '%s/archive/fastmap-%s.tar.gz' % (url_base, VERSION)
+download_url = '%s/archive/code2flow-%s.tar.gz' % (url_base, VERSION)
 
 setup(
     name='code2flow',

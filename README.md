@@ -1,6 +1,6 @@
 ![code2flow logo](https://raw.githubusercontent.com/scottrogowski/code2flow/master/assets/code2flowlogo.png)
 
-![Version 2.3.0](https://img.shields.io/badge/version-2.3.0-brightgreen) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage 100%](https://img.shields.io/badge/coverage-100%25-brightgreen) ![License MIT](https://img.shields.io/badge/license-MIT-green])
+![Version 2.3.1](https://img.shields.io/badge/version-2.3.0-brightgreen) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage 100%](https://img.shields.io/badge/coverage-100%25-brightgreen) ![License MIT](https://img.shields.io/badge/license-MIT-green])
 
 Code2flow generates [call graphs](https://en.wikipedia.org/wiki/Call_graph) for dynamic programming language. Code2flow supports Python, Javascript, Ruby, and PHP.
 
@@ -82,7 +82,7 @@ Detailed algorithm:
 1. Generate an AST of the source code
 2. Recursively separate groups and nodes. Groups are files, modules, or classes. More precisely, groups are namespaces where functions live. Nodes are the functions themselves.
 3. For all nodes, identify function calls in those nodes.
-4. For all nodes, identify in-scope variables. Attempt to connect those variables to specific nodes and groups. This is where there is some ambiguity in the algorithm because it is possible to know the types of variables in dynamic languages. So, instead, heuristics must be used.
+4. For all nodes, identify in-scope variables. Attempt to connect those variables to specific nodes and groups. This is where there is some ambiguity in the algorithm because it is impossible to know the types of variables in dynamic languages. So, instead, heuristics must be used.
 5. For all calls in all nodes, attempt to find a match from the in-scope variables. This will be an edge.
 6. If a definitive match from in-scope variables cannot be found, attempt to find a single match from all other groups and nodes.
 7. Trim orphaned nodes and groups.

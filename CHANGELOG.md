@@ -1,5 +1,11 @@
 # Code2flow CHANGELOG
 
+## [2.3.1] - 2021-12-13
+- Colored edges
+- Improve dependency robustness
+- Fixes for two Python bugs
+- Small textual improvements
+
 ## [2.3.0] - 2021-10-11
 Fix a few rare javascript bugs. Fix non-UTF8 encoding issue for Python. Better debugging.
 
