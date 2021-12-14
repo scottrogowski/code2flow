@@ -4,8 +4,8 @@ import os
 
 TRUNK_COLOR = '#966F33'
 LEAF_COLOR = '#6db33f'
-EDGE_COLOR = "#000000"
-EDGE_COLORS = ["#cf142b", "#00008b", "#871282", "#066600", "#0c343d", "#8fce00", "#ffc300"]
+EDGE_COLORS = ["#000000", "#E69F00", "#56B4E9", "#009E73",
+               "#F0E442", "#0072B2", "#D55E00", "#CC79A7"]
 NODE_COLOR = "#cccccc"
 
 
