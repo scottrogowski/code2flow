@@ -3,7 +3,7 @@ build:
 	python3 setup.py sdist
 
 test:
-	pytest --cov-report=html --cov=code2flow -x
+	pytest --cov-report=html --cov-report=term --cov=code2flow -x
 
 clean:
 	rm -rf build
