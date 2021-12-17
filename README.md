@@ -1,6 +1,6 @@
 ![code2flow logo](https://raw.githubusercontent.com/scottrogowski/code2flow/master/assets/code2flowlogo.png)
 
-![Version 2.3.1](https://img.shields.io/badge/version-2.3.0-brightgreen) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage 100%](https://img.shields.io/badge/coverage-100%25-brightgreen) ![License MIT](https://img.shields.io/badge/license-MIT-green])
+![Version 2.3.1](https://img.shields.io/badge/version-2.3.1-brightgreen) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage 100%](https://img.shields.io/badge/coverage-100%25-brightgreen) ![License MIT](https://img.shields.io/badge/license-MIT-green])
 
 Code2flow generates [call graphs](https://en.wikipedia.org/wiki/Call_graph) for dynamic programming language. Code2flow supports Python, Javascript, Ruby, and PHP.
 
@@ -18,9 +18,9 @@ Code2flow is useful for:
 
 Code2flow will provide a *pretty good estimate* of your project's structure. No algorithm can generate a perfect call graph for a [dynamic language](https://en.wikipedia.org/wiki/Dynamic_programming_language) - even less so if that language is [duck-typed](https://en.wikipedia.org/wiki/Duck_typing). See the known limitations in the section below.
 
-*(Below: Code2flow running on itself (excl javascript, PHP, & Ruby for clarity))*
+*(Below: Code2flow running against a subset of itself)*
 
-![code2flow running against itself](https://raw.githubusercontent.com/scottrogowski/code2flow/master/assets/code2flow_output.png)
+![code2flow running against a subset of itself](https://raw.githubusercontent.com/scottrogowski/code2flow/master/assets/code2flow_output.png)
 
 Installation
 ------------
@@ -125,6 +125,15 @@ How to contribute
 3. **Add a language**: While dense, each language implementation is between 250-400 lines of code including comments. If you want to implement another language, the existing implementations can be your guide.
 
 
+Unit tests
+------------------
+
+Test coverage is 100%. To run:
+
+    pip install -r requirements_dev.txt
+    make test
+
+
 License
 -----------------------------
 
@@ -146,15 +155,6 @@ Unrelated projects
 -----------------------
 
 The name, "code2flow", has been used for several unrelated projects. Specifically, the domain, code2flow.com, has no association with this project. I've never heard anything from them and it doesn't appear like they use anything from here.
-
-
-Unit tests
-------------------
-
-Test coverage is 100%. To run:
-
-    pip install -r requirements_dev.txt
-    make test
 
 
 Feedback / Contact
