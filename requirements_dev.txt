@@ -5,6 +5,7 @@ pygraphviz>=1.6,<2.0
 pytest-cov>=2.0,<2.11
 pytest-catchlog>=1.2.2,<2.0
 pytest-mock>=3.6,<4.0
+pytest-xdist>=2.5.0,<3.0
 
 # Development
 ipdb>=0.13,<1.0

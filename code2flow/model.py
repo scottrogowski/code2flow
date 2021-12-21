@@ -279,9 +279,12 @@ class Node():
     def __repr__(self):
         return f"<Node token={self.token} parent={self.parent}>"
 
+    def __lt__(self, other):
+            return self.name() < other.name()
+
     def name(self):
         """
-        Names exist largely for unit tests
+        Names exist largely for unit tests and comparison
         :rtype: str
         """
         return f"{self.first_group().filename()}::{self.token_with_ownership()}"
@@ -457,6 +460,11 @@ class Edge():
     def __repr__(self):
         return f"<Edge {self.node0} -> {self.node1}"
 
+    def __lt__(self, other):
+        if self.node0 == other.node0:
+            return self.node1 < other.node1
+        return self.node0 < other.node0
+
     def to_dot(self):
         '''
         Returns string format for embedding in a dotfile. Example output:
@@ -501,6 +509,9 @@ class Group():
 
     def __repr__(self):
         return f"<Group token={self.token} type={self.display_type}>"
+
+    def __lt__(self, other):
+        return self.label() < other.label()
 
     def label(self):
         """

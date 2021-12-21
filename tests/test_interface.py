@@ -9,7 +9,7 @@ import pytest
 
 sys.path.append(os.getcwd().split('/tests')[0])
 
-from code2flow.engine import code2flow, main, _generate_graphviz
+from code2flow.engine import code2flow, main, _generate_graphviz, SubsetParams
 from code2flow import model
 
 IMG_PATH = '/tmp/code2flow/output.png'
@@ -198,4 +198,23 @@ def test_cli_log_quiet(mocker):
     main(['test_code/py/simple_a', '--quiet'])
     logging.basicConfig.assert_called_once_with(format="Code2Flow: %(message)s",
                                                 level=logging.WARNING)
+
+def test_subset_cli(mocker):
+    with pytest.raises(AssertionError):
+        SubsetParams.generate(target_function='', upstream_depth=1, downstream_depth=0)
+    with pytest.raises(AssertionError):
+        SubsetParams.generate(target_function='', upstream_depth=0, downstream_depth=1)
+    with pytest.raises(AssertionError):
+        SubsetParams.generate(target_function='test', upstream_depth=0, downstream_depth=0)
+    with pytest.raises(AssertionError):
+        SubsetParams.generate(target_function='test', upstream_depth=-1, downstream_depth=0)
+    with pytest.raises(AssertionError):
+        SubsetParams.generate(target_function='test', upstream_depth=0, downstream_depth=-1)
+
+    with pytest.raises(AssertionError):
+        main(['test_code/py/subset_find_exception/zero.py', '--target-function', 'func', '--upstream-depth', '1'])
+
+    with pytest.raises(AssertionError):
+        main(['test_code/py/subset_find_exception/two.py', '--target-function', 'func', '--upstream-depth', '1'])
+
 
