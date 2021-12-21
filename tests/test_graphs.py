@@ -89,7 +89,6 @@ def get_nodes_set_from_file(dot_file):
             # skip the first which is a legend
             continue
         generated_nodes.append(node.attr['name'])
-    from icecream import ic; ic(generated_nodes);
     ret = set(generated_nodes)
     assert_eq(set(list(ret)), set(generated_nodes))  # assert no dupes
     return ret

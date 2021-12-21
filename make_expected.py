@@ -5,7 +5,7 @@ import pprint
 import sys
 import tempfile
 
-from code2flow.engine import main, code2flow
+from code2flow.engine import main
 from tests.test_graphs import get_edges_set_from_file, get_nodes_set_from_file
 
 DESCRIPTION = """
@@ -13,16 +13,10 @@ This file is a tool to generate test cases given a directory
 """
 
 if __name__ == '__main__':
-    # directory = sys.argv[1]
-    output = tempfile.NamedTemporaryFile(suffix='.gv')
-    output_filename = output.name
+    output_filename = tempfile.NamedTemporaryFile(suffix='.gv').name
     args = sys.argv[1:] + ['--output', output_filename]
-    print(args)
     main(args)
     output_file = open(output_filename, 'r')
-    # import io
-    # output_file = io.StringIO()
-    # code2flow(sys.argv[1], output_file)
 
     generated_edges = get_edges_set_from_file(output_file)
     generated_nodes = get_nodes_set_from_file(output_file)

@@ -507,8 +507,10 @@ def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_function
     # Not a step. Just log what we know so far
     logging.info("Found groups %r." % [g.label() for g in all_subgroups])
     logging.info("Found nodes %r." % sorted(n.token_with_ownership() for n in all_nodes))
-    logging.info("Found calls %r." % sorted(list(set(c.to_string() for c in flatten(n.calls for n in all_nodes)))))
-    logging.info("Found variables %r." % sorted(list(set(v.to_string() for v in flatten(n.variables for n in all_nodes)))))
+    logging.info("Found calls %r." % sorted(list(set(c.to_string() for c in
+                                                     flatten(n.calls for n in all_nodes)))))
+    logging.info("Found variables %r." % sorted(list(set(v.to_string() for v in
+                                                         flatten(n.variables for n in all_nodes)))))
 
     # 6. Find all calls between all nodes
     bad_calls = []
@@ -615,7 +617,8 @@ def _generate_graphviz(output_file, extension, final_img_filename):
             subprocess.run(command, stdout=f, check=True)
             logging.info("Graphviz finished in %.2f seconds." % (time.time() - start_time))
         except subprocess.CalledProcessError:
-            logging.warning("*** Graphviz returned non-zero exit code! Try running %r for more detail ***", ' '.join(command + ['-v', '-O']))
+            logging.warning("*** Graphviz returned non-zero exit code! "
+                            "Try running %r for more detail ***", ' '.join(command + ['-v', '-O']))
 
 
 def _generate_final_img(output_file, extension, final_img_filename, num_edges):
@@ -671,7 +674,8 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
     if isinstance(output_file, str):
         assert '.' in output_file, "Output filename must end in one of: %r." % set(VALID_EXTENSIONS)
         output_ext = output_file.rsplit('.', 1)[1] or ''
-        assert output_ext in VALID_EXTENSIONS, "Output filename must end in one of: %r." % set(VALID_EXTENSIONS)
+        assert output_ext in VALID_EXTENSIONS, "Output filename must end in one of: %r." % \
+                                               set(VALID_EXTENSIONS)
 
     final_img_filename = None
     if output_ext and output_ext in IMAGE_EXTENSIONS:
@@ -774,7 +778,8 @@ def main(sys_argv=None):
         help='js only. Parse the source as scripts (commonJS) or modules (es6)')
     parser.add_argument(
         '--ruby-version', default='27',
-        help='ruby only. Which ruby version to parse? This is passed directly into ruby-parse. Use numbers like 25, 27, or 31.')
+        help='ruby only. Which ruby version to parse? This is passed directly into ruby-parse. '
+             'Use numbers like 25, 27, or 31.')
     parser.add_argument(
         '--quiet', '-q', action='store_true',
         help='suppress most logging')
@@ -797,7 +802,8 @@ def main(sys_argv=None):
     exclude_namespaces = list(filter(None, (args.exclude_namespaces or "").split(',')))
     exclude_functions = list(filter(None, (args.exclude_functions or "").split(',')))
     lang_params = LanguageParams(args.source_type, args.ruby_version)
-    subset_params = SubsetParams.generate(args.target_function, args.upstream_depth, args.downstream_depth)
+    subset_params = SubsetParams.generate(args.target_function, args.upstream_depth,
+                                          args.downstream_depth)
 
     code2flow(
         raw_source_paths=args.sources,
