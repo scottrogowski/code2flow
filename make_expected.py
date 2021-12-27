@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
-import io
 import os
 import pprint
 import sys
+import tempfile
 
-from code2flow import code2flow
+from code2flow.engine import main
 from tests.test_graphs import get_edges_set_from_file, get_nodes_set_from_file
 
 DESCRIPTION = """
@@ -13,16 +13,19 @@ This file is a tool to generate test cases given a directory
 """
 
 if __name__ == '__main__':
-    filename = sys.argv[1]
-    output_file = io.StringIO()
-    code2flow(filename, output_file)
+    output_filename = tempfile.NamedTemporaryFile(suffix='.gv').name
+    args = sys.argv[1:] + ['--output', output_filename]
+    main(args)
+    output_file = open(output_filename, 'r')
+
     generated_edges = get_edges_set_from_file(output_file)
     generated_nodes = get_nodes_set_from_file(output_file)
-    directory = os.path.split(filename)[-1]
+    directory = os.path.split(sys.argv[1])[-1]
 
     ret = {
         'test_name': directory,
         'directory': directory,
+        'kwargs': sys.argv[2:],
         'expected_edges': list(map(list, generated_edges)),
         'expected_nodes': list(generated_nodes),
     }

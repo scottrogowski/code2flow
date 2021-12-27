@@ -7,7 +7,7 @@ import pytest
 
 sys.path.append(os.getcwd().split('/tests')[0])
 
-from code2flow.engine import code2flow, LanguageParams
+from code2flow.engine import code2flow, LanguageParams, SubsetParams
 from tests.testdata import testdata
 
 LANGUAGES = (
@@ -65,6 +65,9 @@ def test_all(test_tup):
     kwargs = test_dict.get('kwargs', {})
     kwargs['lang_params'] = LanguageParams(kwargs.pop('source_type', 'script'),
                                            kwargs.pop('ruby_version', '27'))
+    kwargs['subset_params'] = SubsetParams.generate(kwargs.pop('target_function', ''),
+                                                    int(kwargs.pop('upstream_depth', 0)),
+                                                    int(kwargs.pop('downstream_depth', 0)))
     output_file = io.StringIO()
     code2flow([directory_path], output_file, language, **kwargs)
 
@@ -82,6 +85,9 @@ def get_nodes_set_from_file(dot_file):
     ag = pygraphviz.AGraph(dot_file.read())
     generated_nodes = []
     for node in ag.nodes():
+        if not node.attr['name']:
+            # skip the first which is a legend
+            continue
         generated_nodes.append(node.attr['name'])
     ret = set(generated_nodes)
     assert_eq(set(list(ret)), set(generated_nodes))  # assert no dupes
