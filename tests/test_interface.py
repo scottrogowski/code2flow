@@ -14,7 +14,10 @@ from code2flow import model
 
 IMG_PATH = '/tmp/code2flow/output.png'
 if os.path.exists("/tmp/code2flow"):
-    shutil.rmtree('/tmp/code2flow')
+    try:
+        shutil.rmtree('/tmp/code2flow')
+    except FileNotFoundError:
+        os.remove('/tmp/code2flow')
 os.mkdir('/tmp/code2flow')
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
