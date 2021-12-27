@@ -1,6 +1,6 @@
 ![code2flow logo](https://raw.githubusercontent.com/scottrogowski/code2flow/master/assets/code2flowlogo.png)
 
-![Version 2.3.1](https://img.shields.io/badge/version-2.3.1-brightgreen) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage 100%](https://img.shields.io/badge/coverage-100%25-brightgreen) ![License MIT](https://img.shields.io/badge/license-MIT-green])
+![Version 2.4.0](https://img.shields.io/badge/version-2.4.0-brightgreen) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage 100%](https://img.shields.io/badge/coverage-100%25-brightgreen) ![License MIT](https://img.shields.io/badge/license-MIT-green])
 
 Code2flow generates [call graphs](https://en.wikipedia.org/wiki/Call_graph) for dynamic programming language. Code2flow supports Python, Javascript, Ruby, and PHP.
 
@@ -18,7 +18,7 @@ Code2flow is useful for:
 
 Code2flow will provide a *pretty good estimate* of your project's structure. No algorithm can generate a perfect call graph for a [dynamic language](https://en.wikipedia.org/wiki/Dynamic_programming_language) - even less so if that language is [duck-typed](https://en.wikipedia.org/wiki/Duck_typing). See the known limitations in the section below.
 
-*(Below: Code2flow running against a subset of itself)*
+*(Below: Code2flow running against a subset of itself `code2flow code2flow/engine.py code2flow/python.py --target-function=code2flow --downstream-depth=3`)*
 
 ![code2flow running against a subset of itself](https://raw.githubusercontent.com/scottrogowski/code2flow/master/assets/code2flow_output.png)
 
@@ -52,7 +52,7 @@ Or, for javascript:
 code2flow myjavascriptfile.js
 ```
 
-You can also specify multiple files or import directories:
+You can specify multiple files or import directories:
 
 ```bash
 code2flow project/directory/source_a.js project/directory/source_b.js
@@ -65,6 +65,13 @@ code2flow project/directory/*.js
 ```bash
 code2flow project/directory --language js
 ```
+
+To pull out a subset of the the graph, try something like:
+
+```bash
+code2flow mypythonfile.py --target-function my_func --upstream-depth=1 --downstream-depth=1
+```
+
 
 There are a ton of command line options, to see them all, run:
 

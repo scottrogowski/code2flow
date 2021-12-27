@@ -1,5 +1,8 @@
 # Code2flow CHANGELOG
 
+## [2.4.0] - 2021-12-26
+- Implement subsets
+
 ## [2.3.1] - 2021-12-13
 - Colored edges
 - Improve dependency robustness
