@@ -284,7 +284,7 @@ class Node():
 
     def name(self):
         """
-        Names exist largely for unit tests and comparison
+        Names exist largely for unit tests and deterministic node sorting
         :rtype: str
         """
         return f"{self.first_group().filename()}::{self.token_with_ownership()}"

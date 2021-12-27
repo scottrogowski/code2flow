@@ -125,15 +125,15 @@ def _filter_nodes_for_subset(subset_params, all_nodes, edges):
     :param edges list[Edge]:
     :rtype: set[Node]
     """
-    center_node = _find_target_node(subset_params, all_nodes)
+    target_node = _find_target_node(subset_params, all_nodes)
     downstream_dict = collections.defaultdict(set)
     upstream_dict = collections.defaultdict(set)
     for edge in edges:
         upstream_dict[edge.node1].add(edge.node0)
         downstream_dict[edge.node0].add(edge.node1)
 
-    include_nodes = {center_node}
-    step_nodes = {center_node}
+    include_nodes = {target_node}
+    step_nodes = {target_node}
     next_step_nodes = set()
 
     for _ in range(subset_params.downstream_depth):
@@ -143,7 +143,7 @@ def _filter_nodes_for_subset(subset_params, all_nodes, edges):
         step_nodes = next_step_nodes
         next_step_nodes = set()
 
-    step_nodes = {center_node}
+    step_nodes = {target_node}
     next_step_nodes = set()
 
     for _ in range(subset_params.upstream_depth):
