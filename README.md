@@ -147,15 +147,15 @@ License
 
 Code2flow is licensed under the MIT license.
 Prior to the rewrite in April 2021, code2flow was licensed under LGPL. The last commit under that license was 24b2cb854c6a872ba6e17409fbddb6659bf64d4c. 
-The April 2021 rewrite was substantial so it's probably reasonable to treat code2flow as completely MIT-licensed.
+The April 2021 rewrite was substantial, so it's probably reasonable to treat code2flow as completely MIT-licensed.
 
 
 Acknowledgements
 -----------------------------
 
 
-* In mid 2021, Code2flow was rewritten and two new languages were added. This was prompted and financially supported by the [Sider Corporation](https://siderlabs.com/). 
-* The code2flow pip name was graciouly transferred to this project from [Dheeraj Nair](https://github.com/Dheeraj1998). He was using it for his own (unrelated) [code2flow](https://github.com/Dheeraj1998/code2flow) project. 
+* In mid 2021, Code2flow was rewritten, and two new languages were added. This was prompted and financially supported by the [Sider Corporation](https://siderlabs.com/). 
+* The code2flow pip name was graciously transferred to this project from [Dheeraj Nair](https://github.com/Dheeraj1998). He was using it for his own (unrelated) [code2flow](https://github.com/Dheeraj1998/code2flow) project. 
 * Many others have contributed through bug fixes, cleanups, and identifying issues. Thank you!!!
 
 
