@@ -430,6 +430,7 @@ def _find_links(node_a, all_nodes):
 
 
 def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_functions,
+           include_only_namespaces, include_only_functions,
            skip_parse_errors, lang_params):
     '''
     Given a language implementation and a list of filenames, do these things:
@@ -447,6 +448,8 @@ def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_function
     :param bool no_trimming:
     :param list exclude_namespaces:
     :param list exclude_functions:
+    :param list include_only_namespaces:
+    :param list include_only_functions:
     :param bool skip_parse_errors:
     :param LanguageParams lang_params:
 
@@ -475,11 +478,11 @@ def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_function
         file_group = make_file_group(file_ast_tree, source, extension)
         file_groups.append(file_group)
 
-    # 3. Trim namespaces / functions that we don't want
-    if exclude_namespaces:
-        file_groups = _exclude_namespaces(file_groups, exclude_namespaces)
-    if exclude_functions:
-        file_groups = _exclude_functions(file_groups, exclude_functions)
+    # 3. Trim namespaces / functions to exactly what we want
+    if exclude_namespaces or include_only_namespaces:
+        file_groups = _limit_namespaces(file_groups, exclude_namespaces, include_only_namespaces)
+    if exclude_functions or include_only_functions:
+        file_groups = _limit_functions(file_groups, exclude_functions, include_only_functions)
 
     # 4. Consolidate structures
     all_subgroups = flatten(g.all_groups() for g in file_groups)
@@ -557,46 +560,57 @@ def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_function
     return file_groups, all_nodes, edges
 
 
-def _exclude_namespaces(file_groups, exclude_namespaces):
+def _limit_namespaces(file_groups, exclude_namespaces, include_only_namespaces):
     """
     Exclude namespaces (classes/modules) which match any of the exclude_namespaces
 
     :param list[Group] file_groups:
     :param list exclude_namespaces:
+    :param list include_only_namespaces:
     :rtype: list[Group]
     """
+
+    removed_namespaces = set()
+
+    for group in list(file_groups):
+        if group.token in exclude_namespaces or \
+           (include_only_namespaces and group.token not in include_only_namespaces):
+            file_groups.remove(group)
+            removed_namespaces.add(group.token)
+        for subgroup in group.all_groups():
+            if subgroup.token in exclude_namespaces or \
+               (include_only_namespaces and subgroup.token not in include_only_namespaces):
+                subgroup.remove_from_parent()
+                removed_namespaces.add(subgroup.token)
+
     for namespace in exclude_namespaces:
-        found = False
-        for group in list(file_groups):
-            if group.token == namespace:
-                file_groups.remove(group)
-                found = True
-            for subgroup in group.all_groups():
-                if subgroup.token == namespace:
-                    subgroup.remove_from_parent()
-                    found = True
-        if not found:
+        if namespace not in removed_namespaces:
             logging.warning(f"Could not exclude namespace '{namespace}' "
                             "because it was not found.")
     return file_groups
 
 
-def _exclude_functions(file_groups, exclude_functions):
+def _limit_functions(file_groups, exclude_functions, include_only_functions):
     """
     Exclude nodes (functions) which match any of the exclude_functions
 
     :param list[Group] file_groups:
     :param list exclude_functions:
+    :param list include_only_functions:
     :rtype: list[Group]
     """
+
+    removed_functions = set()
+
+    for group in list(file_groups):
+        for node in group.all_nodes():
+            if node.token in exclude_functions or \
+               (include_only_functions and node.token not in include_only_functions):
+                node.remove_from_parent()
+                removed_functions.add(node.token)
+
     for function_name in exclude_functions:
-        found = False
-        for group in list(file_groups):
-            for node in group.all_nodes():
-                if node.token == function_name:
-                    node.remove_from_parent()
-                    found = True
-        if not found:
+        if function_name not in removed_functions:
             logging.warning(f"Could not exclude function '{function_name}' "
                             "because it was not found.")
     return file_groups
@@ -636,6 +650,7 @@ def _generate_final_img(output_file, extension, final_img_filename, num_edges):
 
 def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
               exclude_namespaces=None, exclude_functions=None,
+              include_only_namespaces=None, include_only_functions=None,
               no_grouping=False, no_trimming=False, skip_parse_errors=False,
               lang_params=None, subset_params=None, level=logging.INFO):
     """
@@ -648,6 +663,8 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
     :param bool hide_legend: Omit the legend from the output
     :param list exclude_namespaces: List of namespaces to exclude
     :param list exclude_functions: List of functions to exclude
+    :param list include_only_namespaces: List of namespaces to include
+    :param list include_only_functions: List of functions to include
     :param bool no_grouping: Don't group functions into namespaces in the final output
     :param bool no_trimming: Don't trim orphaned functions / namespaces
     :param bool skip_parse_errors: If a language parser fails to parse a file, skip it
@@ -660,11 +677,16 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
 
     if not isinstance(raw_source_paths, list):
         raw_source_paths = [raw_source_paths]
+    lang_params = lang_params or LanguageParams()
+
     exclude_namespaces = exclude_namespaces or []
     assert isinstance(exclude_namespaces, list)
     exclude_functions = exclude_functions or []
     assert isinstance(exclude_functions, list)
-    lang_params = lang_params or LanguageParams()
+    include_only_namespaces = include_only_namespaces or []
+    assert isinstance(include_only_namespaces, list)
+    include_only_functions = include_only_functions or []
+    assert isinstance(include_only_functions, list)
 
     logging.basicConfig(format="Code2Flow: %(message)s", level=level)
 
@@ -691,6 +713,7 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
 
     file_groups, all_nodes, edges = map_it(sources, language, no_trimming,
                                            exclude_namespaces, exclude_functions,
+                                           include_only_namespaces, include_only_functions,
                                            skip_parse_errors, lang_params)
 
     if subset_params:
@@ -762,6 +785,12 @@ def main(sys_argv=None):
         '--exclude-namespaces',
         help='exclude namespaces (Classes, modules, etc) from the output. Comma delimited.')
     parser.add_argument(
+        '--include-only-functions',
+        help='include only functions in the output. Comma delimited.')
+    parser.add_argument(
+        '--include-only-namespaces',
+        help='include only namespaces (Classes, modules, etc) in the output. Comma delimited.')
+    parser.add_argument(
         '--no-grouping', action='store_true',
         help='instead of grouping functions into namespaces, let functions float.')
     parser.add_argument(
@@ -801,6 +830,9 @@ def main(sys_argv=None):
 
     exclude_namespaces = list(filter(None, (args.exclude_namespaces or "").split(',')))
     exclude_functions = list(filter(None, (args.exclude_functions or "").split(',')))
+    include_only_namespaces = list(filter(None, (args.include_only_namespaces or "").split(',')))
+    include_only_functions = list(filter(None, (args.include_only_functions or "").split(',')))
+
     lang_params = LanguageParams(args.source_type, args.ruby_version)
     subset_params = SubsetParams.generate(args.target_function, args.upstream_depth,
                                           args.downstream_depth)
@@ -812,6 +844,8 @@ def main(sys_argv=None):
         hide_legend=args.hide_legend,
         exclude_namespaces=exclude_namespaces,
         exclude_functions=exclude_functions,
+        include_only_namespaces=include_only_namespaces,
+        include_only_functions=include_only_functions,
         no_grouping=args.no_grouping,
         no_trimming=args.no_trimming,
         skip_parse_errors=args.skip_parse_errors,
