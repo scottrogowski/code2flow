@@ -2,21 +2,21 @@
 
 ![Version 2.4.0](https://img.shields.io/badge/version-2.4.0-brightgreen) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage 100%](https://img.shields.io/badge/coverage-100%25-brightgreen) ![License MIT](https://img.shields.io/badge/license-MIT-green])
 
-Code2flow generates [call graphs](https://en.wikipedia.org/wiki/Call_graph) for dynamic programming language. Code2flow supports Python, Javascript, Ruby, and PHP.
+Code2flow generates [call graphs](https://en.wikipedia.org/wiki/Call_graph) for dynamic programming language. Code2flow supports Python, JavaScript, Ruby, and PHP.
 
 The basic algorithm is simple:
 
 1. Translate your source files into ASTs.
-2. Find all function definitions.
-3. Determine where those functions are called.
-4. Connect the dots. 
+1. Find all function definitions.
+1. Determine where those functions are called.
+1. Connect the dots. 
 
 Code2flow is useful for:
 - Untangling spaghetti code.
 - Identifying orphaned functions.
 - Getting new developers up to speed.
 
-Code2flow will provide a *pretty good estimate* of your project's structure. No algorithm can generate a perfect call graph for a [dynamic language](https://en.wikipedia.org/wiki/Dynamic_programming_language) - even less so if that language is [duck-typed](https://en.wikipedia.org/wiki/Duck_typing). See the known limitations in the section below.
+Code2flow provides a *pretty good estimate* of your project's structure. No algorithm can generate a perfect call graph for a [dynamic language](https://en.wikipedia.org/wiki/Dynamic_programming_language) – even less so if that language is [duck-typed](https://en.wikipedia.org/wiki/Duck_typing). See the known limitations in the section below.
 
 *(Below: Code2flow running against a subset of itself `code2flow code2flow/engine.py code2flow/python.py --target-function=code2flow --downstream-depth=3`)*
 
@@ -32,7 +32,7 @@ pip3 install code2flow
 If you don't have it already, you will also need to install graphviz. Installation instructions can be found [here](https://graphviz.org/download/).
 
 Additionally, depending on the language you want to parse, you may need to install additional dependencies:
-- Javascript: [Acorn](https://www.npmjs.com/package/acorn)
+- JavaScript: [Acorn](https://www.npmjs.com/package/acorn)
 - Ruby: [Parser](https://github.com/whitequark/parser)
 - PHP: [PHP-Parser](https://github.com/nikic/PHP-Parser)
 - Python: No extra dependencies needed
@@ -40,13 +40,13 @@ Additionally, depending on the language you want to parse, you may need to insta
 Usage
 -----
 
-To generate a DOT file run something like:
+To generate a DOT file, run something like:
 
 ```bash
 code2flow mypythonfile.py
 ```
 
-Or, for javascript:
+Or, for Javascript:
 
 ```bash
 code2flow myjavascriptfile.js
@@ -66,7 +66,7 @@ code2flow project/directory/*.js
 code2flow project/directory --language js
 ```
 
-To pull out a subset of the the graph, try something like:
+To pull out a subset of the graph, try something like:
 
 ```bash
 code2flow mypythonfile.py --target-function my_func --upstream-depth=1 --downstream-depth=1
@@ -119,7 +119,7 @@ Code2flow is internally powered by ASTs. Most limitations stem from a token not 
 
 * All functions without definitions are skipped. This most often happens when a file is not included.
 * Functions with identical names in different namespaces are (loudly) skipped. E.g. If you have two classes with identically named methods, code2flow cannot distinguish between these and skips them.
-* Imported functions from outside of your project directory (including from standard libraries) which share names with your defined functions may not be handled correctly. Instead when you call the imported function, code2flow will link to your local functions. E.g. if you have a function "search()" and call, "import searcher; searcher.search()", code2flow may link (incorrectly) to your defined function.
+* Imported functions from outside your project directory (including from standard libraries) which share names with your defined functions may not be handled correctly. Instead, when you call the imported function, code2flow will link to your local functions. For example, if you have a function `search()` and call, `import searcher; searcher.search()`, code2flow may link (incorrectly) to your defined function.
 * Anonymous or generated functions are skipped. This includes lambdas and factories.
 * If a function is renamed, either explicitly or by being passed around as a parameter, it will be skipped.
 
@@ -137,24 +137,25 @@ Unit tests
 
 Test coverage is 100%. To run:
 
+```bash
     pip install -r requirements_dev.txt
     make test
-
+```
 
 License
 -----------------------------
 
 Code2flow is licensed under the MIT license.
 Prior to the rewrite in April 2021, code2flow was licensed under LGPL. The last commit under that license was 24b2cb854c6a872ba6e17409fbddb6659bf64d4c. 
-The April 2021 rewrite was substantial so it's probably reasonable to treat code2flow as completely MIT-licensed.
+The April 2021 rewrite was substantial, so it's probably reasonable to treat code2flow as completely MIT-licensed.
 
 
 Acknowledgements
 -----------------------------
 
 
-* In mid-2021, Code2flow was rewritten and two new languages were added. This was prompted and financially supported by the [Sider Corporation](https://siderlabs.com/). 
-* The code2flow pip name was graciouly transferred to this project from [Dheeraj Nair](https://github.com/Dheeraj1998). He was using it for his own (unrelated) [code2flow](https://github.com/Dheeraj1998/code2flow) project. 
+* In mid 2021, Code2flow was rewritten, and two new languages were added. This was prompted and financially supported by the [Sider Corporation](https://siderlabs.com/). 
+* The code2flow pip name was graciously transferred to this project from [Dheeraj Nair](https://github.com/Dheeraj1998). He was using it for his own (unrelated) [code2flow](https://github.com/Dheeraj1998/code2flow) project. 
 * Many others have contributed through bug fixes, cleanups, and identifying issues. Thank you!!!
 
 
@@ -174,4 +175,4 @@ scottmrogowski@gmail.com
 Feature Requests
 ----------------
 
-Email me. At any time, I'm spread thin across a lot of projects so I will, unfortunately, turn down most requests. However, I am open to paid development for compelling features.
+Email me. Usually, I'm spread thin across a lot of projects, so I will, unfortunately, turn down most requests. However, I am open to paid development for compelling features.
