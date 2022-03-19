@@ -606,6 +606,15 @@ class Group():
         if self.parent:
             self.parent.subgroups = [g for g in self.parent.subgroups if g != self]
 
+    def all_parents(self):
+        """
+        Recursively get the entire inheritance tree of this group
+        :rtype: list[Group]
+        """
+        if self.parent:
+            return [self.parent] + self.parent.all_parents()
+        return []
+
     def to_dot(self):
         """
         Returns string format for embedding in a dotfile. Example output:

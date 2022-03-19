@@ -573,20 +573,32 @@ def _limit_namespaces(file_groups, exclude_namespaces, include_only_namespaces):
     removed_namespaces = set()
 
     for group in list(file_groups):
-        if group.token in exclude_namespaces or \
-           (include_only_namespaces and group.token not in include_only_namespaces):
-            file_groups.remove(group)
+        if group.token in exclude_namespaces:
+            for node in group.all_nodes():
+                node.remove_from_parent()
             removed_namespaces.add(group.token)
+        if include_only_namespaces and group.token not in include_only_namespaces:
+            for node in group.nodes:
+                node.remove_from_parent()
+            removed_namespaces.add(group.token)
+
         for subgroup in group.all_groups():
-            if subgroup.token in exclude_namespaces or \
-               (include_only_namespaces and subgroup.token not in include_only_namespaces):
-                subgroup.remove_from_parent()
+            print(subgroup, subgroup.all_parents())
+            if subgroup.token in exclude_namespaces:
+                for node in subgroup.all_nodes():
+                    node.remove_from_parent()
                 removed_namespaces.add(subgroup.token)
+            if include_only_namespaces and \
+               subgroup.token not in include_only_namespaces and \
+               all(p.token not in include_only_namespaces for p in subgroup.all_parents()):
+                for node in subgroup.nodes:
+                    node.remove_from_parent()
+                removed_namespaces.add(group.token)
 
     for namespace in exclude_namespaces:
         if namespace not in removed_namespaces:
             logging.warning(f"Could not exclude namespace '{namespace}' "
-                            "because it was not found.")
+                             "because it was not found.")
     return file_groups
 
 
@@ -612,7 +624,7 @@ def _limit_functions(file_groups, exclude_functions, include_only_functions):
     for function_name in exclude_functions:
         if function_name not in removed_functions:
             logging.warning(f"Could not exclude function '{function_name}' "
-                            "because it was not found.")
+                             "because it was not found.")
     return file_groups
 
 
