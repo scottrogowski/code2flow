@@ -127,6 +127,18 @@ testdata = {
             "expected_nodes": ["file_b::(global)", "file_b::b", "file_b::c"]
         },
         {
+            "test_name": "async_basic",
+            "directory": "async_basic",
+            "kwargs": {},
+            "expected_edges": [["async_basic::main", "async_basic::A.__init__"],
+                               ["async_basic::(global)", "async_basic::main"],
+                               ["async_basic::main", "async_basic::A.test"]],
+            "expected_nodes": ["async_basic::(global)",
+                               "async_basic::A.__init__",
+                               "async_basic::A.test",
+                               "async_basic::main"]
+        },
+        {
             "test_name": "exclude_modules",
             "comment": "Correct name resolution when third-party modules are involved",
             "directory": "exclude_modules",
