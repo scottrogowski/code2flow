@@ -124,6 +124,21 @@ Code2flow is internally powered by ASTs. Most limitations stem from a token not 
 * If a function is renamed, either explicitly or by being passed around as a parameter, it will be skipped.
 
 
+As an imported library
+-----------------
+
+You can work with code2flow as an imported Python library in much the same way as you work with it
+from the CLI.
+
+```python
+import code2flow
+code2flow.code2flow(['path/to/filea', 'path/to/fileb'], 'path/to/outputfile')
+```
+
+The keyword arguments to `code2flow.code2flow` are roughly the same as the CLI
+parameters. To see all available parameters, refer to the code2flow function in [engine.py](https://github.com/scottrogowski/code2flow/blob/master/code2flow/engine.py).
+
+
 How to contribute
 -----------------------
 
