@@ -1,5 +1,11 @@
 # Code2flow CHANGELOG
 
+## [2.5.0] - 2022-03-25
+- Add async/await functionality to Python
+- Add --include-only-* CLI options
+- Minor README updates
+- Minor logging updates
+
 ## [2.4.0] - 2021-12-26
 - Implement subsets
 
