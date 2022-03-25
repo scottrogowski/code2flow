@@ -557,6 +557,14 @@ def map_it(sources, extension, no_trimming, exclude_namespaces, exclude_function
     file_groups = [g for g in file_groups if g.all_nodes()]
     all_nodes = list(nodes_with_edges)
 
+    if not all_nodes:
+        logging.warning("No functions found! Most likely, your file(s) do not have "
+                        "functions that call each other. Note that to generate a flowchart, "
+                        "you need to have both the function calls and the function "
+                        "definitions. Or, you might be excluding too many "
+                        "with --exclude-* / --include-* / --target-function arguments. ")
+        logging.warning("Code2flow will generate an empty output file.")
+
     return file_groups, all_nodes, edges
 
 
