@@ -177,7 +177,7 @@ class Python(BaseLanguage):
         nodes = []
         body = []
         for el in tree.body:
-            if type(el) == ast.FunctionDef:
+            if type(el) in (ast.FunctionDef, ast.AsyncFunctionDef):
                 nodes.append(el)
             elif type(el) == ast.ClassDef:
                 groups.append(el)
