@@ -268,7 +268,7 @@ class PHP(BaseLanguage):
         """
         Given a tree element, recursively separate that AST into lists of ASTs for the
         subgroups, nodes, and body. This is an intermediate step to allow for
-        clearner processing downstream
+        cleaner processing downstream
 
         :param tree ast:
         :returns: tuple of group, node, and body trees. These are processed

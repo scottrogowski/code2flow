@@ -261,7 +261,7 @@ class DstTzInfo(BaseTzInfo):
         This method should be used to construct localtimes, rather
         than passing a tzinfo argument to a datetime constructor.
 
-        is_dst is used to determine the correct timezone in the ambigous
+        is_dst is used to determine the correct timezone in the ambiguous
         period at the end of daylight saving time.
 
         >>> from pytz import timezone

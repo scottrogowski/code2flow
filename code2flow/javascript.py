@@ -246,7 +246,7 @@ def get_acorn_version():
 class Javascript(BaseLanguage):
     @staticmethod
     def assert_dependencies():
-        """Assert that acorn is installed and the corrent version"""
+        """Assert that acorn is installed and the correct version"""
         assert is_installed('acorn'), "Acorn is required to parse javascript files " \
                                       "but was not found on the path. Install it " \
                                       "from npm and try again."
@@ -290,7 +290,7 @@ class Javascript(BaseLanguage):
         """
         Given an AST, recursively separate that AST into lists of ASTs for the
         subgroups, nodes, and body. This is an intermediate step to allow for
-        clearner processing downstream
+        cleaner processing downstream
 
         :param tree ast:
         :returns: tuple of group, node, and body trees. These are processed
