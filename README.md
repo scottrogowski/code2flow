@@ -180,11 +180,10 @@ Unrelated projects
 The name, "code2flow", has been used for several unrelated projects. Specifically, the domain, code2flow.com, has no association with this project. I've never heard anything from them and it doesn't appear like they use anything from here.
 
 
-Feedback / Contact
+Feedback / Issues / Contact
 -----------------------------
 
-Please do email!
-scottmrogowski@gmail.com
+If you have an issue using code2flow or a feature request, please post it in the issues tab. In general, I don't provide help over email. Answering a question publicly helps way more people. For everything else, please do email! scottmrogowski@gmail.com
 
 
 Feature Requests
