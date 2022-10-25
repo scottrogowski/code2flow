@@ -114,7 +114,7 @@ def make_arguments(arguments):
             print('arg: ', arg.arg, ' has annotation: ', arg.annotation.id)
         
         arg_name_list.append(arg.arg)
-        
+
     return arg_name_list
             
         
@@ -215,10 +215,12 @@ class Python(BaseLanguage):
         :rtype: list[Node]
         """
         token = tree.name
+        arguments = make_arguments(tree.args)
         line_number = tree.lineno
         calls = make_calls(tree.body)
         variables = make_local_variables(tree.body, parent)
         is_constructor = False
+
         if parent.group_type == GROUP_TYPE.CLASS and token in ['__init__', '__new__']:
             is_constructor = True
 
@@ -226,7 +228,7 @@ class Python(BaseLanguage):
         if parent.group_type == GROUP_TYPE.FILE:
             import_tokens = [djoin(parent.token, token)]
 
-        return [Node(token, calls, variables, parent, import_tokens=import_tokens,
+        return [Node(token, arguments, calls, variables, parent, import_tokens=import_tokens,
                      line_number=line_number, is_constructor=is_constructor)]
 
     @staticmethod

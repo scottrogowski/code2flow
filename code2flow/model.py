@@ -260,9 +260,10 @@ class Call():
 
 
 class Node():
-    def __init__(self, token, calls, variables, parent, import_tokens=None,
+    def __init__(self, token, args, calls, variables, parent, import_tokens=None,
                  line_number=None, is_constructor=False):
         self.token = token
+        self.args = args
         self.line_number = line_number
         self.calls = calls
         self.variables = variables
