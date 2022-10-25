@@ -245,7 +245,7 @@ class Python(BaseLanguage):
         line_number = 0
         calls = make_calls(lines)
         variables = make_local_variables(lines, parent)
-        return Node(token, calls, variables, line_number=line_number, parent=parent)
+        return Node(token, [], calls, variables, line_number=line_number, parent=parent)
 
     @staticmethod
     def make_class_group(tree, parent):
