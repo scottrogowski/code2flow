@@ -103,7 +103,21 @@ def process_import(element):
         ret.append(Variable(token, points_to=rhs, line_number=element.lineno))
     return ret
 
+def make_arguments(arguments):
 
+    args_obj_list = arguments.args
+    arg_name_list = []
+
+    for arg in args_obj_list:
+        
+        if arg.annotation != None:
+            print('arg: ', arg.arg, ' has annotation: ', arg.annotation.id)
+        
+        arg_name_list.append(arg.arg)
+        
+    return arg_name_list
+            
+        
 def make_local_variables(lines, parent):
     """
     Given an ast of all the lines in a function, generate a list of
