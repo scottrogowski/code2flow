@@ -348,31 +348,30 @@ class Node():
         if self.line_number is not None:
 
             tbl = f"""
-                <<TABLE CELLSPACING='0' CELLPADDING='10' BORDER='1'>
+                <<TABLE CELLSPACING='0' CELLPADDING='4' BORDER='1'>
                     <TR>
-                        <TD COLSPAN='1' ALIGN='left' BORDER='0'>Ln: <B>{self.line_number}</B></TD>
-                        <TD ALIGN='right' BORDER='0'><B>{self.token}()</B></TD>
+                        <TD COLSPAN='1' ALIGN='LEFT' BORDER='0'>Ln: <B>{self.line_number}</B></TD>
+                        <TD ALIGN='RIGHT' BORDER='0'><B>{self.token}()</B></TD>
                     </TR>
                     <TR>
                 """
             tbl += """
-                        <TD></TD>
                         <TD>
-                            <TABLE CELLSPACING='0' BORDER='0' CELLPADDING='4'>
+                            <TABLE CELLSPACING='0' BORDER='0' CELLPADDING='2'>
                                 <TR>
                                     <TD ALIGN='TEXT' BORDER='1'><B>Arguments: </B></TD>
                                 </TR>
                                 <TR>
-                                    <TD>
-                """
+                                    <TD ALIGN='LEFT'>"""
             for arg in self.args:
-                tbl += f"""{arg}/n"""
+                tbl += f"""{arg}<BR ALIGN='LEFT'/>"""
 
             tbl += """
                                     </TD>
                                 </TR>
                             </TABLE>
                         </TD>
+                        <TD></TD>
                     </TR>
                 </TABLE>>
                 """
