@@ -1,8 +1,18 @@
-![code2flow logo](https://raw.githubusercontent.com/scottrogowski/code2flow/master/assets/code2flowlogo.png)
+# PASTA - Python Abstract Syntax Trees Assistant
 
-![Version 2.5.0](https://img.shields.io/badge/version-2.5.0-brightgreen) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage 100%](https://img.shields.io/badge/coverage-100%25-brightgreen) ![License MIT](https://img.shields.io/badge/license-MIT-green])
+This Project is a fork of [code2flow](https://github.com/scottrogowski/code2flow).
 
-Code2flow generates [call graphs](https://en.wikipedia.org/wiki/Call_graph) for dynamic programming language. Code2flow supports Python, JavaScript, Ruby, and PHP.
+## The purpose of PASTA
+
+code2flow primarily focused on building [call graphs](https://en.wikipedia.org/wiki/Call_graph), while the focus of this project is to build out a detailed [AST](https://en.wikipedia.org/wiki/Abstract_syntax_tree) diagram. Because of this change in purpose, it seemed right to fork rather than submit major changes to the original project.
+
+Furthermore, the main codebase I currently use is Python. So the focus of this fork will be detailing Python codebases into ASTs, hence (PYTHON abstract syntax trees assistant).
+
+#### Note
+
+Although this project is focused on Python codebases, other code2flow programming languages (JS, Ruby and PHP) should be backwards compatiable (but will only detail a simple call graph). Feel free to fork or submit a PR to add further functionality to JS, Ruby and PHP.
+
+---
 
 The basic algorithm is simple:
 
@@ -11,12 +21,15 @@ The basic algorithm is simple:
 1. Determine where those functions are called.
 1. Connect the dots. 
 
-Code2flow is useful for:
-- Untangling spaghetti code.
+Pasta is useful for:
+- Untangling spaghetti code (The inspiration of the project's name).
 - Identifying orphaned functions.
+- Identifying arguments passed into functions.
+- Identifying variables assigned in functions.
+- Provide a better "bird's eye view" of your codebase to get a better     understanding of its architechure 
 - Getting new developers up to speed.
 
-Code2flow provides a *pretty good estimate* of your project's structure. No algorithm can generate a perfect call graph for a [dynamic language](https://en.wikipedia.org/wiki/Dynamic_programming_language) – even less so if that language is [duck-typed](https://en.wikipedia.org/wiki/Duck_typing). See the known limitations in the section below.
+Pasta provides a *pretty good estimate* of your project's structure but there may be some issues in identifying nodes, certian variables. These issues will be a further focus of improvement in Pasta.
 
 *(Below: Code2flow running against a subset of itself `code2flow code2flow/engine.py code2flow/python.py --target-function=code2flow --downstream-depth=3`)*
 
