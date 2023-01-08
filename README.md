@@ -1,6 +1,6 @@
 ![code2flow logo](https://raw.githubusercontent.com/scottrogowski/code2flow/master/assets/code2flowlogo.png)
 
-![Version 2.5.0](https://img.shields.io/badge/version-2.5.0-brightgreen) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage 100%](https://img.shields.io/badge/coverage-100%25-brightgreen) ![License MIT](https://img.shields.io/badge/license-MIT-green])
+![Version 2.5.1](https://img.shields.io/badge/version-2.5.1-brightgreen) ![Build passing](https://img.shields.io/badge/build-passing-brightgreen) ![Coverage 100%](https://img.shields.io/badge/coverage-100%25-brightgreen) ![License MIT](https://img.shields.io/badge/license-MIT-green])
 
 Code2flow generates [call graphs](https://en.wikipedia.org/wiki/Call_graph) for dynamic programming language. Code2flow supports Python, JavaScript, Ruby, and PHP.
 
@@ -9,7 +9,7 @@ The basic algorithm is simple:
 1. Translate your source files into ASTs.
 1. Find all function definitions.
 1. Determine where those functions are called.
-1. Connect the dots. 
+1. Connect the dots.
 
 Code2flow is useful for:
 - Untangling spaghetti code.
@@ -82,7 +82,7 @@ code2flow --help
 How code2flow works
 ------------
 
-Code2flow approximates the structure of projects in dynamic languages. It is *not possible* to generate a perfect callgraph for a dynamic language. 
+Code2flow approximates the structure of projects in dynamic languages. It is *not possible* to generate a perfect callgraph for a dynamic language.
 
 Detailed algorithm:
 
@@ -143,7 +143,7 @@ How to contribute
 -----------------------
 
 1. **Open an issue**: Code2flow is not perfect and there is a lot that can be improved. If you find a problem parsing your source that you can identify with a simplified example, please open an issue.
-2. **Create a PR**: Even better, if you have a fix for the issue you identified that passes unit tests, please open a PR. 
+2. **Create a PR**: Even better, if you have a fix for the issue you identified that passes unit tests, please open a PR.
 3. **Add a language**: While dense, each language implementation is between 250-400 lines of code including comments. If you want to implement another language, the existing implementations can be your guide.
 
 
@@ -161,7 +161,7 @@ License
 -----------------------------
 
 Code2flow is licensed under the MIT license.
-Prior to the rewrite in April 2021, code2flow was licensed under LGPL. The last commit under that license was 24b2cb854c6a872ba6e17409fbddb6659bf64d4c. 
+Prior to the rewrite in April 2021, code2flow was licensed under LGPL. The last commit under that license was 24b2cb854c6a872ba6e17409fbddb6659bf64d4c.
 The April 2021 rewrite was substantial, so it's probably reasonable to treat code2flow as completely MIT-licensed.
 
 
@@ -169,8 +169,8 @@ Acknowledgements
 -----------------------------
 
 
-* In mid 2021, Code2flow was rewritten, and two new languages were added. This was prompted and financially supported by the [Sider Corporation](https://siderlabs.com/). 
-* The code2flow pip name was graciously transferred to this project from [Dheeraj Nair](https://github.com/Dheeraj1998). He was using it for his own (unrelated) [code2flow](https://github.com/Dheeraj1998/code2flow) project. 
+* In mid 2021, Code2flow was rewritten, and two new languages were added. This was prompted and financially supported by the [Sider Corporation](https://siderlabs.com/).
+* The code2flow pip name was graciously transferred to this project from [Dheeraj Nair](https://github.com/Dheeraj1998). He was using it for his own (unrelated) [code2flow](https://github.com/Dheeraj1998/code2flow) project.
 * Many others have contributed through bug fixes, cleanups, and identifying issues. Thank you!!!
 
 

@@ -1,5 +1,9 @@
 # Code2flow CHANGELOG
 
+## [2.5.1] - 2023-01-08
+- Minor fix for installing code2flow in windows environments
+- Minor README updates and typo corrections
+
 ## [2.5.0] - 2022-03-25
 - Add async/await functionality to Python
 - Add --include-only-* CLI options
@@ -37,4 +41,4 @@ Almost complete rewrite / refactor. Update to Python3. Use ASTs
 Cleaned up code. Remove comments runs much faster. Test scripts. Template.py implementation file. More to come!
 
 ## [0.1] - 2013-05-23
-Initial release 
+Initial release
