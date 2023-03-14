@@ -131,6 +131,8 @@ def process_assign(element):
         return []
 
     if target['init']['type'] == 'NewExpression':
+        if 'name' not in target['id']:
+            return []
         token = target['id']['name']
         call = get_call_from_func_element(target['init'])
         if call:

@@ -1582,6 +1582,12 @@ testdata = {
                                "moment::toInt",
                                "moment::subtract$1",
                                "moment::humanize"]
+        },
+        {
+            "test_name": "destructor_new",
+            "directory": "destructor_new",
+            "expected_edges": [],
+            "expected_nodes": []
         }
     ],
     'mjs': [
