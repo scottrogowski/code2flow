@@ -9,3 +9,5 @@ dist
 composer.json
 composer.lock
 vendor
+venv/
+.idea
