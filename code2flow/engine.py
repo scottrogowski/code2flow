@@ -11,7 +11,7 @@ from .python import Python
 from .javascript import Javascript
 from .ruby import Ruby
 from .php import PHP
-from .model import (TRUNK_COLOR, LEAF_COLOR, NODE_COLOR, GROUP_TYPE, OWNER_CONST,
+from .model import (COLOR_SCHEMES, GROUP_TYPE, OWNER_CONST,
                     Edge, Group, Node, Variable, is_installed, flatten)
 
 VERSION = '2.5.1'
@@ -24,19 +24,22 @@ DESCRIPTION = "Generate flow charts from your source code. " \
               "See the README at https://github.com/scottrogowski/code2flow."
 
 
-LEGEND = """subgraph legend{
-    rank = min;
-    label = "legend";
-    Legend [shape=none, margin=0, label = <
-        <table cellspacing="0" cellpadding="0" border="1"><tr><td>Code2flow Legend</td></tr><tr><td>
-        <table cellspacing="0">
-        <tr><td>Regular function</td><td width="50px" bgcolor='%s'></td></tr>
-        <tr><td>Trunk function (nothing calls this)</td><td bgcolor='%s'></td></tr>
-        <tr><td>Leaf function (this calls nothing else)</td><td bgcolor='%s'></td></tr>
-        <tr><td>Function call</td><td><font color='black'>&#8594;</font></td></tr>
-        </table></td></tr></table>
-        >];
-}""" % (NODE_COLOR, TRUNK_COLOR, LEAF_COLOR)
+def _generate_legend(color_scheme='default'):
+    colors = COLOR_SCHEMES[color_scheme]
+    legend = """subgraph legend{
+        rank = min;
+        label = "legend";
+        Legend [shape=none, margin=0, label = <
+            <table cellspacing="0" cellpadding="0" border="1"><tr><td>Code2flow Legend</td></tr><tr><td>
+            <table cellspacing="0">
+            <tr><td>Regular function</td><td width="50px" bgcolor='%s'></td></tr>
+            <tr><td>Trunk function (nothing calls this)</td><td bgcolor='%s'></td></tr>
+            <tr><td>Leaf function (this calls nothing else)</td><td bgcolor='%s'></td></tr>
+            <tr><td>Function call</td><td><font color='black'>&#8594;</font></td></tr>
+            </table></td></tr></table>
+            >];
+    }""" % colors
+    return legend
 
 
 LANGUAGES = {
@@ -229,7 +232,7 @@ def generate_json(nodes, edges):
 
 
 def write_file(outfile, nodes, edges, groups, hide_legend=False,
-               no_grouping=False, as_json=False):
+               no_grouping=False, as_json=False, color_scheme='default'):
     '''
     Write a dot file that can be read by graphviz
 
@@ -253,9 +256,9 @@ def write_file(outfile, nodes, edges, groups, hide_legend=False,
     content += f'splines="{splines}";\n'
     content += 'rankdir="LR";\n'
     if not hide_legend:
-        content += LEGEND
+        content += _generate_legend(color_scheme=color_scheme)
     for node in nodes:
-        content += node.to_dot() + ';\n'
+        content += node.to_dot(color_scheme=color_scheme) + ';\n'
     for edge in edges:
         content += edge.to_dot() + ';\n'
     if not no_grouping:
@@ -672,7 +675,7 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
               exclude_namespaces=None, exclude_functions=None,
               include_only_namespaces=None, include_only_functions=None,
               no_grouping=False, no_trimming=False, skip_parse_errors=False,
-              lang_params=None, subset_params=None, level=logging.INFO):
+              lang_params=None, subset_params=None, color_scheme='default', level=logging.INFO):
     """
     Top-level function. Generate a diagram based on source code.
     Can generate either a dotfile or an image.
@@ -691,6 +694,7 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
     :param lang_params LanguageParams: Object to store lang-specific params
     :param subset_params SubsetParams: Object to store subset-specific params
     :param int level: logging level
+    :param str color_scheme: legend color scheme
     :rtype: None
     """
     start_time = time.time()
@@ -751,11 +755,11 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
             as_json = output_ext == 'json'
             write_file(fh, nodes=all_nodes, edges=edges,
                        groups=file_groups, hide_legend=hide_legend,
-                       no_grouping=no_grouping, as_json=as_json)
+                       no_grouping=no_grouping, as_json=as_json, color_scheme=color_scheme)
     else:
         write_file(output_file, nodes=all_nodes, edges=edges,
                    groups=file_groups, hide_legend=hide_legend,
-                   no_grouping=no_grouping)
+                   no_grouping=no_grouping, color_scheme=color_scheme)
 
     logging.info("Wrote output file %r with %d nodes and %d edges.",
                  output_file, len(all_nodes), len(edges))
@@ -837,6 +841,8 @@ def main(sys_argv=None):
         help='add more logging')
     parser.add_argument(
         '--version', action='version', version='%(prog)s ' + VERSION)
+    parser.add_argument('--color-scheme', action='store', choices=list(COLOR_SCHEMES.keys()),
+                        help="select a color for the graph legend")
 
     sys_argv = sys_argv or sys.argv[1:]
     args = parser.parse_args(sys_argv)
@@ -872,4 +878,5 @@ def main(sys_argv=None):
         lang_params=lang_params,
         subset_params=subset_params,
         level=level,
+        color_scheme=args.color_scheme,
     )
