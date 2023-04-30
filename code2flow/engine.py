@@ -841,7 +841,7 @@ def main(sys_argv=None):
         help='add more logging')
     parser.add_argument(
         '--version', action='version', version='%(prog)s ' + VERSION)
-    parser.add_argument('--color-scheme', action='store', choices=list(COLOR_SCHEMES.keys()),
+    parser.add_argument('--color-scheme', action='store', choices=list(COLOR_SCHEMES.keys()), default='default',
                         help="select a color for the graph legend")
 
     sys_argv = sys_argv or sys.argv[1:]
