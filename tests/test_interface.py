@@ -13,6 +13,8 @@ from code2flow.engine import code2flow, main, _generate_graphviz, SubsetParams
 from code2flow import model
 
 IMG_PATH = '/tmp/code2flow/output.png'
+GRAPHVIZ_PATH = '/tmp/code2flow/out.gv'
+
 if os.path.exists("/tmp/code2flow"):
     try:
         shutil.rmtree('/tmp/code2flow')
@@ -95,7 +97,8 @@ def test_json():
     assert jobj['graph']['directed'] is True
     assert isinstance(jobj['graph']['nodes'], dict)
     assert len(jobj['graph']['nodes']) == 4
-    assert set(n['name'] for n in jobj['graph']['nodes'].values()) == {'simple_b::a', 'simple_b::(global)', 'simple_b::c.d', 'simple_b::b'}
+    assert set(n['name'] for n in jobj['graph']['nodes'].values()) == {'simple_b::a', 'simple_b::(global)',
+                                                                       'simple_b::c.d', 'simple_b::b'}
 
     assert isinstance(jobj['graph']['edges'], list)
     assert len(jobj['graph']['edges']) == 4
@@ -202,6 +205,7 @@ def test_cli_log_quiet(mocker):
     logging.basicConfig.assert_called_once_with(format="Code2Flow: %(message)s",
                                                 level=logging.WARNING)
 
+
 def test_subset_cli(mocker):
     with pytest.raises(AssertionError):
         SubsetParams.generate(target_function='', upstream_depth=1, downstream_depth=0)
@@ -221,3 +225,24 @@ def test_subset_cli(mocker):
         main(['test_code/py/subset_find_exception/two.py', '--target-function', 'func', '--upstream-depth', '1'])
 
 
+def test_color_scheme_invalid_input(capsys):
+    with pytest.raises(SystemExit):
+        main(['test_code/py/simple_a', '--color-scheme', 'invalid'])
+    assert 'error: argument --color-scheme: invalid choice:' in capsys.readouterr().err
+
+
+def test_color_scheme_none_given(capsys):
+    code2flow(['test_code/py/simple_a'], output_file=IMG_PATH)
+    assert os.path.exists(IMG_PATH)
+
+
+def test_color_scheme_test_not_default(capsys):
+    code2flow(['test_code/py/two_file_simple', '--color-scheme', 'blue'], output_file=GRAPHVIZ_PATH, color_scheme='blue')
+    assert os.path.exists(GRAPHVIZ_PATH)
+    contents = ''
+    with open(GRAPHVIZ_PATH, 'r') as file:
+        contents = "".join(file.readlines())
+    blue = ('#138bfa', '#989a97', '#044a9a')
+    assert blue[0] in contents
+    assert blue[1] in contents
+    assert blue[2] in contents

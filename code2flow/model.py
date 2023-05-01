@@ -2,11 +2,18 @@ import abc
 import os
 
 
-TRUNK_COLOR = '#966F33'
-LEAF_COLOR = '#6db33f'
 EDGE_COLORS = ["#000000", "#E69F00", "#56B4E9", "#009E73",
                "#F0E442", "#0072B2", "#D55E00", "#CC79A7"]
-NODE_COLOR = "#cccccc"
+
+#  (NODE_COLOR, TRUNK_COLOR, LEAF_COLOR)
+COLOR_SCHEMES = {
+    'default': ('#cccccc', '#966F33', '#6db33f'),
+    'blue': ('#138bfa', '#989a97', '#044a9a'),
+    'desert': ('#fda653', '#ffecd5', '#d57720'),
+    'pink': ('#b99cd6', '#ddd5d7', '#cb3870'),
+    'light_blue': ('#ace2ff', '#feffff', '#5bcce0'),
+    'aqua': ('#1a9e85', '#304960', '#1fdec3'),
+}
 
 
 class Namespace(dict):
@@ -401,7 +408,7 @@ class Node():
             else:
                 assert isinstance(variable.points_to, (Node, Group))
 
-    def to_dot(self):
+    def to_dot(self, color_scheme='default'):
         """
         Output for graphviz (.dot) files
         :rtype: str
@@ -411,12 +418,12 @@ class Node():
             'name': self.name(),
             'shape': "rect",
             'style': 'rounded,filled',
-            'fillcolor': NODE_COLOR,
+            'fillcolor': COLOR_SCHEMES[color_scheme][0],
         }
         if self.is_trunk:
-            attributes['fillcolor'] = TRUNK_COLOR
+            attributes['fillcolor'] = COLOR_SCHEMES[color_scheme][1]
         elif self.is_leaf:
-            attributes['fillcolor'] = LEAF_COLOR
+            attributes['fillcolor'] = COLOR_SCHEMES[color_scheme][2]
 
         ret = self.uid + ' ['
         for k, v in attributes.items():
