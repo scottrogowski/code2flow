@@ -672,7 +672,7 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
               exclude_namespaces=None, exclude_functions=None,
               include_only_namespaces=None, include_only_functions=None,
               no_grouping=False, no_trimming=False, skip_parse_errors=False,
-              lang_params=None, subset_params=None, level=logging.INFO):
+              lang_params=None, subset_params=None):
     """
     Top-level function. Generate a diagram based on source code.
     Can generate either a dotfile or an image.
@@ -707,8 +707,6 @@ def code2flow(raw_source_paths, output_file, language=None, hide_legend=True,
     assert isinstance(include_only_namespaces, list)
     include_only_functions = include_only_functions or []
     assert isinstance(include_only_functions, list)
-
-    logging.basicConfig(format="Code2Flow: %(message)s", level=level)
 
     sources, language = get_sources_and_language(raw_source_paths, language)
 
@@ -857,6 +855,7 @@ def main(sys_argv=None):
     subset_params = SubsetParams.generate(args.target_function, args.upstream_depth,
                                           args.downstream_depth)
 
+    logging.basicConfig(format="Code2Flow: %(message)s", level=level)
     code2flow(
         raw_source_paths=args.sources,
         output_file=args.output,
@@ -871,5 +870,4 @@ def main(sys_argv=None):
         skip_parse_errors=args.skip_parse_errors,
         lang_params=lang_params,
         subset_params=subset_params,
-        level=level,
     )
