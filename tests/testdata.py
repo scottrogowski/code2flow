@@ -554,6 +554,21 @@ testdata = {
                                "tzfile::(global)",
                                "tzinfo::memorized_timedelta"]
         },
+        {
+            "test_name": "module_prefix_imports",
+            "directory": "module_prefix_imports",
+            "comment": "Test that functions with module prefix are mapped correctly (issue #104)",
+            "expected_edges": [["main::(global)", "main::main"],
+                               ["main::main", "user_repository::get_users"],
+                               ["main::main", "user_repository::get_users2"],
+                               ["user_repository::get_users", "http::request"],
+                               ["user_repository::get_users2", "http::request"]],
+            "expected_nodes": ["http::request",
+                               "main::(global)",
+                               "main::main",
+                               "user_repository::get_users",
+                               "user_repository::get_users2"]
+        },
     ],
     "js": [
         {
