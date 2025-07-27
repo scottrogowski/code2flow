@@ -3,9 +3,14 @@ __pycache__
 out.*
 .coverage*
 htmlcov
-build/
+.build/
 *.egg-info
 dist
 composer.json
 composer.lock
 vendor
+node_modules/
+package-lock.json
+coverage.xml
+.pytest_cache/
+*.pyc
