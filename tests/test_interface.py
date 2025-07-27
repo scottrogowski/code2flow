@@ -112,13 +112,37 @@ def test_weird_encoding():
     US-ASCII which I assume is a little more universal anyway.
     """
 
-    locale.setlocale(locale.LC_ALL, 'en_US.US-ASCII')
-    code2flow('test_code/py/weird_encoding',
-              output_file='/tmp/code2flow/out.json',
-              hide_legend=False)
-    with open('/tmp/code2flow/out.json') as f:
-        jobj = json.loads(f.read())
-    assert set(jobj.keys()) == {'graph'}
+    # Save current locale to restore later
+    current_locale = locale.getlocale()
+    
+    try:
+        # Try to set a more restrictive locale to test encoding handling
+        try:
+            locale.setlocale(locale.LC_ALL, 'en_US.US-ASCII')
+        except locale.Error:
+            # If US-ASCII is not available, try C locale which should be more universal
+            try:
+                locale.setlocale(locale.LC_ALL, 'C')
+            except locale.Error:
+                # If even C locale fails, skip this test
+                pytest.skip("No suitable restrictive locale available for encoding test")
+        
+        code2flow('test_code/py/weird_encoding',
+                  output_file='/tmp/code2flow/out.json',
+                  hide_legend=False)
+        with open('/tmp/code2flow/out.json') as f:
+            jobj = json.loads(f.read())
+        assert set(jobj.keys()) == {'graph'}
+        
+    finally:
+        # Restore original locale
+        try:
+            if current_locale[0] is not None:
+                locale.setlocale(locale.LC_ALL, current_locale)
+            else:
+                locale.setlocale(locale.LC_ALL, '')
+        except locale.Error:
+            pass  # If we can't restore, continue anyway
 
 
 def test_repr():

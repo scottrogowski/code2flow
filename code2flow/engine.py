@@ -838,7 +838,7 @@ def main(sys_argv=None):
     parser.add_argument(
         '--version', action='version', version='%(prog)s ' + VERSION)
 
-    sys_argv = sys_argv or sys.argv[1:]
+    sys_argv = sys_argv if sys_argv is not None else sys.argv[1:]
     args = parser.parse_args(sys_argv)
     level = logging.INFO
     if args.verbose and args.quiet:
