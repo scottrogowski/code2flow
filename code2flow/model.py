@@ -80,6 +80,17 @@ def _resolve_str_variable(variable, file_groups):
         for group in file_group.all_groups():
             if any(ot == variable.points_to for ot in group.import_tokens):
                 return group
+    
+    # Handle module paths like "infrastructure.http" matching file with import_tokens ["http"]
+    # This is needed for imports like "from infrastructure import http"
+    for file_group in file_groups:
+        for node in file_group.all_nodes():
+            if any(variable.points_to.endswith('.' + ot) for ot in node.import_tokens):
+                return node
+        for group in file_group.all_groups():
+            if any(variable.points_to.endswith('.' + ot) for ot in group.import_tokens):
+                return group
+    
     return OWNER_CONST.UNKNOWN_MODULE
 
 
