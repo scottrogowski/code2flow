@@ -30,7 +30,7 @@ def walk(tree):
     ret = []
     if type(tree) == list:
         for el in tree:
-            if el.get('type'):
+            if el and el.get('type'):
                 ret.append(el)
                 ret += walk(el)
     elif type(tree) == dict:
