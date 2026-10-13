@@ -73,6 +73,28 @@ code2flow mypythonfile.py --target-function my_func --upstream-depth=1 --downstr
 ```
 
 
+### Keeping isolated functions
+
+By default, Code2flow removes functions that have no incoming or outgoing
+edges. A module containing only uncalled functions can therefore produce an
+empty graph. Use `--no-trimming` to retain these functions and their namespaces:
+
+```bash
+code2flow mypythonfile.py --no-trimming --output out.svg
+```
+
+For example, a file containing only the following function has no call edges,
+but its `standalone` node will appear with `--no-trimming`:
+
+```python
+def standalone():
+    return 42
+```
+
+This option disables orphan trimming; it does not disable explicit include,
+exclude, or target-function filters, or resolve calls that the parser cannot
+identify.
+
 There are a ton of command line options, to see them all, run:
 
 ```bash
@@ -133,6 +155,12 @@ from the CLI.
 ```python
 import code2flow
 code2flow.code2flow(['path/to/filea', 'path/to/fileb'], 'path/to/outputfile')
+```
+
+To retain isolated functions when using the library, pass `no_trimming=True`:
+
+```python
+code2flow.code2flow(['mypythonfile.py'], 'out.svg', no_trimming=True)
 ```
 
 The keyword arguments to `code2flow.code2flow` are roughly the same as the CLI
